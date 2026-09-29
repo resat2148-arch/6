@@ -68,6 +68,12 @@ const RANK_BASE = ['Private', 'Corporal', 'Sergeant', 'Lieutenant', 'Captain', '
   'World Class Force', 'Legendary Force', 'God of War', 'Titan'];
 export const RANKS = ['Recruit', ...RANK_BASE.flatMap((b) => [b, b + ' *', b + ' **', b + ' ***'])];
 export const rankThreshold = (i) => (i <= 0 ? 0 : Math.round(25 * Math.pow(i, 2.3)));
+export function rankIndexOf(rp) {
+  let i = 0;
+  while (i + 1 < RANKS.length && rp >= rankThreshold(i + 1)) i++;
+  return i;
+}
+export const xpToNextLevel = (lvl) => 30 + lvl * 20;
 
 // Food quality -> energy restored. Weapon quality -> firepower (eRepublik style).
 export const FOOD_ENERGY = [0, 10, 20, 30, 40, 50];
@@ -162,10 +168,12 @@ export const TUTORIAL = [
   { text: 'Open the War tab and defeat 10 enemies', ev: 'kill', n: 10, reward: { weapon1: 100 }, tab: 'war' },
   { text: 'Eat food to refill energy from your reserve', ev: 'eat', n: 1, reward: { food2: 10 } },
   { text: 'Buy food or weapons on the Market', ev: 'buy', n: 1, reward: { weapon2: 50 }, tab: 'market' },
+  { text: 'Meet your fellow citizens in the Citizens tab rankings', ev: 'rankView', n: 1, reward: { money: 30 }, tab: 'people' },
   { text: 'Win a battle round', ev: 'roundWin', n: 1, reward: { gold: 2 }, tab: 'war' },
   { text: 'Build a Farm in the Economy tab', cond: (s) => s.companies.some((c) => c.type === 'farm'), reward: { money: 100 }, tab: 'economy' },
   { text: 'Build a Bakery to turn raw materials into food', cond: (s) => s.companies.some((c) => c.type === 'bakery'), reward: { gold: 2 }, tab: 'economy' },
   { text: 'Collect production from your companies', ev: 'collect', n: 1, reward: { money: 50 }, tab: 'economy' },
+  { text: 'Post a sell offer on the Market (citizens will buy it)', ev: 'post', n: 1, reward: { gold: 1 }, tab: 'market' },
   { text: 'Buy a house on the Market and move in', ev: 'moveIn', n: 1, reward: { gold: 2 }, tab: 'market' },
   { text: 'Reach level 3 and join a political party', cond: (s) => s.politics.party, reward: { gold: 1 }, tab: 'politics' },
   { text: 'Reach level 5', cond: (s) => s.player.level >= 5, reward: { gold: 5 } },

@@ -2,12 +2,16 @@
 import {
   CONFIG, COUNTRIES, RANKS, rankThreshold, MEDALS, COMPANY_TYPES, MARKET, GOLD_SHOP, FOOD_ENERGY, WEAPON_FP,
   FACILITIES, POLICIES, TUTORIAL, DAILY_POOL, DAILY_COUNT, DAILY_REWARD_GOLD, DAILY_BONUS, LOGIN_REWARDS,
-  MEDIA_MILESTONES, PATRIOT_STEP, PRESIDENT_NAMES, SAVE_VERSION, HOUSES, countryById,
+  MEDIA_MILESTONES, PATRIOT_STEP, PRESIDENT_NAMES, SAVE_VERSION, HOUSES, countryById, rankIndexOf, xpToNextLevel,
 } from './data.js';
 import {
   createWorld, neighborsOf, regionsOf, isAlive, countryPower, borderTargets, resourceBonus,
 } from './world.js';
 import { clamp, pick, randRange, shuffle, dayKey } from './util.js';
+import { createCitizens, seedMarket, citizensStep, topCitizen, feed } from './citizens.js';
+import {
+  takeOffers, listOffer, traderPrice, quote, offersFor, importPrice,
+} from './market.js';
 
 // ---------------------------------------------------------------- events
 export const bus = {
@@ -42,7 +46,9 @@ export function newGame({ name, country, now = Date.now(), seed = Math.floor(Mat
     facilities: { weights: true, climbing: false, shooting: false, special: false },
     companies: [],
     nextCompanyId: 1,
-    market: { prices, nextShift: now + CONFIG.marketShiftMs },
+    market: { prices, offers: [], nextOfferId: 1, sold: {} },
+    citizens: createCitizens(seed),
+    feed: [],
     world,
     politics: {
       party: false, congress: false, president: false, candidate: null,
@@ -57,6 +63,9 @@ export function newGame({ name, country, now = Date.now(), seed = Math.floor(Mat
     flags: { victory: false },
     settings: { muted: false },
   };
+  seedMarket(s);
+  const top = topCitizen(s, country);
+  if (top) s.politics.presidentName = top.n;
   return s;
 }
 
@@ -104,14 +113,10 @@ export function moveIn(s, q, now = Date.now()) {
   return ok({ until: s.housing[q] });
 }
 export const maxReserve = (s) => maxEnergy(s) * 3;
-export const xpToNext = (lvl) => 30 + lvl * 20;
+export const xpToNext = xpToNextLevel;
 export const division = (lvl) => (lvl < 10 ? 1 : lvl < 20 ? 2 : lvl < 35 ? 3 : 4);
 
-export function rankIndex(rp) {
-  let i = 0;
-  while (i + 1 < RANKS.length && rp >= rankThreshold(i + 1)) i++;
-  return i;
-}
+export const rankIndex = rankIndexOf;
 export const rankName = (s) => RANKS[rankIndex(s.player.rankPoints)];
 
 export function policyMult(s, kind) {
@@ -282,29 +287,65 @@ export function unlockFacility(s, id) {
   return ok();
 }
 
-// ---------------------------------------------------------------- market
+// ---------------------------------------------------------------- market (offers from AI citizens and the player)
+export { quote, offersFor, importPrice, traderPrice };
+
+// Buys from the cheapest offers first; state imports fill the rest at a premium.
 export function buy(s, key, qty) {
   if (!MARKET[key] || qty <= 0) return fail('Invalid item.');
-  const cost = s.market.prices[key] * qty;
-  if (s.player.money < cost - 1e-9) return fail('Not enough money.');
-  s.player.money -= cost;
-  invAdd(s, key, qty);
+  const r = takeOffers(s, key, qty, 'P', { maxMoney: s.player.money, allowImport: true });
+  if (!r.qty) return fail('Not enough money.');
+  s.player.money -= r.cost;
+  invAdd(s, key, r.qty);
   count(s, 'buy');
-  return ok({ cost });
+  return ok({ cost: r.cost, qty: r.qty, partial: r.qty < qty });
 }
 
+export function buyOffer(s, offerId, qty) {
+  const o = s.market.offers.find((x) => x.id === offerId);
+  if (!o || o.qty <= 0) return fail('That offer is gone.');
+  if (o.seller === 'P') return fail('That is your own offer.');
+  const r = takeOffers(s, o.key, Math.min(qty, o.qty), 'P', { maxMoney: s.player.money, only: o });
+  if (!r.qty) return fail('Not enough money.');
+  s.player.money -= r.cost;
+  invAdd(s, o.key, r.qty);
+  count(s, 'buy');
+  return ok({ cost: r.cost, qty: r.qty, key: o.key });
+}
+
+// Instant sale to a trader at 70% of the average price.
 export function sell(s, key, qty) {
   if (!MARKET[key] || qty <= 0) return fail('Invalid item.');
   if (invGet(s, key) < qty) return fail('You don\'t have that many.');
-  const gain = s.market.prices[key] * qty * CONFIG.sellRatio;
+  const gain = traderPrice(s, key) * qty;
   invAdd(s, key, -qty);
   s.player.money += gain;
   return ok({ gain });
 }
 
-export function maxBuyable(s, key) {
-  return Math.max(0, Math.floor((s.player.money + 1e-9) / s.market.prices[key]));
+// Post a sell offer (ilan): goods leave the inventory until sold or cancelled.
+export function postOffer(s, key, qty, price) {
+  if (!MARKET[key]) return fail('Invalid item.');
+  qty = Math.floor(qty);
+  price = Math.round(price * 1000) / 1000;
+  if (!(qty > 0)) return fail('Enter a quantity.');
+  if (!(price > 0) || price > MARKET[key].base * 20) return fail('Enter a sensible price.');
+  if (invGet(s, key) < qty) return fail('You don\'t have that many.');
+  invAdd(s, key, -qty);
+  listOffer(s, 'P', key, qty, price);
+  count(s, 'post');
+  return ok();
 }
+
+export function cancelOffer(s, offerId) {
+  const o = s.market.offers.find((x) => x.id === offerId && x.seller === 'P');
+  if (!o) return fail('Offer not found.');
+  invAdd(s, o.key, o.qty);
+  s.market.offers = s.market.offers.filter((x) => x !== o);
+  return ok();
+}
+
+export const myOffers = (s) => s.market.offers.filter((o) => o.seller === 'P');
 
 export function buyGold(s, n = 1) {
   const cost = CONFIG.goldBuyPrice * n;
@@ -329,15 +370,6 @@ export function buyGoldItem(s, key, n = 1) {
   s.player.gold -= it.gold * n;
   invAdd(s, key, n);
   return ok();
-}
-
-function shiftMarket(s) {
-  for (const k in MARKET) {
-    const base = MARKET[k].base;
-    const cur = s.market.prices[k];
-    const next = cur * randRange(0.93, 1.07) + (base - cur) * 0.2;
-    s.market.prices[k] = clamp(next, base * 0.7, base * 1.4);
-  }
 }
 
 // ---------------------------------------------------------------- companies
@@ -482,12 +514,12 @@ function resolveElection(s, now) {
       else { pol.president = true; pol.presidentName = s.player.name; awardMedal(s, 'president'); }
       bus.emit('election', { won: true, office: type });
     } else {
-      if (type === 'president') pol.presidentName = pick(PRESIDENT_NAMES);
+      if (type === 'president') pol.presidentName = topCitizen(s, s.player.country)?.n || pick(PRESIDENT_NAMES);
       bus.emit('election', { won: false, office: type });
     }
     pol.candidate = null;
   } else if (type === 'president') {
-    pol.presidentName = pick(PRESIDENT_NAMES);
+    pol.presidentName = topCitizen(s, s.player.country)?.n || pick(PRESIDENT_NAMES);
   }
   if (pol.congress) s.player.gold += 1;
   if (pol.president) s.player.gold += 2;
@@ -543,7 +575,7 @@ function makeCampaign(s, att, def, regionId, type, now) {
     id: s.world.nextCampId++, att, def, region: regionId, type,
     attWins: 0, defWins: 0, round: 1, started: now,
     nextRoundAt: now + randRange(CONFIG.aiRoundMinMs, CONFIG.aiRoundMaxMs),
-    deadline: 0, playerDmg: 0,
+    deadline: 0, playerDmg: 0, dmgAtt: 0, dmgDef: 0, fighters: {},
   };
   const side = playerSide(s, c);
   if (side) {
@@ -604,6 +636,7 @@ function endCampaign(s, c, now) {
   if (attWon) {
     const loser = reg.owner;
     reg.owner = c.att;
+    if (s.feed) feed(s, `${c.type === 'rw' ? '✊' : '🏳️'} ${countryById(c.att).name} ${c.type === 'rw' ? 'liberated' : 'conquered'} ${reg.name} from ${countryById(loser).name}`);
     if (!isAlive(w, loser)) {
       toast(`💀 ${countryById(loser).name} has been wiped from the map!`, 'war');
       w.campaigns = w.campaigns.filter((x) => x.att !== loser || x.type === 'rw');
@@ -628,11 +661,15 @@ function endCampaign(s, c, now) {
   }
 }
 
+// A round is decided by the damage citizens dealt on each side, plus the nation's base strength.
+const ROUND_BASE = 2500;
 function aiRound(s, c, now) {
-  const pa = countryPower(s.world, c.att);
-  const pd = countryPower(s.world, c.def) * CONFIG.defenseBonus;
-  if (Math.random() < pa / (pa + pd)) c.attWins++;
+  const pa = countryPower(s.world, c.att) * ROUND_BASE + (c.dmgAtt || 0);
+  const pd = countryPower(s.world, c.def) * CONFIG.defenseBonus * ROUND_BASE + (c.dmgDef || 0);
+  if (pa * randRange(0.8, 1.2) > pd * randRange(0.8, 1.2)) c.attWins++;
   else c.defWins++;
+  c.dmgAtt = 0;
+  c.dmgDef = 0;
   c.round++;
   c.nextRoundAt = now + randRange(CONFIG.aiRoundMinMs, CONFIG.aiRoundMaxMs);
   if (c.attWins >= CONFIG.roundsToWin || c.defWins >= CONFIG.roundsToWin) endCampaign(s, c, now);
@@ -662,6 +699,7 @@ function ensurePlayerCampaign(s, now) {
 
 function aiStep(s, now) {
   const w = s.world;
+  if (s.citizens) citizensStep(s, now);
   for (const c of w.campaigns.slice()) {
     if (playerSide(s, c)) {
       if (now >= c.deadline) {
@@ -721,12 +759,17 @@ export function roundSetup(s, campId) {
     if (side === 'att' && w.regions[c.region].capital) f += 0.08;
     f += 0.02 * (c.round - 1);
   }
+  const ref = refHit(s);
+  // Citizens who fought since the last round tilt the odds for (or against) you.
+  const k = ref * 150;
+  const allies = training ? 0 : (side === 'att' ? c.dmgAtt : c.dmgDef) || 0;
+  const enemies = training ? 0 : (side === 'att' ? c.dmgDef : c.dmgAtt) || 0;
+  if (!training) f *= clamp(Math.pow((enemies + k) / (allies + k), 0.35), 0.8, 1.25);
   if (s.player.level <= 3) f -= 0.15;
   f = clamp(f, 0.4, 1.25);
-  const ref = refHit(s);
   const reg = training ? null : w.regions[c.region];
   return {
-    campId, training, side, me, foe,
+    campId, training, side, me, foe, allies, enemies,
     regionName: training ? 'Training Grounds' : reg.name,
     title: training ? 'Training War' : c.type === 'rw' ? `Resistance: ${reg.name}` : `Battle for ${reg.name}`,
     round: training ? 1 : c.round,
@@ -787,6 +830,10 @@ export function finishRound(s, setup, result, now = Date.now()) {
     const c = campaignById(s, setup.campId);
     if (c) {
       c.playerDmg += dmg;
+      c.fighters = c.fighters || {};
+      c.fighters.P = (c.fighters.P || 0) + dmg;
+      c.dmgAtt = 0;
+      c.dmgDef = 0;
       if (won === (setup.side === 'att')) c.attWins++;
       else c.defWins++;
       c.round++;
@@ -902,9 +949,12 @@ export function tick(s, now = Date.now()) {
   if (s.world.nextAiTick <= now) s.world.nextAiTick = now + CONFIG.aiTickMs;
 
   if (now >= s.politics.nextElection) resolveElection(s, now);
-  if (now >= s.market.nextShift) {
-    shiftMarket(s);
-    s.market.nextShift = now + CONFIG.marketShiftMs;
+  const sold = s.market.sold;
+  if (sold && Object.keys(sold).length) {
+    let total = 0;
+    const parts = Object.entries(sold).map(([k, v]) => { total += v.m; count(s, 'sale', v.n); return `${v.n.toLocaleString('en-US')} × ${MARKET[k].name}`; });
+    toast(`🛒 Citizens bought ${parts.join(', ')} from you (+💰${total.toFixed(2)})`, 'good');
+    s.market.sold = {};
   }
   checkDaily(s, now);
   return dt;

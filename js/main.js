@@ -4,9 +4,10 @@ import * as SDK from './sdk.js';
 import { sfx, unlock, setMuted } from './sfx.js';
 import {
   ui, renderTab, renderTop, liveUpdate, renderStart, toast, openModal, closeModal, modalOpen, banner, helpHtml, zoomMap,
+  offersModal, listModal,
 } from './ui.js';
 import { initBattle, openBattle, isOpen as battleOpen, setAdPause, debugTargets } from './battle.js';
-import { CONFIG, GAME_TITLE, MEDALS, GOLD_SHOP, RAW_ICON, HOUSES, countryById } from './data.js';
+import { CONFIG, GAME_TITLE, MEDALS, GOLD_SHOP, RAW_ICON, HOUSES, MARKET, countryById } from './data.js';
 import { fmt, fmtMoney, fmtTime, esc } from './util.js';
 
 const SAVE_KEY = 'republic-rising-save-v1';
@@ -164,7 +165,8 @@ function refresh() {
 }
 
 const actions = {
-  tab: (d) => { ui.tab = d.tab; sfx.click(); $('view').scrollTop = 0; refresh(); },
+  tab: (d) => { ui.tab = d.tab; if (d.tab === 'people') G.count(state, 'rankView'); sfx.click(); $('view').scrollTop = 0; refresh(); },
+  rankSet: (d) => { ui[d.k] = d.v; sfx.click(); refresh(); },
   work: () => result(G.work(state), (r) => { sfx.work(); toast(`🛠️ Worked: +💰${fmtMoney(r.money)}`, 'good'); }),
   train: () => result(G.train(state), (r) => { sfx.work(); toast(`🏋️ Trained: +${r.gain} strength`, 'good'); }),
   eat: () => result(G.eat(state), (r) => { sfx.eat(); closeModal(); toast(`🍞 +${Math.round(r.gained)} energy`, 'good'); }),
@@ -185,8 +187,36 @@ const actions = {
     });
   },
   unlockFacility: (d) => result(G.unlockFacility(state, d.id), () => { sfx.coin(); toast('🏋️ Facility unlocked!', 'good'); }),
-  buy: (d) => result(G.buy(state, d.key, Number(d.n)), () => sfx.coin()),
-  sell: (d) => result(G.sell(state, d.key, Number(d.n)), () => sfx.coin()),
+  buy: (d) => result(G.buy(state, d.key, Number(d.n)), (r) => {
+    sfx.coin();
+    toast(`🛒 Bought ${fmt(r.qty)} ${MARKET[d.key].name} for 💰${fmtMoney(r.cost)}${r.partial ? ' (all you could afford)' : ''}`, 'good');
+  }),
+  offers: (d) => openModal(offersModal(state, d.key)),
+  buyOffer: (d) => {
+    const r = G.buyOffer(state, Number(d.id), Number(d.n));
+    if (!r.ok) { sfx.error(); toast(r.msg, 'bad'); return; }
+    sfx.coin();
+    toast(`🛒 Bought ${fmt(r.qty)} ${MARKET[r.key].name} for 💰${fmtMoney(r.cost)}`, 'good');
+    openModal(offersModal(state, r.key));
+    refresh();
+  },
+  listModal: (d) => openModal(listModal(state, d.key)),
+  postOffer: (d) => {
+    const r = G.postOffer(state, d.key, Number($('offer-qty').value), Number($('offer-price').value));
+    if (!r.ok) { sfx.error(); toast(r.msg, 'bad'); return; }
+    closeModal();
+    sfx.coin();
+    toast('📋 Offer posted. Citizens will buy it if the price is right.', 'good');
+    refresh();
+  },
+  cancelOffer: (d) => {
+    const r = G.cancelOffer(state, Number(d.id));
+    if (!r.ok) { toast(r.msg, 'bad'); return; }
+    if (modalOpen()) closeModal();
+    toast('Offer cancelled; goods returned.', 'info');
+    refresh();
+  },
+  sell: (d) => result(G.sell(state, d.key, Number(d.n)), (r) => { sfx.coin(); toast(`Sold to a trader for 💰${fmtMoney(r.gain)}`, 'good'); }),
   buyGold: () => result(G.buyGold(state), () => sfx.coin()),
   sellGold: () => result(G.sellGold(state), () => sfx.coin()),
   freeGold: () => rewarded(() => { state.timers.lastFreeGold = Date.now(); state.player.gold += 2; toast('🪙 +2 gold', 'gold'); }),
@@ -288,7 +318,7 @@ function enterGame() {
     if (!state) return;
     G.tick(state);
     renderTop(state);
-    if (dirty && !battleOpen() && !modalOpen() && ['home', 'war', 'map'].includes(ui.tab) && document.activeElement?.tagName !== 'INPUT') refresh();
+    if (dirty && !battleOpen() && !modalOpen() && ['home', 'war', 'map', 'people'].includes(ui.tab) && document.activeElement?.tagName !== 'INPUT') refresh();
     if (Date.now() - lastSave > 10000) { save(); lastSave = Date.now(); }
   }, 500);
   setInterval(() => { if (state && !battleOpen()) liveUpdate(state); }, 1000);

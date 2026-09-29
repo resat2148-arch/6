@@ -245,3 +245,55 @@ test('construction company turns building materials into houses', () => {
   assert.equal(s.inv.house[1], 6, '0.1 houses/min for an hour');
   assert.equal(s.inv.houseRaw, 3600 - 600);
 });
+
+test('AI citizens live, fight, produce and trade', () => {
+  const s = fresh();
+  assert.ok(s.citizens.length > 150);
+  for (const c of COUNTRIES) assert.ok(s.citizens.some((b) => b.c === c.id), `${c.name} has citizens`);
+  assert.ok(s.citizens.every((b) => b.n && b.n.includes(' ')));
+  assert.ok(s.market.offers.length > 50, 'market seeded with offers');
+  const str0 = s.citizens.reduce((a, b) => a + b.str, 0);
+  for (let i = 1; i <= 60; i++) G.tick(s, T0 + i * CONFIG.aiTickMs);
+  assert.ok(s.citizens.reduce((a, b) => a + b.str, 0) > str0, 'citizens train');
+  assert.ok(s.citizens.some((b) => b.dmg > 0), 'citizens fight');
+  const fought = s.world.campaigns.some((c) => Object.keys(c.fighters || {}).length);
+  assert.ok(fought || s.feed.some((f) => /conquered|liberated/.test(f.text)), 'damage reaches campaigns');
+  for (const kind of ['food', 'weapon']) {
+    assert.ok([1, 2, 3, 4, 5].some((q) => G.offersFor(s, kind + q).length > 0), `some ${kind} on offer`);
+  }
+  assert.ok(G.offersFor(s, 'foodRaw').length + G.offersFor(s, 'weaponRaw').length > 0, 'raw materials on offer');
+});
+
+test('buying takes the cheapest offer and pays the citizen seller', () => {
+  const s = fresh();
+  s.player.money = 1000;
+  const best = G.offersFor(s, 'weapon1')[0];
+  const seller = s.citizens[best.seller];
+  const m0 = seller.m;
+  const r = G.buy(s, 'weapon1', 5);
+  assert.ok(r.ok);
+  assert.ok(Math.abs(r.cost - best.price * 5) < 1e-9);
+  assert.ok(Math.abs(seller.m - m0 - best.price * 5) < 1e-9);
+  s.market.offers = [];
+  const imp = G.buy(s, 'weapon1', 10);
+  assert.ok(imp.ok, 'state import when the order book is empty');
+  assert.ok(Math.abs(imp.cost - G.importPrice('weapon1') * 10) < 1e-9);
+});
+
+test('player offers are bought by citizens; cancelling returns goods', () => {
+  const s = fresh();
+  s.inv.food[2] = 500;
+  assert.ok(G.postOffer(s, 'food2', 400, 0.05).ok);
+  assert.equal(s.inv.food[2], 100);
+  const m0 = s.player.money;
+  for (let i = 1; i <= 15; i++) G.tick(s, T0 + i * CONFIG.aiTickMs);
+  assert.ok(s.player.money > m0, 'citizens bought the cheap offer');
+  assert.ok((s.counters.sale || 0) > 0);
+  const left = G.myOffers(s)[0];
+  if (left) {
+    const q = left.qty;
+    assert.ok(G.cancelOffer(s, left.id).ok);
+    assert.equal(s.inv.food[2], 100 + q);
+  }
+  assert.equal(G.postOffer(s, 'food2', 99999, 1).ok, false);
+});

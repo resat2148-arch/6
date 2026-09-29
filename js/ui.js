@@ -7,10 +7,11 @@ import {
 import { flagSvg } from './flags.js';
 import { fmt, fmtMoney, fmtTime, esc } from './util.js';
 import { MAP_W, MAP_H, EU_REGIONS, EU_PATHS, EU_NEUTRAL, EU_BORDERS } from './europe.js';
+import { PERSONAS, botRank, citizensOf, sellerName } from './citizens.js';
 import { neighborsOf, regionsOf, isAlive, countryPower, distinctResources, resourceBonus } from './world.js';
 
 const $ = (id) => document.getElementById(id);
-export const ui = { tab: 'home', sel: null, vb: null, dragged: false };
+export const ui = { tab: 'home', sel: null, vb: null, dragged: false, rankScope: 'country', rankBy: 'dmg' };
 
 export const TABS = [
   { id: 'home', icon: '🏠', label: 'Home' },
@@ -19,6 +20,7 @@ export const TABS = [
   { id: 'economy', icon: '🏭', label: 'Economy' },
   { id: 'market', icon: '🛒', label: 'Market' },
   { id: 'politics', icon: '🏛️', label: 'Politics' },
+  { id: 'people', icon: '👥', label: 'Citizens' },
   { id: 'medals', icon: '🎖️', label: 'Medals' },
 ];
 
@@ -142,7 +144,7 @@ export function renderStart(defaultName, picked) {
 // ------------------------------------------------------------------ tab renderers
 export function renderTab(s) {
   const v = $('view');
-  const fn = { home, war, map, economy, market, politics, medals }[ui.tab] || home;
+  const fn = { home, war, map, economy, market, politics, people, medals }[ui.tab] || home;
   const scroll = v.scrollTop;
   v.innerHTML = fn(s);
   v.scrollTop = scroll;
@@ -210,6 +212,8 @@ function home(s) {
       </div>
     </div>
     ${housingCard(s)}
+    ${s.feed.length ? `<div class="card"><div class="row spread"><h3>📰 Europe news</h3>${btn('More', 'tab', 'data-tab="people"', 'small ghost')}</div>
+      ${s.feed.slice(0, 4).map((f) => `<div class="news">${esc(f.text)}</div>`).join('')}</div>` : ''}
     ${tutHtml}
     ${dailyHtml}
     <div class="card">
@@ -261,6 +265,18 @@ function campRow(s, c, joinable) {
       ${side ? ` · auto-resolves in <span data-cd="${c.deadline}"></span>` : ''}</div>
     </div>
     ${joinable ? btn('Fight', 'fight', `data-id="${c.id}"`, 'primary') : ''}
+    ${side ? topFighters(s, c) : ''}
+  </div>`;
+}
+
+function topFighters(s, c) {
+  const f = Object.entries(c.fighters || {}).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const mine = G.playerSide(s, c);
+  const allies = (mine === 'att' ? c.dmgAtt : c.dmgDef) || 0;
+  const foes = (mine === 'att' ? c.dmgDef : c.dmgAtt) || 0;
+  return `<div class="fighters">
+    <small class="muted">Since last round: allied citizens 💥${fmt(allies)} · enemy citizens 💥${fmt(foes)}</small>
+    ${f.length ? `<small>Top fighters: ${f.map(([id, d]) => `${who(s, id === 'P' ? 'P' : Number(id))} ${fmt(d)}`).join(' · ')}</small>` : ''}
   </div>`;
 }
 
@@ -518,26 +534,72 @@ function economy(s) {
 }
 
 // ------------------------------------------------------------------ market
+const ago = (ms) => (ms < 60000 ? 'just now' : ms < 3600000 ? `${Math.floor(ms / 60000)}m ago` : `${Math.floor(ms / 3600000)}h ago`);
+const priceTxt = (p) => (p < 10 ? p.toFixed(p < 1 ? 3 : 2) : fmtMoney(p));
+const who = (s, seller) => { const w = sellerName(s, seller); return `${w.c ? flagSvg(w.c) : ''} ${esc(w.name)}`; };
+
 function marketRow(s, key) {
   const m = MARKET[key];
-  const price = s.market.prices[key];
-  const trend = price > m.base * 1.03 ? '<span class="red">▲</span>' : price < m.base * 0.97 ? '<span class="green">▼</span>' : '';
+  const avg = s.market.prices[key];
+  const best = G.offersFor(s, key, 'P')[0];
+  const stock = G.offersFor(s, key, 'P').reduce((a, o) => a + o.qty, 0);
   const have = G.invGet(s, key);
   const bulk = key.endsWith('Raw') ? [100, 1000] : key.startsWith('house') ? [1, 5] : [10, 100];
+  const offerTxt = best
+    ? `best 💰${priceTxt(best.price)} · ${who(s, best.seller)} · ${fmt(stock)} for sale`
+    : `<span class="red">no offers</span> · state import 💰${priceTxt(G.importPrice(key))}`;
   return `<div class="mrow">
-    <i>${m.icon}</i><div class="grow"><b>${m.name}</b><small class="muted"> 💰${price < 10 ? price.toFixed(3) : fmtMoney(price)} ${trend} · owned ${fmt(have)}</small></div>
-    <div class="row">
+    <i>${m.icon}</i>
+    <div class="grow"><b>${m.name}</b> <small class="muted">avg 💰${priceTxt(avg)} · you own ${fmt(have)}</small>
+      <small class="offer-line">${offerTxt}</small></div>
+    <div class="row mbtns">
       ${bulk.map((n) => btn(`Buy ${fmt(n)}`, 'buy', `data-key="${key}" data-n="${n}"`, 'small')).join('')}
-      ${btn('Sell ' + fmt(bulk[0]), 'sell', `data-key="${key}" data-n="${bulk[0]}"`, 'small ghost')}
+      ${btn('Offers', 'offers', `data-key="${key}"`, 'small ghost')}
+      ${have > 0 ? btn('Post offer', 'listModal', `data-key="${key}"`, 'small') : ''}
+      ${have > 0 ? btn(`Sell now 💰${priceTxt(G.traderPrice(s, key))}`, 'sell', `data-key="${key}" data-n="${Math.min(have, bulk[0])}"`, 'small ghost') : ''}
       ${key.startsWith('house') && have > 0 ? btn('Move in', 'moveIn', `data-q="${key.slice(-1)}"`, 'small primary') : ''}
     </div>
+  </div>`;
+}
+
+export function offersModal(s, key) {
+  const list = G.offersFor(s, key).slice(0, 12);
+  const m = MARKET[key];
+  return `<h2>${m.icon} ${m.name} offers</h2>
+    <p class="muted small">Average price 💰${priceTxt(s.market.prices[key])}. Citizens restock every few seconds.</p>
+    <div class="offer-list">${list.length ? list.map((o) => `<div class="kv">
+      <span>${who(s, o.seller)}<br><small class="muted">${fmt(o.qty)} × 💰${priceTxt(o.price)}</small></span>
+      ${o.seller === 'P' ? btn('Cancel', 'cancelOffer', `data-id="${o.id}"`, 'small ghost') : `<span class="row">${btn(`Buy ${fmt(Math.min(o.qty, key.startsWith('house') ? 1 : 10))}`, 'buyOffer', `data-id="${o.id}" data-n="${Math.min(o.qty, key.startsWith('house') ? 1 : 10)}"`, 'small')}${o.qty > 10 ? btn(`Buy ${fmt(Math.min(o.qty, 500))}`, 'buyOffer', `data-id="${o.id}" data-n="${Math.min(o.qty, 500)}"`, 'small') : ''}</span>`}
+    </div>`).join('') : '<p>No offers right now.</p>'}</div>
+    <div class="row"><button class="btn" data-act="closeModal">Close</button></div>`;
+}
+
+export function listModal(s, key) {
+  const m = MARKET[key];
+  const best = G.offersFor(s, key, 'P')[0];
+  const suggest = best ? Math.max(0.001, best.price * 0.98) : s.market.prices[key];
+  const have = G.invGet(s, key);
+  return `<h2>Post offer: ${m.icon} ${m.name}</h2>
+    <p class="muted small">You own ${fmt(have)}. Cheapest competing offer: ${best ? `💰${priceTxt(best.price)}` : 'none'}. Citizens buy the cheapest offers first; you are paid when they buy.</p>
+    <label class="field"><span>Quantity</span><input id="offer-qty" type="number" min="1" max="${have}" value="${have}"></label>
+    <label class="field"><span>Price per unit (💰)</span><input id="offer-price" type="number" min="0.001" step="0.001" value="${suggest.toFixed(3)}"></label>
+    <div class="row"><button class="btn primary" data-act="postOffer" data-key="${key}">Post offer</button><button class="btn" data-act="closeModal">Cancel</button></div>`;
+}
+
+function myOffersCard(s) {
+  const mine = G.myOffers(s);
+  return `<div class="card span2">
+    <h3>📋 Market — ${fmt(s.market.offers.length)} offers from citizens across Europe</h3>
+    <p class="muted small">Buy buttons take the cheapest offers first. Post your own offers and AI citizens will buy them. "Sell now" sells instantly to a trader at 70% of the average price.</p>
+    ${mine.length ? mine.map((o) => `<div class="kv"><span>${MARKET[o.key].icon} ${MARKET[o.key].name}: ${fmt(o.qty)} × 💰${priceTxt(o.price)}</span>${btn('Cancel', 'cancelOffer', `data-id="${o.id}"`, 'small ghost')}</div>`).join('') : '<p class="muted small">You have no active offers.</p>'}
   </div>`;
 }
 
 function market(s) {
   const now = Date.now();
   const fg = s.timers.lastFreeGold + CONFIG.freeGoldCooldownMs - now;
-  return `<section class="grid">
+  return `<section class="grid wide">
+    ${myOffersCard(s)}
     <div class="card">
       <h3>🍞 Food</h3><p class="muted small">Food turns your reserve into usable energy. Q1 = +10 … Q5 = +50.</p>
       ${[1, 2, 3, 4, 5].map((q) => marketRow(s, 'food' + q)).join('')}
@@ -585,8 +647,9 @@ function politics(s) {
   return `<section class="grid">
     <div class="card" style="--cc:${c.color}">
       <h3>${flagSvg(c.id, 'flag big')} ${c.name}</h3>
-      <div class="kv"><span>President</span><b>${pol.president ? '👑 You' : esc(pol.presidentName)}</b></div>
+      <div class="kv"><span>President</span><b>${pol.president ? '👑 You' : `${esc(pol.presidentName)} <small class="muted">(AI citizen)</small>`}</b></div>
       <div class="kv"><span>Your role</span><b>${role}</b></div>
+      <div class="kv"><span>Citizens</span><b>${citizensOf(s, c.id).length + 1}</b></div>
       <div class="kv"><span>Regions</span><b>${regionsOf(s.world, c.id).length}</b></div>
       <div class="kv"><span>Military power</span><b>${countryPower(s.world, c.id).toFixed(2)}</b></div>
       <div class="kv"><span>Popularity</span><b>${fmt(G.popularity(s))}</b></div>
@@ -607,6 +670,52 @@ function politics(s) {
       : `<p class="muted">Found a newspaper to gain subscribers, popularity and the Media Mogul medal.</p>
         <label class="field"><span>Name</span><input id="news-name" maxlength="28" placeholder="The ${c.name} Herald"></label>
         ${btn('Found newspaper (🪙2)', 'newspaper', '', 'primary')} <small class="muted">Level 5+</small>`}
+    </div>
+  </section>`;
+}
+
+// ------------------------------------------------------------------ citizens
+const RANK_BY = {
+  dmg: { label: 'Damage', val: (x) => x.dmg },
+  str: { label: 'Strength', val: (x) => x.str },
+  lvl: { label: 'Level', val: (x) => x.lvl * 1e6 + x.xp },
+  m: { label: 'Wealth', val: (x) => x.m },
+};
+
+function people(s) {
+  const p = s.player;
+  const me = { n: p.name, c: p.country, lvl: p.level, xp: p.xp, str: p.strength, dmg: p.damage, m: p.money, rank: G.rankName(s), you: true };
+  const pool = (ui.rankScope === 'country' ? citizensOf(s, p.country) : s.citizens)
+    .map((b) => ({ n: b.n, c: b.c, lvl: b.lvl, xp: b.xp, str: b.str, dmg: b.dmg, m: b.m, rank: botRank(b), p: b.p, co: b.co }));
+  pool.push(me);
+  const val = RANK_BY[ui.rankBy].val;
+  pool.sort((a, b) => val(b) - val(a));
+  const myPos = pool.findIndex((x) => x.you) + 1;
+  const shown = pool.slice(0, 15);
+  const showVal = (x) => ui.rankBy === 'm' ? '💰' + fmt(x.m) : ui.rankBy === 'lvl' ? 'Lv ' + x.lvl : fmt(RANK_BY[ui.rankBy].val(x));
+  const tabBtn = (k, v, label) => `<button class="btn small ${ui[k] === v ? 'primary' : 'ghost'}" data-act="rankSet" data-k="${k}" data-v="${v}">${label}</button>`;
+  const countryCount = citizensOf(s, p.country).length;
+  return `<section class="grid">
+    <div class="card span2">
+      <div class="row spread"><h3>🏅 Rankings</h3>
+        <div class="row">${tabBtn('rankScope', 'country', G.pc(s).name)}${tabBtn('rankScope', 'world', 'Europe')}</div></div>
+      <div class="row rank-by">${Object.entries(RANK_BY).map(([k, r]) => tabBtn('rankBy', k, r.label)).join('')}</div>
+      <div class="ranking">${shown.map((x, i) => `<div class="rk ${x.you ? 'me' : ''}">
+        <b class="pos">${i + 1}</b>${flagSvg(x.c)}
+        <span class="grow"><b>${esc(x.n)}</b>${x.you ? ' <span class="pill gold">you</span>' : ''}<br><small class="muted">Lv ${x.lvl} · ${x.rank}${x.p ? ` · ${PERSONAS[x.p].icon} ${PERSONAS[x.p].name}` : ''}${x.co ? ` · owns ${COMPANY_TYPES[x.co.t].icon}` : ''}</small></span>
+        <b>${showVal(x)}</b></div>`).join('')}</div>
+      ${myPos > 15 ? `<p class="muted small">You are #${myPos} of ${pool.length}.</p>` : ''}
+    </div>
+    <div class="card">
+      <h3>📰 Europe news</h3>
+      ${s.feed.length ? s.feed.slice(0, 14).map((f) => `<div class="news"><small class="muted">${ago(Date.now() - f.t)}</small> ${esc(f.text)}</div>`).join('') : '<p class="muted">News will appear as citizens act.</p>'}
+    </div>
+    <div class="card">
+      <h3>👥 Society</h3>
+      <div class="kv"><span>Citizens of ${G.pc(s).name}</span><b>${countryCount + 1}</b></div>
+      <div class="kv"><span>Citizens in Europe</span><b>${s.citizens.length + 1}</b></div>
+      <div class="kv"><span>Active market offers</span><b>${fmt(s.market.offers.length)}</b></div>
+      <p class="muted small">AI citizens live like you: they work, train, eat, fight in their country's battles, run companies and trade on the market. Their damage decides battles you are not fighting in, and your allies' damage makes your own rounds easier.</p>
     </div>
   </section>`;
 }
@@ -648,6 +757,7 @@ export function helpHtml() {
     <li><b>Food reserve 🍞</b> refills quickly. <b>Eat</b> food to turn reserve into usable energy.</li>
     <li><b>Work</b> earns money. <b>Train</b> raises strength, which raises your damage.</li>
     <li><b>Fight</b>: tap enemies before they shoot you. Headshots deal double damage, fast hits build combos. Push the wall above 50% by the end of the round to win it. Win ${CONFIG.roundsToWin} rounds to take a region.</li>
+    <li><b>Citizens 👥</b>: hundreds of AI citizens live the same life: they fight in battles, run companies and post offers on the Market. Buy from them, sell to them, and climb the rankings.</li>
     <li><b>Rank</b> grows with damage and multiplies your damage further.</li>
     <li><b>Houses 🏠</b> raise your max energy and energy regeneration for a few hours. Buy them on the Market or build them with a Construction company.</li>
     <li><b>Companies</b> produce raw materials, food and weapons — even while you are away. Owning resource regions boosts production.</li>

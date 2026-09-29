@@ -34,6 +34,19 @@ eRepublik “günde 5 dakika, yıllarca” oynanan yavaş bir oyun. CrazyGames't
 5. **Gerçek Avrupa haritası.** 37 gerçek Avrupa ülkesi ve 174 gerçek bölge (ör. Türkiye'nin 7 coğrafi bölgesi, Bavyera, Katalonya). Sınırlar Natural Earth 1:50m verisinden üretilir (`scripts/build-map.mjs`); bölgeler, gerçek bölge merkezlerinden hesaplanan Voronoi hücrelerinin ülke sınırına kırpılmasıyla oluşur. Sınırlar uluslararası tanınan hâliyle çizilir (Kırım Ukrayna'da); Kosova, Kıbrıs, Lüksemburg gibi küçük/hassas topraklar oynanamaz tarafsız bölgedir. Görsel dil kansız.
 6. **Kısa hedef zinciri.** Görev → seviye atlama (enerji dolar!) → rütbe → madalya → fetih → dünya hâkimiyeti.
 
+## 2.1 Yapay zekâ vatandaşları
+
+Dünya boş hissettirmesin diye ~210 yapay zekâ vatandaşı var (`js/citizens.js`). Her ülkede büyüklüğüne göre 4–11 kişi, yerel isimlerle (Mehmet Yılmaz, Hans Müller, Anna Smirnova…).
+
+- **Aynı döngüyü yaşarlar:** Her dünya turunda (20 sn) enerji toplar, yiyecek yer, çalışır, antrenman yapar, seviye ve rütbe atlarlar.
+- **Kişilik:** 🪖 Asker (çok savaşır), 🛠️ İşçi (çok çalışır), 🏭 Sanayici (şirket kurar, büyütür, kalite yükseltir).
+- **Savaş:** Ülkelerinin cephelerinde savaşır, silah harcar. Oyuncunun olmadığı raundları onların hasarı belirler. Oyuncunun kampanyalarında müttefik vatandaşların hasarı raundu kolaylaştırır, düşmanlarınki zorlaştırır. Savaş kartında "en iyi savaşçılar" listelenir.
+- **Ekonomi:** Şirketlerinde üretir, pazara ilan verir. Satamazlarsa fiyat düşürür, stok biterse fiyat artırır; depo dolunca üretimi durdurur. Hammaddeyi pazardan alır (oyuncunun çiftlik/madeninden de!), yiyecek, silah ve ev satın alır.
+- **Siyaset:** Ülkenin başkanı, o ülkenin en güçlü yapay zekâ vatandaşıdır.
+- **Görünürlük:** Citizens sekmesinde ülke ve Avrupa sıralamaları (hasar, güç, seviye, servet) ile canlı haber akışı var.
+
+**Pazar (ilan tahtası, `js/market.js`):** Alım en ucuz ilandan başlar. Oyuncu da ilan verir, vatandaşlar ucuz olanı alır ve para oyuncuya gelir. "Sell now" ile tüccara ortalama fiyatın %70'ine anında satılabilir. İlan tahtası boşsa devlet ithalatı taban fiyatın 1,8 katından satar.
+
 ## 3. Çekirdek döngü
 
 ```

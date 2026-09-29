@@ -146,7 +146,7 @@ function updateHud() {
   $('b-baz-n').textContent = st.inv.bazooka;
   $('b-baz').classList.toggle('armed', S.armed);
   $('b-noen').hidden = !(S.phase === 'fight' && p.energy < CONFIG.shotEnergy);
-  $('b-foodprice').textContent = (st.market.prices.food1 * 20).toFixed(2);
+  $('b-foodprice').textContent = G.quote(st, 'food1', 20).cost.toFixed(2);
   $('b-dmgper').textContent = fmt(G.hitDamage(st, effectiveQ()));
 }
 
