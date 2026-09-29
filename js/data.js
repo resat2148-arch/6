@@ -35,6 +35,7 @@ export const CONFIG = {
   midgameCooldownMs: 3 * 60 * 1000,
   doubleCollectCooldownMs: 5 * 60 * 1000,
   freeGoldCooldownMs: 10 * 60 * 1000,
+  houseDurationMs: 4 * 3600 * 1000, // a house lasts 4 hours of real time
 };
 
 // Fictional nations (keeps the game free of real-world political baggage).
@@ -112,7 +113,26 @@ export const MARKET = {
   weapon3: { name: 'Weapon Q3', icon: '🔫', base: 0.6 },
   weapon4: { name: 'Weapon Q4', icon: '🔫', base: 0.8 },
   weapon5: { name: 'Weapon Q5', icon: '🔫', base: 1.0 },
+  houseRaw: { name: 'Building materials', icon: '🧱', base: 0.04 },
+  house1: { name: 'Hut (Q1)', icon: '🛖', base: 40 },
+  house2: { name: 'Cottage (Q2)', icon: '🏠', base: 100 },
+  house3: { name: 'Townhouse (Q3)', icon: '🏡', base: 220 },
+  house4: { name: 'Villa (Q4)', icon: '🏘️', base: 450 },
+  house5: { name: 'Mansion (Q5)', icon: '🏰', base: 900 },
 };
+
+export const RAW_ICON = { foodRaw: '🌾', weaponRaw: '⛓️', houseRaw: '🧱' };
+
+// Houses (eRepublik style): each quality you live in adds max energy and faster energy regeneration.
+// Different qualities stack; a house wears out after CONFIG.houseDurationMs.
+export const HOUSES = [
+  null,
+  { name: 'Hut', icon: '🛖', energy: 20, regen: 0.1 },
+  { name: 'Cottage', icon: '🏠', energy: 40, regen: 0.2 },
+  { name: 'Townhouse', icon: '🏡', energy: 60, regen: 0.3 },
+  { name: 'Villa', icon: '🏘️', energy: 80, regen: 0.4 },
+  { name: 'Mansion', icon: '🏰', energy: 100, regen: 0.5 },
+];
 
 export const GOLD_SHOP = {
   bazooka: { name: 'Bazooka', icon: '🚀', gold: 2, desc: 'One massive blast that hits every enemy on screen.' },
@@ -128,6 +148,10 @@ export const COMPANY_TYPES = {
     desc: 'Turns food raw into food. Each unit needs Q raw.' },
   armory: { name: 'Arms Factory', icon: '🔫', kind: 'factory', output: 'weapon', input: 'weaponRaw', rate: 25, cost: 600,
     desc: 'Turns weapon raw into weapons. Each unit needs Q raw.' },
+  quarry: { name: 'Quarry', icon: '🪨', kind: 'raw', output: 'houseRaw', res: null, rate: 60, cost: 250,
+    desc: 'Produces building materials for houses.' },
+  construction: { name: 'Construction Co.', icon: '🏗️', kind: 'factory', output: 'house', input: 'houseRaw', rate: 0.1, rawMult: 100, cost: 1200,
+    desc: 'Builds houses. Each house needs 100 × Q building materials.' },
 };
 
 export const FACILITIES = [
@@ -169,6 +193,7 @@ export const TUTORIAL = [
   { text: 'Build a Farm in the Economy tab', cond: (s) => s.companies.some((c) => c.type === 'farm'), reward: { money: 100 }, tab: 'economy' },
   { text: 'Build a Bakery to turn raw materials into food', cond: (s) => s.companies.some((c) => c.type === 'bakery'), reward: { gold: 2 }, tab: 'economy' },
   { text: 'Collect production from your companies', ev: 'collect', n: 1, reward: { money: 50 }, tab: 'economy' },
+  { text: 'Buy a house on the Market and move in', ev: 'moveIn', n: 1, reward: { gold: 2 }, tab: 'market' },
   { text: 'Reach level 3 and join a political party', cond: (s) => s.politics.party, reward: { gold: 1 }, tab: 'politics' },
   { text: 'Reach level 5', cond: (s) => s.player.level >= 5, reward: { gold: 5 } },
   { text: 'Found a newspaper and publish an article', ev: 'article', n: 1, reward: { gold: 3 }, tab: 'politics' },

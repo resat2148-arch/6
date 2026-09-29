@@ -6,7 +6,7 @@ import {
   ui, renderTab, renderTop, liveUpdate, renderStart, toast, openModal, closeModal, modalOpen, banner, helpHtml,
 } from './ui.js';
 import { initBattle, openBattle, isOpen as battleOpen, setAdPause, debugTargets } from './battle.js';
-import { CONFIG, GAME_TITLE, MEDALS, GOLD_SHOP } from './data.js';
+import { CONFIG, GAME_TITLE, MEDALS, GOLD_SHOP, RAW_ICON, HOUSES } from './data.js';
 import { fmt, fmtMoney, fmtTime, esc } from './util.js';
 
 const SAVE_KEY = 'republic-rising-save-v1';
@@ -188,6 +188,11 @@ const actions = {
   declareWar: (d) => result(G.declareWar(state, Number(d.id)), () => sfx.alarm()),
   resist: (d) => result(G.startResistance(state, Number(d.id))),
   energyMenu: () => openEnergyMenu(),
+  moveIn: (d) => result(G.moveIn(state, Number(d.q)), () => {
+    const h = HOUSES[Number(d.q)];
+    sfx.win();
+    toast(`${h.icon} You moved into a ${h.name}: +${h.energy} max energy, +${h.regen * 100}% regen`, 'good');
+  }),
   energyBar: () => { result(G.useEnergyBar(state), () => { sfx.eat(); closeModal(); }); },
   energyAd: () => { closeModal(); energyAd(); },
   mute: () => {
@@ -226,7 +231,7 @@ const actions = {
 function collectToast(r) {
   sfx.coin();
   const parts = Object.entries(r.got).map(([k, n]) => {
-    const icon = k === 'foodRaw' ? '🌾' : k === 'weaponRaw' ? '⛓️' : k.startsWith('food') ? '🍞' : '🔫';
+    const icon = RAW_ICON[k] || (k.startsWith('food') ? '🍞' : k.startsWith('house') ? '🏠' : '🔫');
     return `${icon}${fmt(n)}${/\d$/.test(k) ? ' Q' + k.slice(-1) : ''}`;
   });
   toast(`📦 Collected ${parts.join(' ')}`, 'good');
@@ -239,7 +244,7 @@ function openEnergyMenu() {
   const food = state.inv.food.reduce((a, b) => a + b, 0);
   openModal(`<h2>⚡ Energy</h2>
     <p>Energy <b>${Math.floor(p.energy)} / ${G.maxEnergy(state)}</b> · Food reserve <b>${Math.floor(p.reserve)} / ${G.maxReserve(state)}</b></p>
-    <p class="muted small">Energy regenerates +1 every ${CONFIG.energyRegenMs / 1000}s. The food reserve refills +1/s — eat food to convert it into energy.</p>
+    <p class="muted small">Energy regenerates +1 every ${CONFIG.energyRegenMs / 1000}s${G.housingRegen(state) > 1 ? ` (×${G.housingRegen(state).toFixed(1)} from your house)` : ''}. The food reserve refills +1/s — eat food to convert it into energy. A house raises your max energy and regeneration.</p>
     <div class="col">
       <button class="btn primary" data-act="eat">🍞 Eat food (${food} in stock)</button>
       <button class="btn" data-act="energyBar">⚡ Energy bar: +50 (🪙${GOLD_SHOP.energyBar.gold})</button>

@@ -2,7 +2,7 @@
 import * as G from './game.js';
 import {
   CONFIG, COUNTRIES, MAP_ROWS, RESOURCES, RANKS, rankThreshold, MEDALS, COMPANY_TYPES, MARKET, GOLD_SHOP,
-  FACILITIES, POLICIES, FOOD_ENERGY, WEAPON_FP, countryById, GAME_TITLE, DAILY_BONUS,
+  FACILITIES, POLICIES, FOOD_ENERGY, WEAPON_FP, countryById, GAME_TITLE, DAILY_BONUS, HOUSES, RAW_ICON,
 } from './data.js';
 import { flagSvg } from './flags.js';
 import { fmt, fmtMoney, fmtTime, esc } from './util.js';
@@ -203,6 +203,7 @@ function home(s) {
           <small>${urgent ? esc(s.world.regions[urgent.region].name) : 'Choose a battle'}</small></button>
       </div>
     </div>
+    ${housingCard(s)}
     ${tutHtml}
     ${dailyHtml}
     <div class="card">
@@ -210,12 +211,36 @@ function home(s) {
       <div class="inv">
         ${[1, 2, 3, 4, 5].map((q) => `<div title="Food Q${q} (+${FOOD_ENERGY[q]} energy)">🍞<b>${fmt(s.inv.food[q])}</b><small>Q${q}</small></div>`).join('')}
         ${[1, 2, 3, 4, 5].map((q) => `<div title="Weapon Q${q} (+${WEAPON_FP[q]}% firepower)">🔫<b>${fmt(s.inv.weapon[q])}</b><small>Q${q}</small></div>`).join('')}
+        ${[1, 2, 3, 4, 5].map((q) => `<div title="${HOUSES[q].name} (Q${q})">${HOUSES[q].icon}<b>${fmt(s.inv.house[q])}</b><small>Q${q}</small></div>`).join('')}
         <div title="Food raw">🌾<b>${fmt(s.inv.foodRaw)}</b><small>raw</small></div>
         <div title="Weapon raw">⛓️<b>${fmt(s.inv.weaponRaw)}</b><small>raw</small></div>
+        <div title="Building materials">🧱<b>${fmt(s.inv.houseRaw)}</b><small>raw</small></div>
         <div title="Bazooka">🚀<b>${s.inv.bazooka}</b><small>bazooka</small></div>
       </div>
     </div>
   </section>`;
+}
+
+function housingCard(s) {
+  const active = G.activeHouses(s);
+  const best = active.length ? HOUSES[active[active.length - 1]] : null;
+  const owned = [1, 2, 3, 4, 5].filter((q) => s.inv.house[q] > 0);
+  const bonusE = G.housingEnergy(s);
+  const bonusR = Math.round((G.housingRegen(s) - 1) * 100);
+  return `<div class="card housing">
+    <h3>🏠 Housing</h3>
+    <div class="row">
+      <div class="house-pic ${best ? '' : 'none'}">${best ? best.icon : '⛺'}</div>
+      <div class="grow">
+        <b>${best ? `You live in a ${best.name}` : 'You have no house'}</b>
+        <div class="muted small">${best ? `+${bonusE} max energy · +${bonusR}% energy regen` : 'Houses raise your max energy and energy regeneration.'}</div>
+      </div>
+    </div>
+    ${active.map((q) => `<div class="kv"><span>${HOUSES[q].icon} ${HOUSES[q].name} Q${q} <small class="muted">+${HOUSES[q].energy}⚡ · +${HOUSES[q].regen * 100}%</small></span><b data-cd="${s.housing[q]}"></b></div>`).join('')}
+    ${owned.length ? `<div class="row house-own">${owned.map((q) => btn(`${HOUSES[q].icon} Move into ${HOUSES[q].name} (${s.inv.house[q]})`, 'moveIn', `data-q="${q}"`, 'small primary')).join('')}</div>` : ''}
+    <div class="row spread"><small class="muted">Different qualities stack. A house lasts ${CONFIG.houseDurationMs / 3600000}h; moving in again extends it.</small>
+    ${btn('Buy houses', 'tab', 'data-tab="market"', 'small')}</div>
+  </div>`;
 }
 
 function campRow(s, c, joinable) {
@@ -362,7 +387,7 @@ function economy(s) {
     const T = COMPANY_TYPES[c.type];
     const rate = G.companyRate(s, c);
     const cap = G.companyCap(s, c);
-    const needs = T.kind === 'factory' ? `needs ${c.q} ${T.input === 'foodRaw' ? '🌾' : '⛓️'} each` : `${T.output === 'foodRaw' ? '🌾' : '⛓️'} raw`;
+    const needs = T.kind === 'factory' ? `needs ${c.q * (T.rawMult || 1)} ${RAW_ICON[T.input]} each` : `${RAW_ICON[T.output]} raw`;
     return `<div class="company">
       <i>${T.icon}</i>
       <div class="grow">
@@ -409,12 +434,13 @@ function marketRow(s, key) {
   const price = s.market.prices[key];
   const trend = price > m.base * 1.03 ? '<span class="red">▲</span>' : price < m.base * 0.97 ? '<span class="green">▼</span>' : '';
   const have = G.invGet(s, key);
-  const bulk = key.endsWith('Raw') ? [100, 1000] : [10, 100];
+  const bulk = key.endsWith('Raw') ? [100, 1000] : key.startsWith('house') ? [1, 5] : [10, 100];
   return `<div class="mrow">
-    <i>${m.icon}</i><div class="grow"><b>${m.name}</b><small class="muted"> 💰${price.toFixed(3)} ${trend} · owned ${fmt(have)}</small></div>
+    <i>${m.icon}</i><div class="grow"><b>${m.name}</b><small class="muted"> 💰${price < 10 ? price.toFixed(3) : fmtMoney(price)} ${trend} · owned ${fmt(have)}</small></div>
     <div class="row">
       ${bulk.map((n) => btn(`Buy ${fmt(n)}`, 'buy', `data-key="${key}" data-n="${n}"`, 'small')).join('')}
       ${btn('Sell ' + fmt(bulk[0]), 'sell', `data-key="${key}" data-n="${bulk[0]}"`, 'small ghost')}
+      ${key.startsWith('house') && have > 0 ? btn('Move in', 'moveIn', `data-q="${key.slice(-1)}"`, 'small primary') : ''}
     </div>
   </div>`;
 }
@@ -432,8 +458,12 @@ function market(s) {
       ${[1, 2, 3, 4, 5].map((q) => marketRow(s, 'weapon' + q)).join('')}
     </div>
     <div class="card">
+      <h3>🏠 Houses</h3><p class="muted small">Move in from the Home tab. Each quality adds max energy and faster energy regen for ${CONFIG.houseDurationMs / 3600000}h; qualities stack.</p>
+      ${[1, 2, 3, 4, 5].map((q) => marketRow(s, 'house' + q)).join('')}
+    </div>
+    <div class="card">
       <h3>⛏️ Raw materials</h3>
-      ${marketRow(s, 'foodRaw')}${marketRow(s, 'weaponRaw')}
+      ${marketRow(s, 'foodRaw')}${marketRow(s, 'weaponRaw')}${marketRow(s, 'houseRaw')}
       <p class="muted small">Prices move every minute. Selling returns ${CONFIG.sellRatio * 100}% of the price.</p>
     </div>
     <div class="card">
@@ -531,6 +561,7 @@ export function helpHtml() {
     <li><b>Work</b> earns money. <b>Train</b> raises strength, which raises your damage.</li>
     <li><b>Fight</b>: tap enemies before they shoot you. Headshots deal double damage, fast hits build combos. Push the wall above 50% by the end of the round to win it. Win ${CONFIG.roundsToWin} rounds to take a region.</li>
     <li><b>Rank</b> grows with damage and multiplies your damage further.</li>
+    <li><b>Houses 🏠</b> raise your max energy and energy regeneration for a few hours. Buy them on the Market or build them with a Construction company.</li>
     <li><b>Companies</b> produce raw materials, food and weapons — even while you are away. Owning resource regions boosts production.</li>
     <li><b>Politics</b>: join a party, get elected to Congress, then become President to choose wars and national policy.</li>
     <li>Goal: lead your nation to rule the whole map!</li>

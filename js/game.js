@@ -2,7 +2,7 @@
 import {
   CONFIG, COUNTRIES, RANKS, rankThreshold, MEDALS, COMPANY_TYPES, MARKET, GOLD_SHOP, FOOD_ENERGY, WEAPON_FP,
   FACILITIES, POLICIES, TUTORIAL, DAILY_POOL, DAILY_COUNT, DAILY_REWARD_GOLD, DAILY_BONUS, LOGIN_REWARDS,
-  MEDIA_MILESTONES, PATRIOT_STEP, PRESIDENT_NAMES, SAVE_VERSION, countryById,
+  MEDIA_MILESTONES, PATRIOT_STEP, PRESIDENT_NAMES, SAVE_VERSION, HOUSES, countryById,
 } from './data.js';
 import {
   createWorld, neighborsOf, regionsOf, isAlive, countryPower, borderTargets, resourceBonus,
@@ -34,7 +34,11 @@ export function newGame({ name, country, now = Date.now(), seed = Math.floor(Mat
       energy: 100, reserve: 300, money: 50, gold: 5,
       works: 0, strengthGained: 0, patriotDmg: 0, damage: 0,
     },
-    inv: { foodRaw: 0, weaponRaw: 0, food: [0, 40, 0, 0, 0, 0], weapon: [0, 300, 0, 0, 0, 0], bazooka: 2 },
+    inv: {
+      foodRaw: 0, weaponRaw: 0, houseRaw: 0,
+      food: [0, 40, 0, 0, 0, 0], weapon: [0, 300, 0, 0, 0, 0], house: [0, 0, 0, 0, 0, 0], bazooka: 2,
+    },
+    housing: {},
     facilities: { weights: true, climbing: false, shooting: false, special: false },
     companies: [],
     nextCompanyId: 1,
@@ -80,7 +84,24 @@ export function migrate(saved, now = Date.now()) {
 
 // ---------------------------------------------------------------- derived stats
 export const pc = (s) => countryById(s.player.country);
-export const maxEnergy = (s) => Math.min(CONFIG.energyCap, 100 + (s.player.level - 1) * 10);
+export const maxEnergy = (s) => Math.min(CONFIG.energyCap, 100 + (s.player.level - 1) * 10) + housingEnergy(s);
+
+// ---------------------------------------------------------------- housing
+export function activeHouses(s, now = s.lastTick) {
+  const h = s.housing || {};
+  return [1, 2, 3, 4, 5].filter((q) => (h[q] || 0) > now);
+}
+export const housingEnergy = (s, now) => activeHouses(s, now).reduce((a, q) => a + HOUSES[q].energy, 0);
+export const housingRegen = (s, now) => 1 + activeHouses(s, now).reduce((a, q) => a + HOUSES[q].regen, 0);
+
+export function moveIn(s, q, now = Date.now()) {
+  if (!HOUSES[q]) return fail('Unknown house.');
+  if (s.inv.house[q] <= 0) return fail(`You don't own a ${HOUSES[q].name}. Buy one on the Market.`);
+  s.inv.house[q]--;
+  s.housing[q] = Math.max(s.housing[q] || 0, now) + CONFIG.houseDurationMs;
+  count(s, 'moveIn');
+  return ok({ until: s.housing[q] });
+}
 export const maxReserve = (s) => maxEnergy(s) * 3;
 export const xpToNext = (lvl) => 30 + lvl * 20;
 export const division = (lvl) => (lvl < 10 ? 1 : lvl < 20 ? 2 : lvl < 35 ? 3 : 4);
@@ -171,15 +192,17 @@ export function rewardText(r) {
 }
 
 // ---------------------------------------------------------------- inventory
+const FLAT_ITEMS = ['foodRaw', 'weaponRaw', 'houseRaw', 'bazooka'];
+
 export function invGet(s, key) {
-  if (key === 'foodRaw' || key === 'weaponRaw' || key === 'bazooka') return s.inv[key];
-  const m = /^(food|weapon)(\d)$/.exec(key);
+  if (FLAT_ITEMS.includes(key)) return s.inv[key];
+  const m = /^(food|weapon|house)(\d)$/.exec(key);
   if (m) return s.inv[m[1]][+m[2]];
   return 0;
 }
 export function invAdd(s, key, n) {
-  if (key === 'foodRaw' || key === 'weaponRaw' || key === 'bazooka') { s.inv[key] += n; return; }
-  const m = /^(food|weapon)(\d)$/.exec(key);
+  if (FLAT_ITEMS.includes(key)) { s.inv[key] += n; return; }
+  const m = /^(food|weapon|house)(\d)$/.exec(key);
   if (m) s.inv[m[1]][+m[2]] += n;
 }
 
@@ -330,7 +353,7 @@ export const MAX_COMPANY_LEVEL = 10;
 export function companyRate(s, c) {
   const T = COMPANY_TYPES[c.type];
   let rate = T.rate * c.lvl * policyMult(s, 'production');
-  if (T.kind === 'raw') rate *= resourceBonus(s.world, s.player.country, T.res);
+  if (T.kind === 'raw' && T.res) rate *= resourceBonus(s.world, s.player.country, T.res);
   return rate; // units per minute
 }
 export const companyCap = (s, c) => companyRate(s, c) * CONFIG.companyStorageMinutes;
@@ -386,7 +409,7 @@ export function collectAll(s, mult = 1) {
     const T = COMPANY_TYPES[c.type];
     if (T.kind !== 'factory') continue;
     const capacity = Math.floor(c.pending * mult);
-    const per = c.q;
+    const per = c.q * (T.rawMult || 1);
     const can = Math.min(capacity, Math.floor(s.inv[T.input] / per));
     if (can < capacity) starved = true;
     if (can > 0) {
@@ -857,7 +880,13 @@ export function tick(s, now = Date.now()) {
   s.lastTick = now;
   const p = s.player;
   const mx = maxEnergy(s);
-  if (p.energy < mx) p.energy = Math.min(mx, p.energy + dt / CONFIG.energyRegenMs);
+  if (p.energy < mx) p.energy = Math.min(mx, p.energy + (dt / CONFIG.energyRegenMs) * housingRegen(s, now));
+  for (const q in s.housing) {
+    if (s.housing[q] <= now) {
+      delete s.housing[q];
+      toast(`${HOUSES[q].icon} Your ${HOUSES[q].name} has worn out. Buy a new house to keep the bonus.`, 'bad');
+    }
+  }
   const mr = maxReserve(s);
   if (p.reserve < mr) p.reserve = Math.min(mr, p.reserve + dt / CONFIG.reserveRegenMs);
 

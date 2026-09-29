@@ -12,6 +12,7 @@
 | Hasar formülü `10 × (1+S/400) × (1+R/5) × (1+FP/100)` | Birebir kullanıldı. Silahsız ×0.5, Q1–Q5 silahlar +%20…+%100 ateş gücü. |
 | Silah/yiyecek kaliteleri (Q1–Q7) | Q1–Q5 (sadeleştirildi). |
 | Şirketler: ham madde → ürün | Çiftlik/Maden (ham madde), Fırın/Silah fabrikası (Q'ya göre ham madde tüketir). Oyuncu yokken de üretir (idle). |
+| Evler (Q1–Q5), ev şirketleri | Kulübe → Malikâne. İçinde yaşadığın her kalite maksimum enerjiyi (+20…+100) ve enerji yenilenmesini (+%10…+%50) artırır; kaliteler üst üste eklenir, ev 4 saat sonra eskir. Taş ocağı yapı malzemesi üretir, inşaat şirketi ev yapar. |
 | Bölge kaynakları üretim bonusu | Ülkenin sahip olduğu her farklı kaynak +%20 üretim. Fetih = ekonomik güç. |
 | Savaşlar, raundlar, duvar (wall), bölge fethi | Her kampanya “ilk 3 raundu kazanan” formatında. Raund = 60 sn'lik aksiyon mini oyunu. |
 | Direniş savaşları (RW) | İşgal edilmiş anavatan bölgesinde 5 altınla başlatılabilir; yapay zekâ ülkeleri de başlatır. |

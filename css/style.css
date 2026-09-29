@@ -148,6 +148,11 @@ svg.flag.big { width: 36px; height: 24px; }
 .act.train { background: linear-gradient(180deg, #3b2d68, #2a2150); }
 .act.eat { background: linear-gradient(180deg, #5a3d17, #3f2a0f); }
 .act.fight { background: linear-gradient(180deg, #7a1f1f, #521414); border-color: #b43b3b; }
+.house-pic { font-size: 44px; width: 64px; height: 64px; display: grid; place-items: center; border-radius: 14px; background: rgba(245, 184, 61, .12); border: 1px solid rgba(245, 184, 61, .3); flex: none; }
+.house-pic.none { background: rgba(0,0,0,.2); border-color: var(--line); filter: grayscale(.4); }
+.housing .kv { margin-top: 4px; }
+.house-own { margin: 10px 0 6px; }
+.housing > .row.spread { margin-top: 8px; }
 .mission.ready { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(245, 184, 61, .25); }
 .mission p { margin: 0 0 8px; font-weight: 600; }
 .mission .row { margin-top: 8px; }

@@ -204,3 +204,34 @@ test('save migration keeps progress and fills new fields', () => {
   assert.ok(m.timers);
   assert.equal(G.migrate(null), null);
 });
+
+test('houses raise max energy and regen, stack by quality and expire', () => {
+  const s = fresh();
+  assert.equal(G.moveIn(s, 1, T0).ok, false, 'must own a house');
+  s.player.money = 1000;
+  assert.ok(G.buy(s, 'house2', 1).ok);
+  s.inv.house[1] = 1;
+  assert.ok(G.moveIn(s, 2, T0).ok);
+  assert.ok(G.moveIn(s, 1, T0).ok);
+  G.tick(s, T0 + 1000);
+  assert.equal(G.maxEnergy(s), 100 + 20 + 40);
+  assert.ok(Math.abs(G.housingRegen(s) - 1.3) < 1e-9);
+  s.player.energy = 0;
+  G.tick(s, T0 + 1000 + CONFIG.energyRegenMs * 10);
+  assert.ok(Math.abs(s.player.energy - 13) < 1e-6, 'regen is 30% faster');
+  G.tick(s, T0 + CONFIG.houseDurationMs + 5000);
+  assert.equal(G.activeHouses(s).length, 0);
+  assert.equal(G.maxEnergy(s), 100);
+});
+
+test('construction company turns building materials into houses', () => {
+  const s = fresh();
+  s.player.money = 100000;
+  s.player.level = 3;
+  assert.ok(G.build(s, 'quarry').ok);
+  assert.ok(G.build(s, 'construction').ok);
+  G.tick(s, T0 + 60 * 60000);
+  assert.ok(G.collectAll(s).ok);
+  assert.equal(s.inv.house[1], 6, '0.1 houses/min for an hour');
+  assert.equal(s.inv.houseRaw, 3600 - 600);
+});
