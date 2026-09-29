@@ -137,7 +137,10 @@ export function renderMenu(slots, lastSlot) {
           <small class="muted">Career ${c.slot} · last played ${ago(Date.now() - c.lastPlayed)}</small></div>
         <div class="slot-acts">
           <button class="btn ${last ? 'primary' : ''} small" data-act="slotPlay" data-slot="${c.slot}">▶ Continue</button>
-          <button class="btn ghost small danger" data-act="slotDelete" data-slot="${c.slot}" title="Delete career">🗑</button>
+          <div class="slot-sub">
+            <button class="btn ghost small" data-act="slotNew" data-slot="${c.slot}" title="Start a new game in this slot">✚ New</button>
+            <button class="btn ghost small danger" data-act="slotDelete" data-slot="${c.slot}" title="Delete career">🗑</button>
+          </div>
         </div>
       </div>`;
   }).join('');

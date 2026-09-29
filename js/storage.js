@@ -168,11 +168,12 @@ export function flushCloud() {
   });
 }
 
-export function wipe(n = slot) {
+// keepCloud: the slot is about to be overwritten by a new citizen, whose save replaces the cloud copy.
+export function wipe(n = slot, { keepCloud = false } = {}) {
   if (cloudPending?.slot === n) cloudPending = null;
   SDK.removeData(keyOf(n));
   try { localStorage.removeItem(keyOf(n)); localStorage.removeItem(bakOf(n)); } catch { /* ignore */ }
-  if (cloud) cloudRef(n).delete().catch(() => {});
+  if (cloud && !keepCloud) cloudRef(n).delete().catch(() => {});
   if (lastPlayedSlot() === n) { try { localStorage.removeItem(LAST_SLOT); } catch { /* ignore */ } }
 }
 

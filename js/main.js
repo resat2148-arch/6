@@ -40,6 +40,7 @@ let pendingLoad = null; // the save just read from a slot, until its catch-up su
 let pendingSlot = 0; // the career slot a new citizen will be saved into
 let slots = []; // title screen summaries of the careers
 let loadingSlot = false;
+let replacing = false; // the new citizen overwrites a filled slot
 let loopsStarted = false;
 const MUTE_KEY = 'republic-rising-muted';
 const menuMuted = () => { try { return localStorage.getItem(MUTE_KEY) === '1'; } catch { return false; } };
@@ -363,6 +364,7 @@ const actions = {
     if (!saved) { toast('This save is from an incompatible version and cannot be continued.', 'bad'); return; }
     Store.setSlot(n);
     pendingSlot = n;
+    replacing = false;
     if (saved.legacy) { legacySave = saved.legacy; openCountrySelect(); return; }
     legacySave = null;
     state = saved.state;
@@ -371,7 +373,19 @@ const actions = {
   },
   slotNew: (d) => {
     sfx.click();
+    const c = slotInfo(Number(d.slot));
+    if (c?.save) {
+      openModal(`<h2>New game in career ${c.slot}?</h2>
+        <p><b>${esc(c.name)}</b>${c.legacy ? '' : ` (level ${c.level})`} will be replaced by your new citizen, with all companies and medals. Your other careers are kept. You can still go back until you become a citizen.</p>
+        <div class="row"><button class="btn danger" data-act="slotNewConfirm" data-slot="${c.slot}">Replace career</button><button class="btn" data-act="closeModal">Cancel</button></div>`);
+      return;
+    }
+    actions.slotNewConfirm(d);
+  },
+  slotNewConfirm: (d) => {
+    closeModal();
     pendingSlot = Number(d.slot);
+    replacing = !!slotInfo(pendingSlot)?.save;
     legacySave = null;
     openCountrySelect();
   },
@@ -403,6 +417,8 @@ const actions = {
   menuBack: () => { $('start').hidden = true; legacySave = null; renderMenu(slots, Store.lastPlayedSlot()); },
   openMenu: () => showMenu(),
   startGame: () => {
+    if (replacing && !legacySave) Store.wipe(pendingSlot, { keepCloud: true }); // no backup of the replaced citizen
+    replacing = false;
     Store.setSlot(pendingSlot || 1);
     const name = ($('start-name').value || '').trim().slice(0, 18) || 'Citizen';
     state = legacySave ? G.upgradeLegacy(legacySave, pickedCountry) : G.newGame({ name, country: pickedCountry });

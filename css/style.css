@@ -243,6 +243,8 @@ textarea.code { width: 100%; min-height: 120px; background: var(--bg2); color: v
 .slot-n { flex: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; background: rgba(255,255,255,.06); font-weight: 800; font-size: 18px; }
 .slot-acts { display: flex; flex-direction: column; gap: 6px; flex: none; }
 .slot-acts .btn { white-space: nowrap; }
+.slot-sub { display: flex; gap: 6px; }
+.slot-sub .btn { flex: 1; padding-left: 8px; padding-right: 8px; }
 .menu-card h3.sub { text-align: left; margin: 14px 0 8px; }
 .news { padding: 5px 0; border-bottom: 1px dashed #243049; font-size: 13px; }
 .news:last-child { border-bottom: 0; }
