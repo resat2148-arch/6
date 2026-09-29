@@ -9,6 +9,10 @@ import {
 } from './world.js';
 import { clamp, pick, randRange, shuffle, dayKey } from './util.js';
 import { createCitizens, seedMarket, citizensStep, topCitizen, feed } from './citizens.js';
+import { articleTitle, addArticle, botPopularity } from './press.js';
+import {
+  candidates, vote, estimateChance, congressSeats, electForeignPresidents, seatInitialGovernments, CAMPAIGN_COST,
+} from './elections.js';
 import {
   takeOffers, listOffer, traderPrice, quote, offersFor, importPrice,
 } from './market.js';
@@ -49,11 +53,14 @@ export function newGame({ name, country, now = Date.now(), seed = Math.floor(Mat
     market: { prices, offers: [], nextOfferId: 1, sold: {} },
     citizens: createCitizens(seed),
     feed: [],
+    articles: [],
+    nextArticleId: 1,
+    presidents: {},
     world,
     politics: {
       party: false, congress: false, president: false, candidate: null,
       electionType: 'congress', nextElection: now + CONFIG.electionEveryMs,
-      presidentName: pick(PRESIDENT_NAMES), policy: null, news: null,
+      presidentName: pick(PRESIDENT_NAMES), policy: null, news: null, lastResult: null, voted: [],
     },
     medals: {},
     counters: {},
@@ -64,8 +71,9 @@ export function newGame({ name, country, now = Date.now(), seed = Math.floor(Mat
     settings: { muted: false },
   };
   seedMarket(s);
-  const top = topCitizen(s, country);
-  if (top) s.politics.presidentName = top.n;
+  seatInitialGovernments(s);
+  const pres = s.citizens[s.presidents[country]];
+  if (pres) s.politics.presidentName = pres.n;
   return s;
 }
 
@@ -88,6 +96,12 @@ export function migrate(saved, now = Date.now()) {
   };
   const s = merge(fresh, saved);
   s.world = saved.world;
+  // Saves from before AI politics: give every nation a government.
+  if (saved.citizens && !saved.citizens.some((b) => b.amb !== undefined)) {
+    s.presidents = {};
+    s.citizens.forEach((b) => { b.amb = Math.random(); b.cong = false; b.pres = false; });
+    seatInitialGovernments(s);
+  }
   s.v = SAVE_VERSION;
   return s;
 }
@@ -476,15 +490,34 @@ export function joinParty(s) {
   return ok();
 }
 
+export function voteArticle(s, id) {
+  const a = s.articles.find((x) => x.id === id);
+  if (!a) return fail('Article not found.');
+  if (a.a === 'P') return fail('You cannot vote for your own article.');
+  if (s.politics.voted.includes(id)) return fail('You already voted for this article.');
+  s.politics.voted.push(id);
+  if (s.politics.voted.length > 120) s.politics.voted.shift();
+  a.votes++;
+  const b = s.citizens[a.a];
+  if (b?.np) b.np.subs++;
+  addXp(s, 1);
+  count(s, 'vote');
+  return ok();
+}
+
 export const OFFICES = {
   congress: { name: 'Congress', level: 8, cost: 100 },
   president: { name: 'President', level: 15, cost: 500 },
 };
 
-export function winChance(s, office) {
-  const pop = popularity(s);
-  return office === 'congress' ? clamp(0.35 + 0.6 * pop / (pop + 300), 0, 0.95) : clamp(0.2 + 0.7 * pop / (pop + 1000), 0, 0.9);
-}
+// Simulated against the AI citizens who would run against you right now.
+export const winChance = (s, office) => estimateChance(s, office, popularity(s));
+
+export const rivals = (s, office) => candidates(s, office, s.player.country, popularity(s), false)
+  .map((c) => ({ ...c, b: s.citizens[c.id] }));
+
+export const congressOf = (s) => s.citizens.filter((b) => b.c === s.player.country && b.cong);
+export { congressSeats, botPopularity };
 
 export function runFor(s, office) {
   const o = OFFICES[office];
@@ -492,7 +525,6 @@ export function runFor(s, office) {
   if (!s.politics.party) return fail('Join a party first.');
   if (s.player.level < o.level) return fail(`Reach level ${o.level} first.`);
   if (office === 'president' && !s.politics.congress) return fail('You must be a Congress member first.');
-  if (office === 'congress' && s.politics.congress) return fail('You are already in Congress.');
   if (s.politics.candidate) return fail('You are already a candidate.');
   if (s.player.money < o.cost) return fail('Not enough money for the campaign.');
   s.player.money -= o.cost;
@@ -503,24 +535,41 @@ export function runFor(s, office) {
 function resolveElection(s, now) {
   const pol = s.politics;
   const type = pol.electionType;
-  if (type === 'president' && pol.president) {
+  const cid = s.player.country;
+  const running = pol.candidate === type;
+  const cands = candidates(s, type, cid, popularity(s), running);
+  // AI candidates pay for their campaigns too.
+  for (const c of cands) if (c.id !== 'P') s.citizens[c.id].m -= Math.min(s.citizens[c.id].m, CAMPAIGN_COST[type]);
+  const rows = vote(s, cid, cands);
+  const seats = type === 'congress' ? congressSeats(s, cid) : 1;
+  const winners = new Set(rows.slice(0, seats).map((r) => r.id));
+  const home = s.citizens.filter((b) => b.c === cid);
+  if (type === 'congress') {
+    home.forEach((b) => { b.cong = winners.has(b.id); });
+    pol.congress = winners.has('P');
+    const names = rows.slice(0, seats).map((r) => (r.id === 'P' ? s.player.name : s.citizens[r.id].n));
+    if (s.feed) feed(s, `🏛️ New Congress of ${pc(s).name}: ${names.join(', ')}`);
+  } else {
+    home.forEach((b) => { b.pres = false; });
     pol.president = false;
-    pol.policy = null;
-  }
-  if (pol.candidate === type) {
-    const won = Math.random() < winChance(s, type);
-    if (won) {
-      if (type === 'congress') { pol.congress = true; awardMedal(s, 'congressMember'); }
-      else { pol.president = true; pol.presidentName = s.player.name; awardMedal(s, 'president'); }
-      bus.emit('election', { won: true, office: type });
-    } else {
-      if (type === 'president') pol.presidentName = topCitizen(s, s.player.country)?.n || pick(PRESIDENT_NAMES);
-      bus.emit('election', { won: false, office: type });
+    pol.policy = pol.policy && winners.has('P') ? pol.policy : null;
+    const w = rows[0];
+    if (w && w.id === 'P') { pol.president = true; pol.presidentName = s.player.name; }
+    else if (w) { s.citizens[w.id].pres = true; s.presidents[cid] = w.id; pol.presidentName = s.citizens[w.id].n; }
+    if (s.feed && w) feed(s, `👑 ${pol.presidentName} was elected President of ${pc(s).name}`);
+    const foreign = electForeignPresidents(s);
+    if (s.feed && foreign.length) {
+      const big = foreign.filter((b) => ['DE', 'FR', 'GB', 'RU', 'IT', 'ES', 'PL', 'UA'].includes(b.c)).slice(0, 2);
+      for (const b of big) feed(s, `👑 ${b.n} is the new President of ${countryById(b.c).name}`);
     }
-    pol.candidate = null;
-  } else if (type === 'president') {
-    pol.presidentName = topCitizen(s, s.player.country)?.n || pick(PRESIDENT_NAMES);
   }
+  pol.lastResult = { type, t: now, seats, rows: rows.map((r) => ({ id: r.id, votes: r.votes, won: winners.has(r.id) })) };
+  if (running) {
+    const won = winners.has('P');
+    if (won) awardMedal(s, type === 'congress' ? 'congressMember' : 'president');
+    bus.emit('election', { won, office: type });
+  }
+  pol.candidate = null;
   if (pol.congress) s.player.gold += 1;
   if (pol.president) s.player.gold += 2;
   pol.electionType = type === 'congress' ? 'president' : 'congress';
@@ -543,15 +592,22 @@ export function createNewspaper(s, name) {
   return ok();
 }
 
-export function writeArticle(s, now = Date.now()) {
+export function suggestTitle(s) {
+  const p = s.player;
+  return articleTitle(s, { n: p.name, c: p.country, amb: 0.8, lvl: p.level, p: 'w', rp: p.rankPoints, cong: s.politics.congress, pres: s.politics.president });
+}
+
+export function writeArticle(s, title, now = Date.now()) {
   const n = s.politics.news;
   if (!n) return fail('Found a newspaper first.');
   const wait = s.timers.lastArticle + CONFIG.articleCooldownMs - now;
   if (wait > 0) return fail('Your readers need time. Try again soon.');
+  const clean = String(title || '').replace(/\s+/g, ' ').trim().slice(0, 80) || suggestTitle(s);
   s.timers.lastArticle = now;
   const gain = 2 + Math.floor(Math.random() * (4 + n.subs / 20));
   n.subs += gain;
   n.articles++;
+  addArticle(s, 'P', s.player.country, n.name, clean);
   addXp(s, 5);
   count(s, 'article');
   while ((s.medals.mediaMogul || 0) < MEDIA_MILESTONES.length && n.subs >= MEDIA_MILESTONES[s.medals.mediaMogul || 0]) {

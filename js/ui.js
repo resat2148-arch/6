@@ -11,7 +11,7 @@ import { PERSONAS, botRank, citizensOf, sellerName } from './citizens.js';
 import { neighborsOf, regionsOf, isAlive, countryPower, distinctResources, resourceBonus } from './world.js';
 
 const $ = (id) => document.getElementById(id);
-export const ui = { tab: 'home', sel: null, vb: null, dragged: false, rankScope: 'country', rankBy: 'dmg' };
+export const ui = { tab: 'home', sel: null, vb: null, dragged: false, rankScope: 'country', rankBy: 'dmg', pressScope: 'country' };
 
 export const TABS = [
   { id: 'home', icon: '🏠', label: 'Home' },
@@ -629,6 +629,12 @@ function market(s) {
 }
 
 // ------------------------------------------------------------------ politics
+function candName(s, id) {
+  if (id === 'P') return `${flagSvg(s.player.country)} <b>${esc(s.player.name)}</b> <span class="pill gold">you</span>`;
+  const b = s.citizens[id];
+  return b ? `${flagSvg(b.c)} ${esc(b.n)}` : '?';
+}
+
 function politics(s) {
   const pol = s.politics;
   const c = G.pc(s);
@@ -638,38 +644,70 @@ function politics(s) {
   const news = pol.news;
   const now = Date.now();
   const artWait = s.timers.lastArticle + CONFIG.articleCooldownMs - now;
+  const seats = G.congressSeats(s, c.id);
+  const congress = G.congressOf(s);
+  const rivals = G.rivals(s, office).slice(0, 6);
+  const canRun = pol.party && !pol.candidate && s.player.level >= o.level && (office === 'congress' || pol.congress);
+  const chance = Math.round(G.winChance(s, office) * 100);
   let runHtml;
-  if (pol.candidate) runHtml = `<p>🗳️ You are running for <b>${G.OFFICES[pol.candidate].name}</b>. Win chance ~${Math.round(G.winChance(s, pol.candidate) * 100)}%.</p>`;
-  else {
-    const offices = Object.entries(G.OFFICES).filter(([k]) => !(k === 'congress' && pol.congress));
-    runHtml = offices.map(([k, of]) => `<div class="kv"><span>Run for ${of.name} (Lv ${of.level}+, ~${Math.round(G.winChance(s, k) * 100)}%)</span>${btn(`💰${of.cost}`, 'run', `data-office="${k}"`, 'small')}</div>`).join('');
-  }
+  if (!pol.party) runHtml = `<p>Join a party to start your political career.</p>${btn('Join party', 'joinParty', '', 'primary')} <small class="muted">Level 3+</small>`;
+  else if (pol.candidate) runHtml = `<p>🗳️ You are running for <b>${G.OFFICES[pol.candidate].name}</b>. Estimated chance: <b>${chance}%</b></p>`;
+  else if (canRun) runHtml = `<div class="kv"><span>Run for ${o.name} (estimated chance ${chance}%)</span>${btn(`💰${o.cost}`, 'run', `data-office="${office}"`, 'small primary')}</div>`;
+  else runHtml = `<p class="muted small">${office === 'president' && !pol.congress ? 'Only Congress members can run for President.' : `Reach level ${o.level} to run for ${o.name}.`}</p>`;
+  const last = pol.lastResult;
+  const total = last ? last.rows.reduce((a, r) => a + r.votes, 0) || 1 : 1;
+  const press = s.articles.filter((a) => ui.pressScope === 'world' || a.c === c.id).slice(0, 12);
+  const papers = [...s.citizens.filter((b) => b.np).map((b) => ({ name: b.np.name, subs: b.np.subs, c: b.c, owner: b.n })),
+    ...(news ? [{ name: news.name, subs: news.subs, c: s.player.country, owner: s.player.name, you: true }] : [])]
+    .sort((a, b) => b.subs - a.subs).slice(0, 6);
+  const voted = new Set(pol.voted);
   return `<section class="grid">
     <div class="card" style="--cc:${c.color}">
       <h3>${flagSvg(c.id, 'flag big')} ${c.name}</h3>
-      <div class="kv"><span>President</span><b>${pol.president ? '👑 You' : `${esc(pol.presidentName)} <small class="muted">(AI citizen)</small>`}</b></div>
+      <div class="kv"><span>President</span><b>${pol.president ? '👑 You' : esc(pol.presidentName)}</b></div>
       <div class="kv"><span>Your role</span><b>${role}</b></div>
-      <div class="kv"><span>Citizens</span><b>${citizensOf(s, c.id).length + 1}</b></div>
-      <div class="kv"><span>Regions</span><b>${regionsOf(s.world, c.id).length}</b></div>
-      <div class="kv"><span>Military power</span><b>${countryPower(s.world, c.id).toFixed(2)}</b></div>
-      <div class="kv"><span>Popularity</span><b>${fmt(G.popularity(s))}</b></div>
-      ${pol.president ? `<h3>📜 National policy</h3>${Object.entries(POLICIES).map(([k, p]) => `<div class="kv"><span>${p.name} <small class="muted">${p.desc}</small></span>${pol.policy === k ? '<b class="green">Active</b>' : btn('Enact', 'policy', `data-key="${k}"`, 'small')}</div>`).join('')}
+      <div class="kv"><span>Your popularity</span><b>${fmt(G.popularity(s))}</b></div>
+      <div class="kv"><span>Citizens · Regions</span><b>${citizensOf(s, c.id).length + 1} · ${regionsOf(s.world, c.id).length}</b></div>
+      <h3 class="sub">🏛️ Congress (${seats} seats)</h3>
+      <div class="members">${pol.congress ? `<div class="kv"><span>${candName(s, 'P')}</span><b>🏛️</b></div>` : ''}
+      ${congress.map((b) => `<div class="kv"><span>${candName(s, b.id)}${b.pres ? ' 👑' : ''}</span><small class="muted">popularity ${fmt(G.botPopularity(b))}</small></div>`).join('')}</div>
+      ${pol.president ? `<h3 class="sub">📜 National policy</h3>${Object.entries(POLICIES).map(([k, p]) => `<div class="kv"><span>${p.name} <small class="muted">${p.desc}</small></span>${pol.policy === k ? '<b class="green">Active</b>' : btn('Enact', 'policy', `data-key="${k}"`, 'small')}</div>`).join('')}
         <p class="muted small">As President you choose where to attack: open the Map and declare war on a bordering region.</p>` : ''}
     </div>
     <div class="card">
-      <h3>🗳️ Elections</h3>
-      <div class="kv"><span>Next: ${o.name} election</span><b data-cd="${pol.nextElection}"></b></div>
-      ${pol.party ? runHtml : `<p>Join a party to start your political career.</p>${btn('Join party', 'joinParty', '', 'primary')} <small class="muted">Level 3+</small>`}
-      <p class="muted small">Congress: +20% salary, +1 🪙 per election. President: +2 🪙 per election, declares wars and sets national policy. Popularity (level, medals, newspaper subscribers) raises your chances.</p>
+      <h3>🗳️ ${o.name} election</h3>
+      <div class="kv"><span>Voting ends in</span><b data-cd="${pol.nextElection}"></b></div>
+      ${pol.congress && office === 'congress' ? '<p class="small">⚠️ Your Congress seat is up for election. Run again to keep it.</p>' : ''}
+      ${runHtml}
+      <h3 class="sub">Rivals</h3>
+      ${rivals.length ? rivals.map((r) => `<div class="kv"><span>${candName(s, r.id)}${r.b.cong ? ' 🏛️' : ''}${r.b.np ? ` <small class="muted">📰 ${esc(r.b.np.name)}</small>` : ''}</span><small class="muted">popularity ${fmt(r.pop)}</small></div>`).join('') : '<p class="muted small">No rivals yet.</p>'}
+      <p class="muted small">${office === 'congress' ? `The ${seats} candidates with the most votes win a seat.` : 'The candidate with the most votes becomes President.'} Votes follow popularity: level, military rank, newspaper subscribers and office. Congress: +20% salary, +1 🪙 per election. President: +2 🪙, declares wars, sets policy.</p>
+      ${last ? `<h3 class="sub">Last ${last.type === 'congress' ? 'Congress' : 'presidential'} election</h3>
+        ${last.rows.map((r) => `<div class="vote-row ${r.won ? 'won' : ''}"><span>${candName(s, r.id)}</span><div class="bar thin"><div style="width:${((r.votes / total) * 100).toFixed(1)}%"></div></div><small>${fmt(r.votes)} (${Math.round((r.votes / total) * 100)}%)${r.won ? ' ✔' : ''}</small></div>`).join('')}` : ''}
     </div>
     <div class="card">
-      <h3>📰 Newspaper</h3>
+      <h3>📰 Your newspaper</h3>
       ${news ? `<div class="kv"><span>${esc(news.name)}</span><b>${fmt(news.subs)} subscribers</b></div>
         <div class="kv"><span>Articles</span><b>${news.articles}</b></div>
-        ${btn(artWait > 0 ? `Next article in <span data-cd="${s.timers.lastArticle + CONFIG.articleCooldownMs}"></span>` : '✍️ Publish article (+5 XP)', 'article', artWait > 0 ? 'disabled' : '', 'primary')}`
+        <label class="field"><span>Headline</span><input id="article-title" maxlength="80" placeholder="${esc(G.suggestTitle(s))}"></label>
+        ${btn(artWait > 0 ? `Next article in <span data-cd="${s.timers.lastArticle + CONFIG.articleCooldownMs}"></span>` : '✍️ Publish article (+5 XP)', 'article', artWait > 0 ? 'disabled' : '', 'primary')}
+        <p class="muted small">Leave the headline empty to use the suggestion. Readers' votes bring new subscribers.</p>`
       : `<p class="muted">Found a newspaper to gain subscribers, popularity and the Media Mogul medal.</p>
         <label class="field"><span>Name</span><input id="news-name" maxlength="28" placeholder="The ${c.name} Herald"></label>
         ${btn('Found newspaper (🪙2)', 'newspaper', '', 'primary')} <small class="muted">Level 5+</small>`}
+      <h3 class="sub">🏆 Top newspapers</h3>
+      ${papers.map((p) => `<div class="kv ${p.you ? 'me' : ''}"><span>${flagSvg(p.c)} ${esc(p.name)} <small class="muted">${esc(p.owner)}</small></span><b>${fmt(p.subs)}</b></div>`).join('')}
+    </div>
+    <div class="card span2">
+      <div class="row spread"><h3>🗞️ Press</h3>
+        <div class="row">${['country', 'world'].map((v) => `<button class="btn small ${ui.pressScope === v ? 'primary' : 'ghost'}" data-act="rankSet" data-k="pressScope" data-v="${v}">${v === 'country' ? c.name : 'Europe'}</button>`).join('')}</div></div>
+      ${press.length ? press.map((a) => {
+        const au = a.a === 'P' ? { n: s.player.name, c: s.player.country } : s.citizens[a.a];
+        return `<div class="article">
+          <div class="grow"><b>${esc(a.title)}</b><br><small class="muted">${flagSvg(au.c)} ${esc(au.n)} · ${esc(a.paper)} · ${ago(Date.now() - a.t)}</small></div>
+          ${a.a === 'P' || voted.has(a.id) ? `<small class="votes">👍 ${a.votes}</small>` : btn(`👍 ${a.votes}`, 'voteArticle', `data-id="${a.id}"`, 'small ghost')}
+        </div>`;
+      }).join('') : '<p class="muted">No articles yet. Citizens publish every few minutes.</p>'}
     </div>
   </section>`;
 }
@@ -684,9 +722,9 @@ const RANK_BY = {
 
 function people(s) {
   const p = s.player;
-  const me = { n: p.name, c: p.country, lvl: p.level, xp: p.xp, str: p.strength, dmg: p.damage, m: p.money, rank: G.rankName(s), you: true };
+  const me = { n: p.name, c: p.country, lvl: p.level, xp: p.xp, str: p.strength, dmg: p.damage, m: p.money, rank: G.rankName(s), you: true, pres: s.politics.president, cong: s.politics.congress, np: s.politics.news };
   const pool = (ui.rankScope === 'country' ? citizensOf(s, p.country) : s.citizens)
-    .map((b) => ({ n: b.n, c: b.c, lvl: b.lvl, xp: b.xp, str: b.str, dmg: b.dmg, m: b.m, rank: botRank(b), p: b.p, co: b.co }));
+    .map((b) => ({ n: b.n, c: b.c, lvl: b.lvl, xp: b.xp, str: b.str, dmg: b.dmg, m: b.m, rank: botRank(b), p: b.p, co: b.co, pres: b.pres, cong: b.cong, np: b.np }));
   pool.push(me);
   const val = RANK_BY[ui.rankBy].val;
   pool.sort((a, b) => val(b) - val(a));
@@ -702,7 +740,7 @@ function people(s) {
       <div class="row rank-by">${Object.entries(RANK_BY).map(([k, r]) => tabBtn('rankBy', k, r.label)).join('')}</div>
       <div class="ranking">${shown.map((x, i) => `<div class="rk ${x.you ? 'me' : ''}">
         <b class="pos">${i + 1}</b>${flagSvg(x.c)}
-        <span class="grow"><b>${esc(x.n)}</b>${x.you ? ' <span class="pill gold">you</span>' : ''}<br><small class="muted">Lv ${x.lvl} · ${x.rank}${x.p ? ` · ${PERSONAS[x.p].icon} ${PERSONAS[x.p].name}` : ''}${x.co ? ` · owns ${COMPANY_TYPES[x.co.t].icon}` : ''}</small></span>
+        <span class="grow"><b>${esc(x.n)}</b>${x.you ? ' <span class="pill gold">you</span>' : ''}${x.pres ? ' 👑' : x.cong ? ' 🏛️' : ''}${x.np ? ' 📰' : ''}<br><small class="muted">Lv ${x.lvl} · ${x.rank}${x.p ? ` · ${PERSONAS[x.p].icon} ${PERSONAS[x.p].name}` : ''}${x.co ? ` · owns ${COMPANY_TYPES[x.co.t].icon}` : ''}</small></span>
         <b>${showVal(x)}</b></div>`).join('')}</div>
       ${myPos > 15 ? `<p class="muted small">You are #${myPos} of ${pool.length}.</p>` : ''}
     </div>

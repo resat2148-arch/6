@@ -7,6 +7,7 @@ import { EU_REGIONS } from './europe.js';
 import { citizenName } from './names.js';
 import { takeOffers, listOffer, offersFor, pruneOffers } from './market.js';
 import { mulberry32, pick, clamp } from './util.js';
+import { pressStep, newspaperName } from './press.js';
 
 // Personalities: chance per world tick to fight / work / train, and how often they found companies.
 export const PERSONAS = {
@@ -45,8 +46,9 @@ export function createCitizens(seed) {
         str: Math.round(100 + lvl * 35 * (0.6 + rnd() * 0.8)),
         rp: rankThreshold(Math.floor(lvl * 1.5 * (0.5 + rnd() * 0.7))),
         m: Math.round(80 + lvl * 40 * rnd()), e: 100, fe: 150, w: [0, 0, 0, 0, 0, 0],
-        dmg: 0, co: null, stock: 0, px: 0, last: 0,
+        dmg: 0, co: null, stock: 0, px: 0, last: 0, amb: rnd(), np: null, cong: false, pres: false,
       };
+      if (lvl >= 5 && (b.amb > 0.65 || rnd() < 0.08)) b.np = { name: newspaperName(b, rnd), subs: Math.floor(lvl * (2 + rnd() * 10)), articles: 0 };
       b.w[clamp(Math.ceil(lvl / 7), 1, 5)] = 100 + lvl * 15;
       if (rnd() < PERSONAS[p].company) {
         b.co = { t: weighted(COMPANY_WEIGHTS, rnd), q: clamp(1 + Math.floor(lvl / 8 + rnd() * 2), 1, 5), l: clamp(1 + Math.floor(rnd() * 3 + lvl / 8), 1, 10) };
@@ -121,6 +123,7 @@ export function citizensStep(s, now) {
     grow(s, b, news);
   }
   pruneOffers(s);
+  pressStep(s, { budget: news.budget, feed: (t) => feed(s, t) });
 }
 
 function fight(s, b, { c, side }, news) {

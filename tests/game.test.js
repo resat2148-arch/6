@@ -189,19 +189,58 @@ test('daily missions reset per day and login streak grows', () => {
   assert.ok(s.daily.loginPending);
 });
 
-test('elections: winning congress awards medal', () => {
+test('elections: AI candidates run, seats fill, a popular player wins', () => {
   const s = fresh();
   s.player.level = 10;
   s.player.money = 1000;
   assert.equal(G.runFor(s, 'congress').ok, false, 'needs party');
   assert.ok(G.joinParty(s).ok);
   assert.ok(G.runFor(s, 'congress').ok);
-  const rnd = Math.random;
-  Math.random = () => 0;
-  try { G.tick(s, s.politics.nextElection); } finally { Math.random = rnd; }
+  s.politics.news = { name: 'Test Times', subs: 100000, articles: 0 };
+  assert.ok(G.winChance(s, 'congress') > 0.9);
+  G.tick(s, s.politics.nextElection);
+  const res = s.politics.lastResult;
+  assert.equal(res.type, 'congress');
+  assert.ok(res.rows.length > res.seats, 'more candidates than seats');
+  assert.equal(res.rows.filter((r) => r.won).length, res.seats);
   assert.equal(s.politics.congress, true);
   assert.equal(s.medals.congressMember, 1);
-  assert.equal(s.politics.electionType, 'president');
+  assert.equal(G.congressOf(s).length, res.seats - 1, 'other seats go to AI citizens');
+  // Presidential election: AI congress members compete.
+  G.tick(s, s.politics.nextElection);
+  assert.equal(s.politics.lastResult.type, 'president');
+  const presBots = s.citizens.filter((b) => b.c === 'TR' && b.pres);
+  assert.ok(presBots.length === 1 && s.politics.presidentName === presBots[0].n, 'an AI citizen governs');
+  assert.ok(Object.keys(s.presidents).length >= 30, 'foreign nations elected presidents');
+});
+
+test('elections: an unknown candidate loses to strong rivals and loses the seat', () => {
+  const s = fresh();
+  s.politics.party = true;
+  s.politics.congress = true;
+  s.player.level = 8;
+  s.player.money = 1000;
+  for (const b of s.citizens.filter((x) => x.c === 'TR')) { b.lvl = 30; b.amb = 1; b.np = { name: 'X', subs: 5000, articles: 0 }; }
+  assert.ok(G.winChance(s, 'congress') < 0.1);
+  G.tick(s, s.politics.nextElection);
+  assert.equal(s.politics.congress, false, 'did not run again: seat lost');
+});
+
+test('press: citizens publish, player articles and votes', () => {
+  const s = fresh();
+  assert.ok(s.citizens.some((b) => b.np), 'some citizens own newspapers');
+  for (let i = 1; i <= 30; i++) G.tick(s, T0 + i * CONFIG.aiTickMs);
+  assert.ok(s.articles.length > 0, 'citizens published');
+  const a = s.articles.find((x) => x.a !== 'P');
+  assert.ok(a.title.length > 5);
+  assert.ok(G.voteArticle(s, a.id).ok);
+  assert.equal(G.voteArticle(s, a.id).ok, false, 'one vote per article');
+  s.player.level = 5;
+  s.player.gold = 10;
+  assert.ok(G.createNewspaper(s, 'Daily Test').ok);
+  assert.ok(G.writeArticle(s, 'Hello Europe', T0 + 99 * CONFIG.aiTickMs).ok);
+  assert.equal(s.articles[0].title, 'Hello Europe');
+  assert.equal(s.articles[0].a, 'P');
 });
 
 test('save migration keeps progress and fills new fields', () => {

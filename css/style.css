@@ -207,6 +207,15 @@ svg.map.zoomed .lbl { display: inline; }
 .rk { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px; background: rgba(0,0,0,.18); }
 .rk.me { background: rgba(245, 184, 61, .14); border: 1px solid rgba(245, 184, 61, .35); }
 .rk .pos { width: 22px; text-align: center; color: var(--muted); }
+h3.sub { margin-top: 14px; font-size: 13.5px; color: var(--muted); }
+.vote-row { display: grid; grid-template-columns: minmax(0, 1.4fr) 1fr auto; gap: 8px; align-items: center; padding: 4px 0; font-size: 13px; }
+.vote-row .bar { margin: 0; }
+.vote-row.won span { font-weight: 700; }
+.vote-row small { font-variant-numeric: tabular-nums; }
+.article { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px dashed #243049; }
+.article:last-child { border-bottom: 0; }
+.article svg.flag, .members svg.flag, .vote-row svg.flag { width: 16px; height: 11px; }
+.votes { color: var(--muted); white-space: nowrap; }
 .news { padding: 5px 0; border-bottom: 1px dashed #243049; font-size: 13px; }
 .news:last-child { border-bottom: 0; }
 .nations { max-height: 340px; overflow: auto; padding-right: 4px; }

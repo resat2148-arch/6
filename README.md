@@ -45,6 +45,8 @@ Zip dosyasını CrazyGames Developer Portal → *Submit game* → *HTML5* olarak
 | `js/citizens.js` | Yapay zekâ vatandaşları: çalışma, antrenman, savaş, üretim, alışveriş, yatırım |
 | `js/market.js` | İlan tahtası pazarı (alış, ilan verme, ithalat, tüccar) |
 | `js/names.js` | Ülkelere göre isim havuzları |
+| `js/elections.js` | Yapay zekâ adaylı Kongre ve başkanlık seçimleri |
+| `js/press.js` | Vatandaş gazeteleri, makale başlıkları, okur oyları |
 | `js/battle.js` | Canvas savaş mini oyunu |
 | `js/ui.js` | Sekme ekranları (Home, War, Map, Economy, Market, Politics, Medals) |
 | `js/sdk.js` | CrazyGames SDK sarmalayıcısı (SDK yoksa güvenli geri dönüş) |
