@@ -150,6 +150,23 @@ export function moveIn(s, q, now = Date.now()) {
   count(s, 'moveIn');
   return ok({ until: s.housing[q] });
 }
+// A house you live in can be sold back: a trader pays for the time left on it.
+export function livedHouseValue(s, q, now = Date.now()) {
+  const left = (s.housing?.[q] || 0) - now;
+  if (left <= 0) return 0;
+  return traderPrice(s, 'house' + q) * Math.min(1, left / CONFIG.houseDurationMs);
+}
+
+export function sellLivedHouse(s, q, now = Date.now()) {
+  if (!HOUSES[q]) return fail('Unknown house.');
+  const gain = livedHouseValue(s, q, now);
+  if (gain <= 0) return fail(`You don't live in a ${HOUSES[q].name}.`);
+  delete s.housing[q];
+  s.player.money += gain;
+  s.player.energy = Math.min(s.player.energy, maxEnergy(s));
+  count(s, 'houseSold');
+  return ok({ gain });
+}
 export const maxReserve = (s) => maxEnergy(s) * 3;
 export const xpToNext = xpToNextLevel;
 export const division = (lvl) => (lvl < 10 ? 1 : lvl < 20 ? 2 : lvl < 35 ? 3 : 4);

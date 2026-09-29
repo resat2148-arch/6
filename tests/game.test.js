@@ -441,3 +441,25 @@ test('country ranking covers every nation and tracks battle records', () => {
   assert.equal(s.nationStats[loser].lost, 1);
   for (const by of Object.keys(G.NATION_METRICS)) assert.equal(G.nationRanking(s, by).length, COUNTRIES.length);
 });
+
+test('houses can be sold: unused ones on the market, lived-in ones for their time left', () => {
+  const s = fresh();
+  s.inv.house[2] = 2;
+  const m0 = s.player.money;
+  const r = G.sell(s, 'house2', 1);
+  assert.ok(r.ok);
+  assert.equal(s.inv.house[2], 1);
+  assert.ok(Math.abs(s.player.money - m0 - G.traderPrice(s, 'house2')) < 1e-9);
+  assert.ok(G.postOffer(s, 'house2', 1, 150).ok, 'listed for citizens');
+  assert.equal(s.inv.house[2], 0);
+  s.inv.house[3] = 1;
+  assert.ok(G.moveIn(s, 3, T0).ok);
+  const half = T0 + CONFIG.houseDurationMs / 2;
+  const value = G.livedHouseValue(s, 3, half);
+  assert.ok(Math.abs(value - G.traderPrice(s, 'house3') / 2) < 1e-9, 'half the time left = half the price');
+  const m1 = s.player.money;
+  assert.ok(G.sellLivedHouse(s, 3, half).ok);
+  assert.ok(Math.abs(s.player.money - m1 - value) < 1e-9);
+  assert.equal(s.housing[3], undefined, 'moved out');
+  assert.equal(G.sellLivedHouse(s, 3, half).ok, false);
+});

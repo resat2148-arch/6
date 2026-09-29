@@ -612,6 +612,32 @@ export function listModal(s, key) {
     <div class="row"><button class="btn primary" data-act="postOffer" data-key="${key}">Post offer</button><button class="btn" data-act="closeModal">Cancel</button></div>`;
 }
 
+// Houses you own or live in, with every way to sell them.
+function myHousesSection(s) {
+  const now = Date.now();
+  const rows = [];
+  for (let q = 1; q <= 5; q++) {
+    const h = HOUSES[q];
+    const key = 'house' + q;
+    const owned = s.inv.house[q];
+    if (owned > 0) {
+      rows.push(`<div class="house-sell">
+        <span>${h.icon} <b>${h.name} Q${q}</b> <small class="muted">× ${owned} in storage</small></span>
+        <div class="row">${btn('Move in', 'moveIn', `data-q="${q}"`, 'small primary')}${btn('Post offer', 'listModal', `data-key="${key}"`, 'small')}${btn(`Sell now 💰${priceTxt(G.traderPrice(s, key))}`, 'sell', `data-key="${key}" data-n="1"`, 'small ghost')}</div>
+      </div>`);
+    }
+    if ((s.housing[q] || 0) > now) {
+      rows.push(`<div class="house-sell living">
+        <span>${h.icon} <b>${h.name} Q${q}</b> <small class="muted">you live here · <span data-cd="${s.housing[q]}"></span> left</small></span>
+        <div class="row">${btn(`Move out & sell 💰${priceTxt(G.livedHouseValue(s, q, now))}`, 'sellLivedHouse', `data-q="${q}"`, 'small ghost')}</div>
+      </div>`);
+    }
+  }
+  if (!rows.length) return '<p class="muted small">You have no houses to sell. Buy one below or build them with a Construction company.</p>';
+  return `<div class="my-houses"><h3 class="sub">Your houses</h3>${rows.join('')}
+    <p class="muted small">Unused houses can be listed for citizens or sold instantly. A house you live in sells for the time it has left.</p></div>`;
+}
+
 function myOffersCard(s) {
   const mine = G.myOffers(s);
   return `<div class="card span2">
@@ -635,7 +661,8 @@ function market(s) {
       ${[1, 2, 3, 4, 5].map((q) => marketRow(s, 'weapon' + q)).join('')}
     </div>
     <div class="card">
-      <h3>🏠 Houses</h3><p class="muted small">Move in from the Home tab. Each quality adds max energy and faster energy regen for ${CONFIG.houseDurationMs / 3600000}h; qualities stack.</p>
+      <h3>🏠 Houses</h3><p class="muted small">Each quality adds max energy and faster energy regen for ${CONFIG.houseDurationMs / 3600000}h; qualities stack.</p>
+      ${myHousesSection(s)}
       ${[1, 2, 3, 4, 5].map((q) => marketRow(s, 'house' + q)).join('')}
     </div>
     <div class="card">

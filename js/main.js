@@ -249,6 +249,16 @@ const actions = {
   declareWar: (d) => result(G.declareWar(state, Number(d.id)), () => sfx.alarm()),
   resist: (d) => result(G.startResistance(state, Number(d.id))),
   energyMenu: () => openEnergyMenu(),
+  sellLivedHouse: (d) => {
+    const h = HOUSES[Number(d.q)];
+    openModal(`<h2>${h.icon} Move out of your ${h.name}?</h2>
+      <p>You lose its bonus (+${h.energy} max energy, +${h.regen * 100}% regen) and a trader pays <b>💰${fmtMoney(G.livedHouseValue(state, Number(d.q)))}</b> for the time left.</p>
+      <div class="row"><button class="btn primary" data-act="sellLivedConfirm" data-q="${d.q}">Move out & sell</button><button class="btn" data-act="closeModal">Keep it</button></div>`);
+  },
+  sellLivedConfirm: (d) => {
+    closeModal();
+    result(G.sellLivedHouse(state, Number(d.q)), (r) => { sfx.coin(); toast(`🏠 House sold for 💰${fmtMoney(r.gain)}`, 'good'); });
+  },
   moveIn: (d) => result(G.moveIn(state, Number(d.q)), () => {
     const h = HOUSES[Number(d.q)];
     sfx.win();
