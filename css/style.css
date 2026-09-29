@@ -229,9 +229,6 @@ textarea.code { width: 100%; min-height: 120px; background: var(--bg2); color: v
 .facility.locked > i { filter: grayscale(1); opacity: .6; }
 .stars { color: var(--gold); letter-spacing: 1px; font-size: 12px; }
 .stars .off { color: #3a4764; }
-.my-houses { background: rgba(0,0,0,.15); border-radius: 12px; padding: 4px 10px 8px; margin-bottom: 8px; }
-.house-sell { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #243049; }
-.house-sell.living b { color: var(--gold); }
 .news { padding: 5px 0; border-bottom: 1px dashed #243049; font-size: 13px; }
 .news:last-child { border-bottom: 0; }
 .nations { max-height: 340px; overflow: auto; padding-right: 4px; }
