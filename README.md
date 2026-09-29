@@ -6,6 +6,7 @@
 - Tamamen HTML5 + saf JavaScript (ES modülleri), **derleme adımı yok**, harici görsel/ses dosyası yok (ilk yükleme ~100 KB).
 - Masaüstü ve mobil (dokunmatik) uyumlu.
 - CrazyGames SDK v3 entegre: reklamlar, gameplay sinyalleri, happytime, bulut kayıt.
+- Açılış menüsünde 3 kariyer yuvası: 3 ayrı vatandaş tut, istediğinden devam et.
 
 Tasarım ayrıntıları ve eRepublik → CrazyGames uyarlama kararları: [`docs/GDD.md`](docs/GDD.md)
 
@@ -49,7 +50,7 @@ Zip dosyasını CrazyGames Developer Portal → *Submit game* → *HTML5* olarak
 | `js/press.js` | Vatandaş gazeteleri, makale başlıkları, okur oyları |
 | `js/battle.js` | Canvas savaş mini oyunu |
 | `js/ui.js` | Sekme ekranları (Home, War, Map, Economy, Market, Politics, Medals) |
-| `js/storage.js` | Katmanlı kayıt: cihaz + yedek + bulut (CrazyGames data / önizleme db), yedek kodu |
+| `js/storage.js` | 3 kariyer yuvası; her yuva için katmanlı kayıt: cihaz + yedek + bulut (CrazyGames data / önizleme db), yedek kodu |
 | `js/sdk.js` | CrazyGames SDK sarmalayıcısı (SDK yoksa güvenli geri dönüş) |
 | `js/sfx.js` | WebAudio ile üretilen ses efektleri |
 | `js/main.js` | Açılış, kayıt/yükleme, eylem yönlendirme, reklam akışı |

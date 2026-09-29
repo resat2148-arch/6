@@ -52,14 +52,16 @@ Dünya boş hissettirmesin diye ~210 yapay zekâ vatandaşı var (`js/citizens.j
 
 ## 2.2 Kayıt ve kaldığı yerden devam
 
-- **Açılış menüsü:** Oyun her açılışta menüyle başlar. **Continue** (kayıtlı vatandaş kartıyla: ad, ülke, seviye, son oynama zamanı; kayıt yoksa pasif), **New game** (kayıt varsa onay ister, ülke seçiminden geri dönülebilir), **Settings** (ses, nasıl oynanır, yedek kodu al/geri yükle, kaydı sil) ve **Exit** (kaydeder ve “sekmeyi kapatabilirsin” ekranı gösterir; tarayıcılar sayfanın kendi sekmesini kapatmasına izin vermez). Oyun içindeyken üst çubuktaki ☰ kaydedip menüye döner.
+- **Açılış menüsü ve 3 kariyer:** Oyun her açılışta menüyle başlar. Menüde **3 kariyer yuvası** vardır; her biri ayrı bir vatandaş, ayrı bir dünya ve ayrı bir kayıttır. Dolu yuva kartı bayrak, ad, seviye, ülke, rütbe ve son oynama zamanını gösterir; **▶ Continue** o kariyerden devam eder, **🗑** onay sorup yalnızca o kariyeri siler. Boş yuvada **✚ New game** ülke seçimini açar (geri dönülebilir) ve yeni vatandaş o yuvaya kaydedilir. En son oynanan kariyer “Last played” ile işaretlenir. Altta **Settings** (ses, nasıl oynanır, yedek kodunu seçilen yuvaya geri yükleme) ve **Exit** (kaydeder, “sekmeyi kapatabilirsin” ekranı; tarayıcılar sayfanın kendi sekmesini kapatmasına izin vermez). Oyun içindeyken üst çubuktaki ☰ açık kariyeri kaydedip menüye döner; başka bir kariyere geçmek böyle yapılır. Kariyerlerin dünyaları birbirinden bağımsızdır; kapalı bir kariyerin dünyası, açıldığında aradaki süre kadar ilerletilir.
+- **Tek kayıttan geçiş:** Kariyerlerden önceki tek kayıt (cihaz ve bulut kopyası) ilk açılışta otomatik olarak 1. kariyere taşınır.
 
 Tarayıcıyı kapatan oyuncu ilerlemesini kaybetmez (`js/storage.js`):
 
 - **Anında kayıt:** Her işlemden 0,3 sn sonra, her 5 sn'de bir, savaş raundu bitince, sekme gizlenince ya da kapanınca kaydedilir. Telefonun sekmeyi haber vermeden öldürmesi en fazla birkaç saniyelik işlemi kaybettirir.
 - **Yedek:** Ana kayıt yazılmadan önce son geçerli kayıt yedek yuvasına kopyalanır. Ana kayıt bozulursa yedekten açılır.
 - **Bulut:** CrazyGames'te SDK'nın `data` modülüne yazılır; giriş yapmış oyuncunun ilerlemesi cihazlar arasında taşınır. Claude önizleme bağlantısında oyuncunun özel `db` belgesine yazılır. Açılışta cihaz ve bulut kaydı okunur, en yeni geçerli olan seçilir.
-- **Yedek kodu:** Ayarlar (Medals sekmesi) → "Backup code" ilerlemeyi sıkıştırılmış bir koda (~20 KB) çevirir; "Restore from code" ile başka cihazda devam edilir.
+- **Yedek kodu:** Oyun içinde Medals sekmesi → "Backup code" açık kariyeri sıkıştırılmış bir koda (~20 KB) çevirir. Menüde Settings → "Restore from code" kodu seçilen yuvaya (varsayılan: ilk boş yuva) yükler; oyun içinden geri yükleme açık kariyerin yerine geçer.
+- **Yuva başına katmanlar:** Her kariyerin kendi cihaz anahtarı, yedeği, CrazyGames `data` anahtarı ve önizleme `db` belgesi vardır (kayıt ~80 KB, 3 kariyer toplam ~250 KB).
 - **Sürüm yükseltme:** Eski kurgusal harita kayıtları silinmez; oyuncu yeni bir Avrupa ülkesi seçer, seviye, güç, rütbe, para, envanter, şirketler ve madalyalar korunur.
 - **Yokken geçen zaman:** Dönüşte enerji dolmuş, şirketler (3 saate kadar) üretmiş, dünya savaşları ve seçimler ilerlemiş olur; "Welcome back" penceresi özetler.
 

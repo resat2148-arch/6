@@ -119,24 +119,35 @@ export function liveUpdate(s) {
 }
 
 // ------------------------------------------------------------------ start screen
-// Title screen: New game, Continue, Settings, Exit.
-export function renderMenu(save) {
-  const card = save
-    ? `<div class="save-card">
-        ${save.country ? flagSvg(save.country, 'flag big') : '🗺️'}
-        <div class="grow"><b>${esc(save.name)}</b>
-          <small class="muted">${save.legacy ? 'Saved on the old map · pick a new country to continue' : `Level ${save.level} · ${esc(countryById(save.country)?.name || '')} · ${save.rank}`}</small>
-          <small class="muted">Last played ${ago(Date.now() - save.lastPlayed)}</small></div>
-      </div>`
-    : '<p class="muted small">No saved game on this device yet.</p>';
+// Title screen: three career slots (continue, new, delete), Settings and Exit.
+export function renderMenu(slots, lastSlot) {
+  const cards = slots.map((c) => {
+    if (!c.save) {
+      return `<div class="save-card empty">
+        <div class="slot-n">${c.slot}</div>
+        <div class="grow"><b>Empty career slot</b><small class="muted">Start a new citizen here</small></div>
+        <button class="btn primary small" data-act="slotNew" data-slot="${c.slot}">✚ New game</button>
+      </div>`;
+    }
+    const last = c.slot === lastSlot;
+    return `<div class="save-card ${last ? 'last' : ''}">
+        ${c.country ? flagSvg(c.country, 'flag big') : '<span class="slot-n">🗺️</span>'}
+        <div class="grow"><b>${esc(c.name)}</b>${last ? ' <span class="pill">Last played</span>' : ''}
+          <small class="muted">${c.legacy ? 'Saved on the old map · pick a new country' : `Level ${c.level} · ${esc(countryById(c.country)?.name || '')} · ${c.rank}`}</small>
+          <small class="muted">Career ${c.slot} · last played ${ago(Date.now() - c.lastPlayed)}</small></div>
+        <div class="slot-acts">
+          <button class="btn ${last ? 'primary' : ''} small" data-act="slotPlay" data-slot="${c.slot}">▶ Continue</button>
+          <button class="btn ghost small danger" data-act="slotDelete" data-slot="${c.slot}" title="Delete career">🗑</button>
+        </div>
+      </div>`;
+  }).join('');
   $('menu').innerHTML = `
     <div class="start-card menu-card">
       <div class="logo">⭐ ${GAME_TITLE}</div>
       <p class="tag">Work. Train. Fight. Build an empire and rule a nation.</p>
-      ${card}
+      <h3 class="sub">Your careers</h3>
+      <div class="slots">${cards}</div>
       <div class="menu-buttons">
-        <button class="btn primary big" data-act="menuContinue" ${save ? '' : 'disabled'}>▶ Continue</button>
-        <button class="btn big" data-act="menuNew">✚ New game</button>
         <button class="btn big" data-act="menuSettings">⚙ Settings</button>
         <button class="btn big ghost" data-act="menuExit">⏻ Exit</button>
       </div>
@@ -155,13 +166,13 @@ export function renderGoodbye() {
   $('menu').hidden = false;
 }
 
-export function settingsHtml(hasSave, muted) {
+export function settingsHtml(muted) {
   return `<h2>⚙ Settings</h2>
     <div class="kv"><span>🔊 Sound</span>${btn(muted ? 'Off' : 'On', 'menuMute', '', `small ${muted ? 'ghost' : 'primary'}`)}</div>
     <div class="kv"><span>❓ How to play</span>${btn('Open', 'help', '', 'small')}</div>
     <h3 class="sub">💾 Save</h3>
-    <p class="muted small">Progress saves automatically after every action. Use a backup code to move your citizen to another device.</p>
-    <div class="row">${hasSave ? btn('Backup code', 'exportSave', '', 'small') : ''}${btn('Restore from code', 'importSave', '', 'small ghost')}${hasSave ? btn('Delete save', 'reset', '', 'small ghost danger') : ''}</div>
+    <p class="muted small">Each of your 3 careers saves automatically after every action. Get a career's backup code in game (Medals → Backup code) and restore it here into any slot, on this or another device.</p>
+    <div class="row">${btn('Restore from code', 'importSave', '', 'small ghost')}</div>
     <div class="row"><button class="btn" data-act="closeModal">Close</button></div>`;
 }
 
@@ -606,7 +617,7 @@ function trainingCard(s) {
 }
 
 // ------------------------------------------------------------------ market
-const ago = (ms) => (ms < 60000 ? 'just now' : ms < 3600000 ? `${Math.floor(ms / 60000)}m ago` : `${Math.floor(ms / 3600000)}h ago`);
+const ago = (ms) => (ms < 60000 ? 'just now' : ms < 3600000 ? `${Math.floor(ms / 60000)}m ago` : ms < 172800000 ? `${Math.floor(ms / 3600000)}h ago` : `${Math.floor(ms / 86400000)}d ago`);
 const priceTxt = (p) => (p < 10 ? p.toFixed(p < 1 ? 3 : 2) : fmtMoney(p));
 const who = (s, seller) => { const w = sellerName(s, seller); return `${w.c ? flagSvg(w.c) : ''} ${esc(w.name)}`; };
 
@@ -904,7 +915,7 @@ function medals(s) {
       <h3 class="sub">💾 Save</h3>
       <p class="muted small">Progress saves automatically after every action${saveInfo()}. Closing the browser is safe: you continue where you left off, and your companies keep producing while you are away.</p>
       <div class="row">${btn('Backup code', 'exportSave', '', 'small')}${btn('Restore from code', 'importSave', '', 'small ghost')}</div>
-      ${btn('Reset progress', 'reset', '', 'ghost danger')}
+      ${btn('Delete this career', 'reset', '', 'ghost danger')}
     </div>
   </section>`;
 }

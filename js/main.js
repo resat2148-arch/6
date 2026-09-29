@@ -36,7 +36,10 @@ const $ = (id) => document.getElementById(id);
 // ------------------------------------------------------------------ persistence
 let saveTimer = 0;
 let legacySave = null; // a v1 save waiting for the player to pick a real country
-let pendingLoad = null; // a save read at boot, shown on the title screen until the player continues
+let pendingLoad = null; // the save just read from a slot, until its catch-up summary is shown
+let pendingSlot = 0; // the career slot a new citizen will be saved into
+let slots = []; // title screen summaries of the careers
+let loadingSlot = false;
 let loopsStarted = false;
 const MUTE_KEY = 'republic-rising-muted';
 const menuMuted = () => { try { return localStorage.getItem(MUTE_KEY) === '1'; } catch { return false; } };
@@ -57,16 +60,31 @@ function saveAndFlush() {
   Store.flushCloud();
 }
 
-// Newest readable save across device, backup and cloud; old map versions are kept for upgrading.
-async function load() {
-  const found = await Store.loadCandidates();
+// Newest readable save of a career across device, backup and cloud; old map versions are kept for upgrading.
+async function load(n) {
+  const found = await Store.loadCandidates(n);
   for (const { save: raw, source } of found) {
-    if (G.isLegacySave(raw)) { legacySave = raw; return null; }
+    if (G.isLegacySave(raw)) return { legacy: raw };
     const s = G.migrate(raw);
     if (s) return { state: s, source };
   }
   return null;
 }
+
+// What the title screen shows about each career.
+async function refreshSlots() {
+  const found = await Store.slotSummaries();
+  slots = found.map(({ slot, save: raw }) => {
+    if (!raw) return { slot, save: null };
+    const legacy = G.isLegacySave(raw);
+    let rank = '';
+    try { rank = G.rankName(raw); } catch { /* shown without a rank */ }
+    return { slot, save: true, legacy, name: raw.player.name || 'Citizen', country: legacy ? null : raw.player.country,
+      level: raw.player.level || 1, rank, lastPlayed: raw.lastTick || Date.now() };
+  });
+  return slots;
+}
+const slotInfo = (n) => slots.find((c) => c.slot === n);
 
 // ------------------------------------------------------------------ events from the rules engine
 G.bus.on('toast', ({ text, kind }) => {
@@ -274,14 +292,22 @@ const actions = {
   },
   claimLogin: () => { const r = G.claimLogin(state); closeModal(); if (r.ok) { sfx.coin(); toast(`🎁 ${G.rewardText(r.reward)}`, 'gold'); } refresh(); },
   claimLoginDouble: () => { closeModal(); rewarded(() => { const r = G.claimLogin(state, 2); if (r.ok) toast(`🎁 2× ${G.rewardText(r.reward)}`, 'gold'); }); },
-  reset: () => openModal(`<h2>Reset progress?</h2><p>This deletes your citizen, companies and medals.</p>
-    <div class="row"><button class="btn danger" data-act="resetConfirm">Delete everything</button><button class="btn" data-act="closeModal">Cancel</button></div>`),
-  resetConfirm: () => { Store.wipe(); state = null; location.reload(); },
+  reset: () => openModal(`<h2>Delete this career?</h2><p>This deletes <b>${esc(state.player.name)}</b> with all companies and medals. Your other careers are kept.</p>
+    <div class="row"><button class="btn danger" data-act="resetConfirm">Delete career</button><button class="btn" data-act="closeModal">Cancel</button></div>`),
+  resetConfirm: () => {
+    clearTimeout(saveTimer);
+    saveTimer = 0;
+    Store.wipe(Store.currentSlot());
+    state = null; // nothing left to save
+    started = false;
+    SDK.gameplayStop();
+    showMenu();
+  },
   exportSave: async () => {
     save();
     const code = await Store.exportCode(state);
     openModal(`<h2>💾 Backup code</h2>
-      <p class="muted small">Keep this code somewhere safe. Paste it on another device (Medals → Restore from code) to continue there.</p>
+      <p class="muted small">This code holds career ${Store.currentSlot()} (${esc(state.player.name)}). Keep it somewhere safe and paste it on another device (Main menu → Settings → Restore from code) to continue there.</p>
       <textarea id="save-code" class="code" readonly>${code}</textarea>
       <div class="row"><button class="btn primary" data-act="copyCode">Copy</button><button class="btn" data-act="closeModal">Close</button></div>`);
   },
@@ -290,20 +316,37 @@ const actions = {
     navigator.clipboard?.writeText(el.value).then(() => toast('Backup code copied.', 'good')).catch(() => { el.select(); toast('Select the code and copy it.', 'info'); });
     if (!navigator.clipboard) { el.select(); toast('Select the code and copy it.', 'info'); }
   },
-  importSave: () => openModal(`<h2>♻️ Restore from code</h2>
-    <p class="muted small">This replaces your current progress with the backup.</p>
-    <textarea id="save-code" class="code" placeholder="RR1:..."></textarea>
-    <div class="row"><button class="btn primary" data-act="importConfirm">Restore</button><button class="btn" data-act="closeModal">Cancel</button></div>`),
+  importSave: () => {
+    // In game the code replaces the open career; on the title screen the player picks the slot.
+    const pick = state ? '' : `<label class="field"><span>Restore into</span><select id="import-slot">${slots.map((c) => `
+      <option value="${c.slot}" ${c.save ? '' : 'selected'}>Career ${c.slot} — ${c.save ? `${esc(c.name)} (replaced)` : 'empty'}</option>`).join('')}</select></label>`;
+    const first = slots.find((c) => !c.save);
+    openModal(`<h2>♻️ Restore from code</h2>
+      <p class="muted small">${state ? `This replaces career ${Store.currentSlot()} (${esc(state.player.name)}) with the backup.` : 'Pick the career slot the backup goes into. A citizen already in that slot is replaced.'}</p>
+      ${pick}
+      <textarea id="save-code" class="code" placeholder="RR1:..."></textarea>
+      <div class="row"><button class="btn primary" data-act="importConfirm">Restore</button><button class="btn" data-act="closeModal">Cancel</button></div>`);
+    const sel = $('import-slot');
+    if (sel) sel.value = String(first ? first.slot : Store.lastPlayedSlot() || 1);
+  },
   importConfirm: async () => {
     try {
       const raw = await Store.importCode($('save-code').value);
       const s = G.isLegacySave(raw) ? G.upgradeLegacy(raw, state?.player.country || pickedCountry) : G.migrate(raw);
       if (!s) throw new Error('This backup is from an incompatible version.');
       s.lastTick = Math.min(s.lastTick, Date.now());
-      state = s; // the unload handlers below save this state, not the one being replaced
+      const target = state ? Store.currentSlot() : Number($('import-slot').value) || 1;
+      clearTimeout(saveTimer);
+      saveTimer = 0;
+      Store.setSlot(target);
+      state = s; // the save handlers now write this state into the chosen slot
       Store.saveNow(s);
       Store.flushCloud();
-      location.reload();
+      closeModal();
+      if (started) { started = false; SDK.gameplayStop(); }
+      pendingLoad = null;
+      continueGame();
+      toast(`♻️ Backup restored into career ${target}.`, 'gold');
     } catch (e) { sfx.error(); toast(e.message || 'Could not read that code.', 'bad'); }
   },
   pickCountry: (d, el) => {
@@ -311,37 +354,56 @@ const actions = {
     document.querySelectorAll('.country-card').forEach((b) => b.classList.toggle('sel', b === el));
     sfx.click();
   },
-  menuContinue: () => {
+  slotPlay: async (d) => {
+    if (loadingSlot) return;
     sfx.click();
-    if (legacySave) { openCountrySelect(); return; }
-    if (state) continueGame();
+    const n = Number(d.slot);
+    loadingSlot = true;
+    const saved = await load(n).finally(() => { loadingSlot = false; });
+    if (!saved) { toast('This save is from an incompatible version and cannot be continued.', 'bad'); return; }
+    Store.setSlot(n);
+    pendingSlot = n;
+    if (saved.legacy) { legacySave = saved.legacy; openCountrySelect(); return; }
+    legacySave = null;
+    state = saved.state;
+    pendingLoad = saved;
+    continueGame();
   },
-  menuNew: () => {
+  slotNew: (d) => {
     sfx.click();
-    const info = menuInfo();
-    if (!info) { openCountrySelect(); return; }
-    openModal(`<h2>Start a new game?</h2>
-      <p>Your current citizen <b>${esc(info.name)}</b>${info.level ? ` (level ${info.level})` : ''} will be replaced when you become a new citizen. You can still go back until then.</p>
-      <div class="row"><button class="btn primary" data-act="menuNewConfirm">Start a new game</button><button class="btn" data-act="closeModal">Cancel</button></div>`);
+    pendingSlot = Number(d.slot);
+    legacySave = null;
+    openCountrySelect();
   },
-  menuNewConfirm: () => { closeModal(); legacySave = null; openCountrySelect(); },
-  menuSettings: () => openModal(settingsHtml(!!state, state ? state.settings.muted : menuMuted())),
+  slotDelete: (d) => {
+    const c = slotInfo(Number(d.slot));
+    if (!c?.save) return;
+    openModal(`<h2>Delete career ${c.slot}?</h2>
+      <p><b>${esc(c.name)}</b>${c.legacy ? '' : ` (level ${c.level})`} will be deleted with all companies and medals. Your other careers are kept.</p>
+      <div class="row"><button class="btn danger" data-act="slotDeleteConfirm" data-slot="${c.slot}">Delete career</button><button class="btn" data-act="closeModal">Cancel</button></div>`);
+  },
+  slotDeleteConfirm: async (d) => {
+    Store.wipe(Number(d.slot));
+    closeModal();
+    toast('Career deleted.', 'info');
+    renderMenu(await refreshSlots(), Store.lastPlayedSlot());
+  },
+  menuSettings: () => openModal(settingsHtml(menuMuted())),
   menuMute: () => {
-    const m = !(state ? state.settings.muted : menuMuted());
+    const m = !menuMuted();
     try { localStorage.setItem(MUTE_KEY, m ? '1' : '0'); } catch { /* ignore */ }
-    if (state) { state.settings.muted = m; save(); }
     setMuted(m || SDK.muteRequested());
     $('tb-mute').textContent = m ? '🔇' : '🔊';
-    openModal(settingsHtml(!!state, m));
+    openModal(settingsHtml(m));
   },
   menuExit: () => {
-    if (state) saveAndFlush();
     try { window.close(); } catch { /* browsers only close tabs a script opened */ }
     renderGoodbye();
   },
-  menuBack: () => { $('start').hidden = true; renderMenu(menuInfo()); },
+  menuBack: () => { $('start').hidden = true; legacySave = null; renderMenu(slots, Store.lastPlayedSlot()); },
   openMenu: () => showMenu(),
   startGame: () => {
+    Store.setSlot(pendingSlot || 1);
     const name = ($('start-name').value || '').trim().slice(0, 18) || 'Citizen';
     state = legacySave ? G.upgradeLegacy(legacySave, pickedCountry) : G.newGame({ name, country: pickedCountry });
     if (legacySave) toast('Your citizen moved to the new map of Europe with all progress kept.', 'gold');
@@ -392,6 +454,8 @@ function showLoginReward() {
 // ------------------------------------------------------------------ main loop
 function enterGame() {
   started = true;
+  // Another career may have been open: start on Home with nothing selected on its map.
+  Object.assign(ui, { tab: 'home', sel: null, vb: null });
   $('menu').hidden = true;
   $('start').hidden = true;
   $('app').hidden = false;
@@ -415,19 +479,17 @@ function enterGame() {
 }
 
 // ------------------------------------------------------------------ title screen
-function menuInfo() {
-  if (legacySave) return { name: legacySave.player.name, country: null, legacy: true, lastPlayed: legacySave.lastTick || Date.now() };
-  if (!state) return null;
-  return { name: state.player.name, country: state.player.country, level: state.player.level, rank: G.rankName(state), lastPlayed: state.lastTick };
-}
-
-function showMenu() {
+// Saves the open career, closes it and lists all careers again.
+async function showMenu() {
   if (started) { saveAndFlush(); SDK.gameplayStop(); }
   started = false;
+  state = null;
   closeModal();
+  $('toasts').innerHTML = ''; // messages from the closed career
   $('app').hidden = true;
   $('start').hidden = true;
-  renderMenu(menuInfo());
+  renderMenu(slots, Store.lastPlayedSlot()); // instant, then refreshed with the save just written
+  renderMenu(await refreshSlots(), Store.lastPlayedSlot());
 }
 
 async function openCountrySelect() {
@@ -484,12 +546,12 @@ async function boot() {
   await Promise.all([SDK.initSDK(), Store.initCloud()]);
   SDK.loadingStart();
   initBattle();
-  const saved = await load();
-  if (saved) { state = saved.state; pendingLoad = saved; }
+  await Store.migrateSingleSave(); // a save from before careers becomes career 1
+  await refreshSlots();
   setMuted(menuMuted() || SDK.muteRequested());
   SDK.loadingStop();
   $('loading').hidden = true;
-  renderMenu(menuInfo());
+  renderMenu(slots, Store.lastPlayedSlot());
 }
 
 boot();
