@@ -43,6 +43,7 @@ Zip dosyasını CrazyGames Developer Portal → *Submit game* → *HTML5* olarak
 | `js/game.js` | Oyun kuralları (DOM'suz, test edilebilir): enerji, iş, antrenman, şirketler, pazar, siyaset, savaş, yapay zekâ |
 | `js/world.js` | Avrupa haritası mantığı: komşuluk, kaynak bonusları |
 | `js/europe.js` | **Üretilen** harita verisi (ülkeler, bölgeler, SVG yolları). Yeniden üretmek için: `node scripts/build-map.mjs` |
+| `scripts/build-icon-font.py` | Windows 10'da eksik emojiler (🪙 🪖 🪨 🛖) için renkli simge yazı tipini üretip `css/style.css` içine gömer (`pip install fonttools`) |
 | `js/citizens.js` | Yapay zekâ vatandaşları: çalışma, antrenman, savaş, üretim, alışveriş, yatırım |
 | `js/market.js` | İlan tahtası pazarı (alış, ilan verme, ithalat, tüccar) |
 | `js/names.js` | Ülkelere göre isim havuzları |
