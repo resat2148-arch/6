@@ -48,6 +48,17 @@ Dünya boş hissettirmesin diye ~210 yapay zekâ vatandaşı var (`js/citizens.j
 
 **Pazar (ilan tahtası, `js/market.js`):** Alım en ucuz ilandan başlar. Oyuncu da ilan verir, vatandaşlar ucuz olanı alır ve para oyuncuya gelir. "Sell now" ile tüccara ortalama fiyatın %70'ine anında satılabilir. İlan tahtası boşsa devlet ithalatı taban fiyatın 1,8 katından satar.
 
+## 2.2 Kayıt ve kaldığı yerden devam
+
+Tarayıcıyı kapatan oyuncu ilerlemesini kaybetmez (`js/storage.js`):
+
+- **Anında kayıt:** Her işlemden 0,3 sn sonra, her 5 sn'de bir, savaş raundu bitince, sekme gizlenince ya da kapanınca kaydedilir. Telefonun sekmeyi haber vermeden öldürmesi en fazla birkaç saniyelik işlemi kaybettirir.
+- **Yedek:** Ana kayıt yazılmadan önce son geçerli kayıt yedek yuvasına kopyalanır. Ana kayıt bozulursa yedekten açılır.
+- **Bulut:** CrazyGames'te SDK'nın `data` modülüne yazılır; giriş yapmış oyuncunun ilerlemesi cihazlar arasında taşınır. Claude önizleme bağlantısında oyuncunun özel `db` belgesine yazılır. Açılışta cihaz ve bulut kaydı okunur, en yeni geçerli olan seçilir.
+- **Yedek kodu:** Ayarlar (Medals sekmesi) → "Backup code" ilerlemeyi sıkıştırılmış bir koda (~20 KB) çevirir; "Restore from code" ile başka cihazda devam edilir.
+- **Sürüm yükseltme:** Eski kurgusal harita kayıtları silinmez; oyuncu yeni bir Avrupa ülkesi seçer, seviye, güç, rütbe, para, envanter, şirketler ve madalyalar korunur.
+- **Yokken geçen zaman:** Dönüşte enerji dolmuş, şirketler (3 saate kadar) üretmiş, dünya savaşları ve seçimler ilerlemiş olur; "Welcome back" penceresi özetler.
+
 ## 3. Çekirdek döngü
 
 ```

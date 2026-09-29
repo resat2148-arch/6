@@ -1,6 +1,7 @@
 // Boot, save/load, action dispatch and CrazyGames SDK hooks.
 import * as G from './game.js';
 import * as SDK from './sdk.js';
+import * as Store from './storage.js';
 import { sfx, unlock, setMuted } from './sfx.js';
 import {
   ui, renderTab, renderTop, liveUpdate, renderStart, toast, openModal, closeModal, modalOpen, banner, helpHtml, zoomMap,
@@ -10,7 +11,6 @@ import { initBattle, openBattle, isOpen as battleOpen, setAdPause, debugTargets 
 import { CONFIG, GAME_TITLE, MEDALS, GOLD_SHOP, RAW_ICON, HOUSES, MARKET, countryById } from './data.js';
 import { fmt, fmtMoney, fmtTime, esc } from './util.js';
 
-const SAVE_KEY = 'republic-rising-save-v1';
 const ENERGY_AD_COOLDOWN = 4 * 60 * 1000;
 
 let state = null;
@@ -34,20 +34,34 @@ let started = false;
 const $ = (id) => document.getElementById(id);
 
 // ------------------------------------------------------------------ persistence
+let saveTimer = 0;
+let legacySave = null; // a v1 save waiting for the player to pick a real country
+
 function save() {
-  if (!state) return;
-  try { SDK.saveData(SAVE_KEY, JSON.stringify(state)); } catch (e) { console.warn('save failed', e); }
+  clearTimeout(saveTimer);
+  saveTimer = 0;
+  if (state) Store.saveNow(state);
 }
 
+// Coalesces bursts of clicks into one write shortly after the last one.
+function requestSave() {
+  if (!saveTimer) saveTimer = setTimeout(save, 300);
+}
+
+function saveAndFlush() {
+  save();
+  Store.flushCloud();
+}
+
+// Newest readable save across device, backup and cloud; old map versions are kept for upgrading.
 async function load() {
-  try {
-    const raw = await SDK.loadData(SAVE_KEY);
-    if (!raw) return null;
-    return G.migrate(JSON.parse(raw));
-  } catch (e) {
-    console.warn('load failed', e);
-    return null;
+  const found = await Store.loadCandidates();
+  for (const { save: raw, source } of found) {
+    if (G.isLegacySave(raw)) { legacySave = raw; return null; }
+    const s = G.migrate(raw);
+    if (s) return { state: s, source };
   }
+  return null;
 }
 
 // ------------------------------------------------------------------ events from the rules engine
@@ -132,7 +146,7 @@ function startFight(id) {
       await maybeMidgame();
       if (nextId !== null && nextId !== undefined && (nextId === 'training' || G.campaignById(state, nextId))) startFight(nextId);
     },
-    onRoundEnd: () => { save(); },
+    onRoundEnd: () => { saveAndFlush(); },
     onAdRefill: () => energyAd(),
     onNeedBazooka: () => {},
   });
@@ -254,7 +268,36 @@ const actions = {
   claimLoginDouble: () => { closeModal(); rewarded(() => { const r = G.claimLogin(state, 2); if (r.ok) toast(`🎁 2× ${G.rewardText(r.reward)}`, 'gold'); }); },
   reset: () => openModal(`<h2>Reset progress?</h2><p>This deletes your citizen, companies and medals.</p>
     <div class="row"><button class="btn danger" data-act="resetConfirm">Delete everything</button><button class="btn" data-act="closeModal">Cancel</button></div>`),
-  resetConfirm: () => { SDK.removeData(SAVE_KEY); state = null; location.reload(); },
+  resetConfirm: () => { Store.wipe(); state = null; location.reload(); },
+  exportSave: async () => {
+    save();
+    const code = await Store.exportCode(state);
+    openModal(`<h2>💾 Backup code</h2>
+      <p class="muted small">Keep this code somewhere safe. Paste it on another device (Medals → Restore from code) to continue there.</p>
+      <textarea id="save-code" class="code" readonly>${code}</textarea>
+      <div class="row"><button class="btn primary" data-act="copyCode">Copy</button><button class="btn" data-act="closeModal">Close</button></div>`);
+  },
+  copyCode: () => {
+    const el = $('save-code');
+    navigator.clipboard?.writeText(el.value).then(() => toast('Backup code copied.', 'good')).catch(() => { el.select(); toast('Select the code and copy it.', 'info'); });
+    if (!navigator.clipboard) { el.select(); toast('Select the code and copy it.', 'info'); }
+  },
+  importSave: () => openModal(`<h2>♻️ Restore from code</h2>
+    <p class="muted small">This replaces your current progress with the backup.</p>
+    <textarea id="save-code" class="code" placeholder="RR1:..."></textarea>
+    <div class="row"><button class="btn primary" data-act="importConfirm">Restore</button><button class="btn" data-act="closeModal">Cancel</button></div>`),
+  importConfirm: async () => {
+    try {
+      const raw = await Store.importCode($('save-code').value);
+      const s = G.isLegacySave(raw) ? G.upgradeLegacy(raw, state?.player.country || pickedCountry) : G.migrate(raw);
+      if (!s) throw new Error('This backup is from an incompatible version.');
+      s.lastTick = Math.min(s.lastTick, Date.now());
+      state = s; // the unload handlers below save this state, not the one being replaced
+      Store.saveNow(s);
+      Store.flushCloud();
+      location.reload();
+    } catch (e) { sfx.error(); toast(e.message || 'Could not read that code.', 'bad'); }
+  },
   pickCountry: (d, el) => {
     pickedCountry = d.id;
     document.querySelectorAll('.country-card').forEach((b) => b.classList.toggle('sel', b === el));
@@ -262,13 +305,15 @@ const actions = {
   },
   startGame: () => {
     const name = ($('start-name').value || '').trim().slice(0, 18) || 'Citizen';
-    state = G.newGame({ name, country: pickedCountry });
+    state = legacySave ? G.upgradeLegacy(legacySave, pickedCountry) : G.newGame({ name, country: pickedCountry });
+    if (legacySave) toast('Your citizen moved to the new map of Europe with all progress kept.', 'gold');
+    legacySave = null;
     G.openFirstFront(state);
     G.tick(state);
     $('start').hidden = true;
     enterGame();
     openModal(helpHtml());
-    save();
+    saveAndFlush();
   },
 };
 
@@ -320,7 +365,7 @@ function enterGame() {
     G.tick(state);
     renderTop(state);
     if (dirty && !battleOpen() && !modalOpen() && ['home', 'war', 'map', 'people'].includes(ui.tab) && document.activeElement?.tagName !== 'INPUT') refresh();
-    if (Date.now() - lastSave > 10000) { save(); lastSave = Date.now(); }
+    if (Date.now() - lastSave > 5000) { save(); lastSave = Date.now(); }
   }, 500);
   setInterval(() => { if (state && !battleOpen()) liveUpdate(state); }, 1000);
   if (state.daily.loginPending) setTimeout(() => { if (!modalOpen()) showLoginReward(); }, 400);
@@ -332,23 +377,27 @@ document.addEventListener('click', (e) => {
   if (!el || el.disabled) return;
   if (el.id === 'modal' && e.target !== el) return;
   const f = actions[el.dataset.act];
-  if (f) f(el.dataset, el);
+  if (f) {
+    f(el.dataset, el);
+    if (started) requestSave();
+  }
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOpen()) closeModal(); });
 document.addEventListener('visibilitychange', () => {
   if (!started) return;
-  if (document.hidden) { SDK.gameplayStop(); save(); } else SDK.gameplayStart();
+  if (document.hidden) { SDK.gameplayStop(); saveAndFlush(); } else SDK.gameplayStart();
 });
-window.addEventListener('pagehide', save);
+window.addEventListener('pagehide', saveAndFlush);
+window.addEventListener('beforeunload', save);
 
 async function boot() {
   document.title = GAME_TITLE;
-  await SDK.initSDK();
+  await Promise.all([SDK.initSDK(), Store.initCloud()]);
   SDK.loadingStart();
   initBattle();
   const saved = await load();
   if (saved) {
-    state = saved;
+    state = saved.state;
     const away = Date.now() - state.lastTick;
     quietLog = [];
     const before = { money: state.player.money, pending: G.pendingTotal(state) };
@@ -358,10 +407,12 @@ async function boot() {
     SDK.loadingStop();
     $('loading').hidden = true;
     enterGame();
-    if (away > 2 * 60 * 1000 && !state.daily.loginPending) {
+    save();
+    if (saved.source === 'backup') toast('Your last save was damaged, so we restored the backup from a minute earlier.', 'info');
+    if (away > 2 * 60 * 1000) {
       const prod = G.pendingTotal(state) - before.pending;
       openModal(`<h2>Welcome back, ${esc(state.player.name)}!</h2>
-        <p class="muted">You were away for ${fmtTime(away)}.</p>
+        <p class="muted">You were away for ${fmtTime(away)}. Your progress was saved${saved.source === 'cloud' ? ' in the cloud' : ' on this device'} and restored.</p>
         ${prod > 1 ? `<p>🏭 Your companies produced <b>${fmt(prod)}</b> units — collect them in Economy.</p>` : ''}
         ${log.length ? `<ul class="help">${log.slice(-6).map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
         <div class="row"><button class="btn primary" data-act="closeModal">Continue</button></div>`);
@@ -370,11 +421,11 @@ async function boot() {
     SDK.loadingStop();
     $('loading').hidden = true;
     const uname = await SDK.getUsername();
-    renderStart(uname || `Citizen${Math.floor(1000 + Math.random() * 9000)}`, pickedCountry);
+    renderStart(legacySave?.player.name || uname || `Citizen${Math.floor(1000 + Math.random() * 9000)}`, pickedCountry, !!legacySave);
   }
 }
 
 boot();
 
 // Debug handle for local testing.
-window.__rr = { get state() { return state; }, G, targets: debugTargets };
+window.__rr = { get state() { return state; }, G, targets: debugTargets, Store };

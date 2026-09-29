@@ -106,6 +106,27 @@ export function migrate(saved, now = Date.now()) {
   return s;
 }
 
+// Saves from the fictional-map version (v1): keep the citizen's progress, move them to a real country.
+export const isLegacySave = (saved) => !!saved && saved.v === 1 && !!saved.player;
+
+export function upgradeLegacy(saved, country, now = Date.now()) {
+  const s = newGame({ name: saved.player.name || 'Citizen', country, now });
+  for (const k of ['level', 'xp', 'strength', 'rankPoints', 'energy', 'reserve', 'money', 'gold', 'works', 'strengthGained', 'patriotDmg', 'damage']) {
+    if (typeof saved.player[k] === 'number') s.player[k] = saved.player[k];
+  }
+  if (saved.inv) {
+    for (const k of ['foodRaw', 'weaponRaw', 'houseRaw', 'bazooka']) if (typeof saved.inv[k] === 'number') s.inv[k] = saved.inv[k];
+    for (const k of ['food', 'weapon', 'house']) if (Array.isArray(saved.inv[k])) s.inv[k] = saved.inv[k].slice(0, 6);
+  }
+  for (const k of ['housing', 'facilities', 'medals', 'counters', 'tutorial', 'settings']) if (saved[k]) s[k] = { ...s[k], ...saved[k] };
+  if (Array.isArray(saved.companies)) { s.companies = saved.companies; s.nextCompanyId = saved.nextCompanyId || saved.companies.length + 1; }
+  if (saved.politics) {
+    s.politics.party = !!saved.politics.party;
+    s.politics.news = saved.politics.news || null;
+  }
+  return s;
+}
+
 // ---------------------------------------------------------------- derived stats
 export const pc = (s) => countryById(s.player.country);
 export const maxEnergy = (s) => Math.min(CONFIG.energyCap, 100 + (s.player.level - 1) * 10) + housingEnergy(s);

@@ -336,3 +336,26 @@ test('player offers are bought by citizens; cancelling returns goods', () => {
   }
   assert.equal(G.postOffer(s, 'food2', 99999, 1).ok, false);
 });
+
+test('saves from the fictional-map version keep the citizen progress', () => {
+  const old = JSON.parse(JSON.stringify(fresh()));
+  old.v = 1;
+  old.player.country = 'A';
+  old.player.level = 12;
+  old.player.money = 4321;
+  old.player.strength = 900;
+  old.inv.weapon[3] = 77;
+  old.companies = [{ id: 1, type: 'farm', q: 1, lvl: 3, pending: 0 }];
+  old.medals = { hardWorker: 2 };
+  assert.ok(G.isLegacySave(old));
+  assert.equal(G.migrate(old, T0), null, 'not loaded as-is');
+  const s = G.upgradeLegacy(old, 'PL', T0);
+  assert.equal(s.player.country, 'PL');
+  assert.equal(s.player.level, 12);
+  assert.equal(s.player.money, 4321);
+  assert.equal(s.player.strength, 900);
+  assert.equal(s.inv.weapon[3], 77);
+  assert.equal(s.companies[0].lvl, 3);
+  assert.equal(s.medals.hardWorker, 2);
+  assert.equal(s.v, G.migrate(s, T0).v, 'upgraded save loads normally');
+});

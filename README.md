@@ -49,6 +49,7 @@ Zip dosyasını CrazyGames Developer Portal → *Submit game* → *HTML5* olarak
 | `js/press.js` | Vatandaş gazeteleri, makale başlıkları, okur oyları |
 | `js/battle.js` | Canvas savaş mini oyunu |
 | `js/ui.js` | Sekme ekranları (Home, War, Map, Economy, Market, Politics, Medals) |
+| `js/storage.js` | Katmanlı kayıt: cihaz + yedek + bulut (CrazyGames data / önizleme db), yedek kodu |
 | `js/sdk.js` | CrazyGames SDK sarmalayıcısı (SDK yoksa güvenli geri dönüş) |
 | `js/sfx.js` | WebAudio ile üretilen ses efektleri |
 | `js/main.js` | Açılış, kayıt/yükleme, eylem yönlendirme, reklam akışı |

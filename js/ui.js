@@ -119,7 +119,7 @@ export function liveUpdate(s) {
 }
 
 // ------------------------------------------------------------------ start screen
-export function renderStart(defaultName, picked) {
+export function renderStart(defaultName, picked, legacy = false) {
   const count = (id) => EU_REGIONS.filter((r) => r.c === id).length;
   const cards = [...COUNTRIES].sort((a, b) => a.name.localeCompare(b.name)).map((c) => `
     <button class="country-card ${c.id === picked ? 'sel' : ''}" data-act="pickCountry" data-id="${c.id}" style="--cc:${c.color}">
@@ -130,6 +130,7 @@ export function renderStart(defaultName, picked) {
     <div class="start-card">
       <div class="logo">⭐ ${GAME_TITLE}</div>
       <p class="tag">Work. Train. Fight. Build an empire and rule a nation.</p>
+      ${legacy ? '<p class="legacy">🗺️ The world is now a real map of Europe. Your citizen keeps level, strength, rank, money, items, companies and medals. Pick your new country.</p>' : ''}
       <label class="field"><span>Citizen name</span><input id="start-name" maxlength="18" value="${esc(defaultName)}" autocomplete="off"></label>
       <p class="muted small">Choose your citizenship — big nations are safer, small ones are a challenge</p>
       <div class="country-grid">${cards}</div>
@@ -759,6 +760,13 @@ function people(s) {
 }
 
 // ------------------------------------------------------------------ medals
+function saveInfo() {
+  const st = window.__rr?.Store?.status;
+  if (!st) return '';
+  const where = st.cloud ? 'on this device and in your cloud save' : 'on this device';
+  return ` (${where}${st.lastSave ? `, last saved ${ago(Date.now() - st.lastSave)}` : ''})`;
+}
+
 function medals(s) {
   const p = s.player;
   const cnt = s.counters;
@@ -782,7 +790,9 @@ function medals(s) {
       <h3>⚙️ Game</h3>
       ${btn('Sound on/off', 'mute')}
       ${btn('How to play', 'help')}
-      <p class="muted small">Progress saves automatically.</p>
+      <h3 class="sub">💾 Save</h3>
+      <p class="muted small">Progress saves automatically after every action${saveInfo()}. Closing the browser is safe: you continue where you left off, and your companies keep producing while you are away.</p>
+      <div class="row">${btn('Backup code', 'exportSave', '', 'small')}${btn('Restore from code', 'importSave', '', 'small ghost')}</div>
       ${btn('Reset progress', 'reset', '', 'ghost danger')}
     </div>
   </section>`;
