@@ -119,6 +119,52 @@ export function liveUpdate(s) {
 }
 
 // ------------------------------------------------------------------ start screen
+// Title screen: New game, Continue, Settings, Exit.
+export function renderMenu(save) {
+  const card = save
+    ? `<div class="save-card">
+        ${save.country ? flagSvg(save.country, 'flag big') : '🗺️'}
+        <div class="grow"><b>${esc(save.name)}</b>
+          <small class="muted">${save.legacy ? 'Saved on the old map · pick a new country to continue' : `Level ${save.level} · ${esc(countryById(save.country)?.name || '')} · ${save.rank}`}</small>
+          <small class="muted">Last played ${ago(Date.now() - save.lastPlayed)}</small></div>
+      </div>`
+    : '<p class="muted small">No saved game on this device yet.</p>';
+  $('menu').innerHTML = `
+    <div class="start-card menu-card">
+      <div class="logo">⭐ ${GAME_TITLE}</div>
+      <p class="tag">Work. Train. Fight. Build an empire and rule a nation.</p>
+      ${card}
+      <div class="menu-buttons">
+        <button class="btn primary big" data-act="menuContinue" ${save ? '' : 'disabled'}>▶ Continue</button>
+        <button class="btn big" data-act="menuNew">✚ New game</button>
+        <button class="btn big" data-act="menuSettings">⚙ Settings</button>
+        <button class="btn big ghost" data-act="menuExit">⏻ Exit</button>
+      </div>
+    </div>`;
+  $('menu').hidden = false;
+}
+
+export function renderGoodbye() {
+  $('menu').innerHTML = `
+    <div class="start-card menu-card">
+      <div class="logo">⭐ ${GAME_TITLE}</div>
+      <h2>Your progress is saved</h2>
+      <p class="muted">You can close this tab now. Your companies keep producing while you are away.</p>
+      <div class="menu-buttons"><button class="btn primary big" data-act="menuBack">Back to menu</button></div>
+    </div>`;
+  $('menu').hidden = false;
+}
+
+export function settingsHtml(hasSave, muted) {
+  return `<h2>⚙ Settings</h2>
+    <div class="kv"><span>🔊 Sound</span>${btn(muted ? 'Off' : 'On', 'menuMute', '', `small ${muted ? 'ghost' : 'primary'}`)}</div>
+    <div class="kv"><span>❓ How to play</span>${btn('Open', 'help', '', 'small')}</div>
+    <h3 class="sub">💾 Save</h3>
+    <p class="muted small">Progress saves automatically after every action. Use a backup code to move your citizen to another device.</p>
+    <div class="row">${hasSave ? btn('Backup code', 'exportSave', '', 'small') : ''}${btn('Restore from code', 'importSave', '', 'small ghost')}${hasSave ? btn('Delete save', 'reset', '', 'small ghost danger') : ''}</div>
+    <div class="row"><button class="btn" data-act="closeModal">Close</button></div>`;
+}
+
 export function renderStart(defaultName, picked, legacy = false) {
   const count = (id) => EU_REGIONS.filter((r) => r.c === id).length;
   const cards = [...COUNTRIES].sort((a, b) => a.name.localeCompare(b.name)).map((c) => `
@@ -134,7 +180,7 @@ export function renderStart(defaultName, picked, legacy = false) {
       <label class="field"><span>Citizen name</span><input id="start-name" maxlength="18" value="${esc(defaultName)}" autocomplete="off"></label>
       <p class="muted small">Choose your citizenship — big nations are safer, small ones are a challenge</p>
       <div class="country-grid">${cards}</div>
-      <button class="btn primary big" data-act="startGame">Become a citizen</button>
+      <div class="row menu-row"><button class="btn big ghost" data-act="menuBack">← Back</button><button class="btn primary big" data-act="startGame">Become a citizen</button></div>
     </div>`;
   $('start').hidden = false;
   const grid = document.querySelector('.country-grid');

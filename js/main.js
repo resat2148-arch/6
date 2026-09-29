@@ -5,7 +5,7 @@ import * as Store from './storage.js';
 import { sfx, unlock, setMuted } from './sfx.js';
 import {
   ui, renderTab, renderTop, liveUpdate, renderStart, toast, openModal, closeModal, modalOpen, banner, helpHtml, zoomMap,
-  offersModal, listModal,
+  offersModal, listModal, renderMenu, renderGoodbye, settingsHtml,
 } from './ui.js';
 import { initBattle, openBattle, isOpen as battleOpen, setAdPause, debugTargets } from './battle.js';
 import { CONFIG, GAME_TITLE, MEDALS, GOLD_SHOP, RAW_ICON, HOUSES, MARKET, countryById } from './data.js';
@@ -36,6 +36,10 @@ const $ = (id) => document.getElementById(id);
 // ------------------------------------------------------------------ persistence
 let saveTimer = 0;
 let legacySave = null; // a v1 save waiting for the player to pick a real country
+let pendingLoad = null; // a save read at boot, shown on the title screen until the player continues
+let loopsStarted = false;
+const MUTE_KEY = 'republic-rising-muted';
+const menuMuted = () => { try { return localStorage.getItem(MUTE_KEY) === '1'; } catch { return false; } };
 
 function save() {
   clearTimeout(saveTimer);
@@ -258,6 +262,7 @@ const actions = {
   energyAd: () => { closeModal(); energyAd(); },
   mute: () => {
     state.settings.muted = !state.settings.muted;
+    try { localStorage.setItem(MUTE_KEY, state.settings.muted ? '1' : '0'); } catch { /* ignore */ }
     setMuted(state.settings.muted || SDK.muteRequested());
     $('tb-mute').textContent = state.settings.muted ? '🔇' : '🔊';
     save();
@@ -306,6 +311,36 @@ const actions = {
     document.querySelectorAll('.country-card').forEach((b) => b.classList.toggle('sel', b === el));
     sfx.click();
   },
+  menuContinue: () => {
+    sfx.click();
+    if (legacySave) { openCountrySelect(); return; }
+    if (state) continueGame();
+  },
+  menuNew: () => {
+    sfx.click();
+    const info = menuInfo();
+    if (!info) { openCountrySelect(); return; }
+    openModal(`<h2>Start a new game?</h2>
+      <p>Your current citizen <b>${esc(info.name)}</b>${info.level ? ` (level ${info.level})` : ''} will be replaced when you become a new citizen. You can still go back until then.</p>
+      <div class="row"><button class="btn primary" data-act="menuNewConfirm">Start a new game</button><button class="btn" data-act="closeModal">Cancel</button></div>`);
+  },
+  menuNewConfirm: () => { closeModal(); legacySave = null; openCountrySelect(); },
+  menuSettings: () => openModal(settingsHtml(!!state, state ? state.settings.muted : menuMuted())),
+  menuMute: () => {
+    const m = !(state ? state.settings.muted : menuMuted());
+    try { localStorage.setItem(MUTE_KEY, m ? '1' : '0'); } catch { /* ignore */ }
+    if (state) { state.settings.muted = m; save(); }
+    setMuted(m || SDK.muteRequested());
+    $('tb-mute').textContent = m ? '🔇' : '🔊';
+    openModal(settingsHtml(!!state, m));
+  },
+  menuExit: () => {
+    if (state) saveAndFlush();
+    try { window.close(); } catch { /* browsers only close tabs a script opened */ }
+    renderGoodbye();
+  },
+  menuBack: () => { $('start').hidden = true; renderMenu(menuInfo()); },
+  openMenu: () => showMenu(),
   startGame: () => {
     const name = ($('start-name').value || '').trim().slice(0, 18) || 'Citizen';
     state = legacySave ? G.upgradeLegacy(legacySave, pickedCountry) : G.newGame({ name, country: pickedCountry });
@@ -313,7 +348,7 @@ const actions = {
     legacySave = null;
     G.openFirstFront(state);
     G.tick(state);
-    $('start').hidden = true;
+    pendingLoad = null;
     enterGame();
     openModal(helpHtml());
     saveAndFlush();
@@ -357,21 +392,72 @@ function showLoginReward() {
 // ------------------------------------------------------------------ main loop
 function enterGame() {
   started = true;
+  $('menu').hidden = true;
+  $('start').hidden = true;
   $('app').hidden = false;
+  state.settings.muted = state.settings.muted || menuMuted();
   $('tb-mute').textContent = state.settings.muted ? '🔇' : '🔊';
   setMuted(state.settings.muted || SDK.muteRequested());
   refresh();
   SDK.gameplayStart();
+  if (state.daily.loginPending) setTimeout(() => { if (!modalOpen()) showLoginReward(); }, 400);
+  if (loopsStarted) return;
+  loopsStarted = true;
   let lastSave = Date.now();
   setInterval(() => {
-    if (!state) return;
+    if (!state || !started) return;
     G.tick(state);
     renderTop(state);
     if (dirty && !battleOpen() && !modalOpen() && ['home', 'war', 'map', 'people'].includes(ui.tab) && document.activeElement?.tagName !== 'INPUT') refresh();
     if (Date.now() - lastSave > 5000) { save(); lastSave = Date.now(); }
   }, 500);
-  setInterval(() => { if (state && !battleOpen()) liveUpdate(state); }, 1000);
-  if (state.daily.loginPending) setTimeout(() => { if (!modalOpen()) showLoginReward(); }, 400);
+  setInterval(() => { if (state && started && !battleOpen()) liveUpdate(state); }, 1000);
+}
+
+// ------------------------------------------------------------------ title screen
+function menuInfo() {
+  if (legacySave) return { name: legacySave.player.name, country: null, legacy: true, lastPlayed: legacySave.lastTick || Date.now() };
+  if (!state) return null;
+  return { name: state.player.name, country: state.player.country, level: state.player.level, rank: G.rankName(state), lastPlayed: state.lastTick };
+}
+
+function showMenu() {
+  if (started) { saveAndFlush(); SDK.gameplayStop(); }
+  started = false;
+  closeModal();
+  $('app').hidden = true;
+  $('start').hidden = true;
+  renderMenu(menuInfo());
+}
+
+async function openCountrySelect() {
+  $('menu').hidden = true;
+  const uname = await SDK.getUsername();
+  renderStart(legacySave?.player.name || uname || `Citizen${Math.floor(1000 + Math.random() * 9000)}`, pickedCountry, !!legacySave);
+}
+
+// Continue a save: catch up on the time away, then show what happened.
+function continueGame() {
+  const source = pendingLoad?.source;
+  const fresh = !!pendingLoad;
+  pendingLoad = null;
+  const away = Date.now() - state.lastTick;
+  quietLog = [];
+  const before = G.pendingTotal(state);
+  G.tick(state);
+  const log = quietLog;
+  quietLog = null;
+  enterGame();
+  save();
+  if (source === 'backup') toast('Your last save was damaged, so we restored the backup from a minute earlier.', 'info');
+  if (fresh && away > 2 * 60 * 1000) {
+    const prod = G.pendingTotal(state) - before;
+    openModal(`<h2>Welcome back, ${esc(state.player.name)}!</h2>
+      <p class="muted">You were away for ${fmtTime(away)}. Your progress was saved${source === 'cloud' ? ' in the cloud' : ' on this device'} and restored.</p>
+      ${prod > 1 ? `<p>🏭 Your companies produced <b>${fmt(prod)}</b> units — collect them in Economy.</p>` : ''}
+      ${log.length ? `<ul class="help">${log.slice(-6).map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
+      <div class="row"><button class="btn primary" data-act="closeModal">Continue</button></div>`);
+  }
 }
 
 document.addEventListener('click', (e) => {
@@ -399,33 +485,11 @@ async function boot() {
   SDK.loadingStart();
   initBattle();
   const saved = await load();
-  if (saved) {
-    state = saved.state;
-    const away = Date.now() - state.lastTick;
-    quietLog = [];
-    const before = { money: state.player.money, pending: G.pendingTotal(state) };
-    G.tick(state);
-    const log = quietLog;
-    quietLog = null;
-    SDK.loadingStop();
-    $('loading').hidden = true;
-    enterGame();
-    save();
-    if (saved.source === 'backup') toast('Your last save was damaged, so we restored the backup from a minute earlier.', 'info');
-    if (away > 2 * 60 * 1000) {
-      const prod = G.pendingTotal(state) - before.pending;
-      openModal(`<h2>Welcome back, ${esc(state.player.name)}!</h2>
-        <p class="muted">You were away for ${fmtTime(away)}. Your progress was saved${saved.source === 'cloud' ? ' in the cloud' : ' on this device'} and restored.</p>
-        ${prod > 1 ? `<p>🏭 Your companies produced <b>${fmt(prod)}</b> units — collect them in Economy.</p>` : ''}
-        ${log.length ? `<ul class="help">${log.slice(-6).map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
-        <div class="row"><button class="btn primary" data-act="closeModal">Continue</button></div>`);
-    }
-  } else {
-    SDK.loadingStop();
-    $('loading').hidden = true;
-    const uname = await SDK.getUsername();
-    renderStart(legacySave?.player.name || uname || `Citizen${Math.floor(1000 + Math.random() * 9000)}`, pickedCountry, !!legacySave);
-  }
+  if (saved) { state = saved.state; pendingLoad = saved; }
+  setMuted(menuMuted() || SDK.muteRequested());
+  SDK.loadingStop();
+  $('loading').hidden = true;
+  renderMenu(menuInfo());
 }
 
 boot();

@@ -52,6 +52,8 @@ Dünya boş hissettirmesin diye ~210 yapay zekâ vatandaşı var (`js/citizens.j
 
 ## 2.2 Kayıt ve kaldığı yerden devam
 
+- **Açılış menüsü:** Oyun her açılışta menüyle başlar. **Continue** (kayıtlı vatandaş kartıyla: ad, ülke, seviye, son oynama zamanı; kayıt yoksa pasif), **New game** (kayıt varsa onay ister, ülke seçiminden geri dönülebilir), **Settings** (ses, nasıl oynanır, yedek kodu al/geri yükle, kaydı sil) ve **Exit** (kaydeder ve “sekmeyi kapatabilirsin” ekranı gösterir; tarayıcılar sayfanın kendi sekmesini kapatmasına izin vermez). Oyun içindeyken üst çubuktaki ☰ kaydedip menüye döner.
+
 Tarayıcıyı kapatan oyuncu ilerlemesini kaybetmez (`js/storage.js`):
 
 - **Anında kayıt:** Her işlemden 0,3 sn sonra, her 5 sn'de bir, savaş raundu bitince, sekme gizlenince ya da kapanınca kaydedilir. Telefonun sekmeyi haber vermeden öldürmesi en fazla birkaç saniyelik işlemi kaybettirir.
