@@ -2,7 +2,7 @@
 
 Political war strategy game on a real map of Europe: work, train and fight for your nation, build companies, trade on a living market and win elections against 200+ AI citizens. HTML5, desktop and mobile.
 
-**Download everything:** [republic-rising-marketing-kit.zip](republic-rising-marketing-kit.zip)
+**Download everything (10 MB zip):** [republic-rising-marketing-kit.zip](https://github.com/resat2148-arch/6/raw/claude/crazygames-adaptation-c3wgt0/store/marketing/republic-rising-marketing-kit.zip) — covers, logo, videos and screenshots in one folder.
 
 ## Preview videos (≈18 s, no audio)
 
