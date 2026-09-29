@@ -1,13 +1,18 @@
 # CrazyGames mağaza sayfası — Republic Rising
 
 Aşağıdaki İngilizce metinleri geliştirici portalındaki (developer.crazygames.com → oyunun → *Game info*) ilgili alanlara kopyala.
-Kapak görselleri: `store/covers/` (yeniden üretmek için `scripts/build-covers.mjs`).
+Kapaklar, logo, önizleme videoları ve ekran görüntüleri: `store/marketing/` (yeniden üretmek için `scripts/build-covers.mjs` ve `scripts/build-preview-videos.mjs`).
 
 | Dosya | Portaldaki alan |
 |---|---|
-| `covers/cover-landscape-1920x1080.png` | Landscape cover (16:9) |
-| `covers/cover-portrait-800x1200.png` | Portrait cover (2:3) |
-| `covers/cover-square-800x800.png` | Square cover (1:1) |
+| `marketing/covers/cover-landscape-1920x1080.png` | Landscape cover (16:9) |
+| `marketing/covers/cover-portrait-800x1200.png` | Portrait cover (2:3) |
+| `marketing/covers/cover-square-800x800.png` | Square cover (1:1) |
+| `marketing/videos/preview-landscape-1920x1080.mp4` | Landscape preview video |
+| `marketing/videos/preview-portrait-1080x1620.mp4` | Portrait preview video |
+
+**Marketing creatives URL:** https://github.com/resat2148-arch/6/tree/claude/crazygames-adaptation-c3wgt0/store/marketing
+(kapaklar, logo, videolar, ekran görüntüleri ve hepsini içeren zip; dal `main`'e birleştirilirse bağlantıdaki dal adını `main` yap).
 
 Yükleme dosyası: `dist/republic-rising.zip` (`sh scripts/build.sh` ile üretilir; `index.html` zip'in kökünde).
 

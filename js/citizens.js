@@ -36,8 +36,8 @@ function weighted(list, rnd) {
 // A nation without regions keeps a single resistance citizen.
 export const populationTarget = (regions) => (regions > 0 ? Math.round(2 + 0.75 * regions) : 1);
 
-function makeCitizen(id, cid, rnd, newcomer = false) {
-  const { name, female } = citizenName(cid, rnd);
+function makeCitizen(id, cid, rnd, newcomer = false, taken = []) {
+  const { name, female } = citizenName(cid, rnd, taken);
   const lvl = newcomer ? 1 + Math.floor(rnd() * 6) : 1 + Math.floor(rnd() * rnd() * 32);
   const p = weighted([['s', 40], ['w', 35], ['t', 25]], rnd);
   const b = {
@@ -60,7 +60,7 @@ export function createCitizens(seed) {
   const list = [];
   for (const c of COUNTRIES) {
     const n = populationTarget(EU_REGIONS.filter((r) => r.c === c.id).length);
-    for (let i = 0; i < n; i++) list.push(makeCitizen(list.length, c.id, rnd));
+    for (let i = 0; i < n; i++) list.push(makeCitizen(list.length, c.id, rnd, false, list.filter((b) => b.c === c.id).map((b) => b.n)));
   }
   return list;
 }
@@ -78,7 +78,7 @@ export function populationOf(s, cid) {
 function newcomer(s, cid, rnd) {
   const slot = s.citizens.findIndex((x) => !x.c);
   const id = slot >= 0 ? slot : s.citizens.length;
-  const b = makeCitizen(id, cid, rnd, true);
+  const b = makeCitizen(id, cid, rnd, true, s.citizens.filter((x) => x.c === cid).map((x) => x.n));
   if (slot >= 0) {
     s.articles = (s.articles || []).filter((a) => a.a !== id);
     for (const c of s.world.campaigns) if (c.fighters) delete c.fighters[id];

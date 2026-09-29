@@ -31,15 +31,17 @@
 <body>
 <div id="c"></div>
 <script type="module">
-import { MAP_W, MAP_H, EU_COUNTRIES, EU_REGIONS, EU_PATHS, EU_NEIGHBORS, EU_NEUTRAL } from '../js/europe.js';
+import { EU_COUNTRIES, EU_REGIONS, EU_PATHS, EU_NEIGHBORS, EU_NEUTRAL } from '../js/europe.js';
 import { flagSvg } from '../js/flags.js';
 
 const q = new URLSearchParams(location.search);
 const W = Number(q.get('w')) || 1920;
 const H = Number(q.get('h')) || 1080;
+const logoOnly = q.has('logo'); // transparent logo for the marketing kit
 const c = document.getElementById('c');
 c.style.width = W + 'px';
 c.style.height = H + 'px';
+if (logoOnly) document.documentElement.style.background = document.body.style.background = c.style.background = 'transparent';
 
 // Which part of the map to show: central Europe, cropped to the cover's shape.
 const cx = 520, cy = W >= H ? 470 : 430;
@@ -49,7 +51,7 @@ const vh = vw * (H / W);
 const vb = [cx - vw / 2, cy - vh / 2, vw, vh];
 const colour = Object.fromEntries(EU_COUNTRIES.map((k) => [k.id, k.color]));
 const paths = EU_PATHS.map((d, i) => `<path class="region" d="${d}" fill="${colour[EU_REGIONS[i].c]}"/>`).join('');
-c.insertAdjacentHTML('beforeend', `<svg class="map" viewBox="${vb.join(' ')}" preserveAspectRatio="xMidYMid slice">
+if (!logoOnly) c.insertAdjacentHTML('beforeend', `<svg class="map" viewBox="${vb.join(' ')}" preserveAspectRatio="xMidYMid slice">
   <path d="${EU_NEUTRAL}" fill="#2a3448"/>
   <g opacity=".9">${paths}</g></svg><div class="shade"></div>`);
 
@@ -63,29 +65,33 @@ const star = `<svg class="star" viewBox="-1 -1 2 2" style="width:${size * 0.9}px
     const r = k % 2 ? 0.42 : 0.98; const t = -Math.PI / 2 + (k * Math.PI) / 5; return `${(r * Math.cos(t)).toFixed(3)},${(r * Math.sin(t)).toFixed(3)}`; }).join(' ')}"/></svg>`;
 const flags = ['FR', 'DE', 'PL', 'IT', 'ES', 'TR', 'GB'].map((id) => flagSvg(id)).join('');
 const plateW = wide ? W * 0.62 : W * 1.1;
-c.insertAdjacentHTML('beforeend', `<div class="plate" style="top:${top}px;width:${plateW}px;height:${plateW * (wide ? 0.62 : 0.9)}px"></div>
+c.insertAdjacentHTML('beforeend', `<div class="plate" style="top:${top}px;width:${plateW}px;height:${plateW * (wide ? 0.62 : 0.9)}px;${logoOnly ? 'display:none' : ''}"></div>
   <div class="logo" style="top:${top}px;transform:translateY(-50%);font-size:${size}px">
     ${star}
     <div class="title">${wide ? 'Republic Rising' : 'Republic<br>Rising'}</div>
     <div class="flags" style="font-size:${size * 0.42}px">${flags}</div>
   </div>`);
-document.fonts.ready.then(() => {
 // Battles on a few borders.
-const px = (x, y) => [((x - vb[0]) / vb[2]) * W, ((y - vb[1]) / vb[3]) * H];
-const fronts = [['FR', 'DE'], ['DE', 'PL'], ['IT', 'AT'], ['HU', 'RO'], ['ES', 'FR'], ['CZ', 'DE'], ['SE', 'NO'], ['GB', 'IE']];
-const unit = Math.min(W, H);
-const box = c.querySelector('.logo').getBoundingClientRect();
-for (const [a, b] of fronts) {
-  const i = EU_REGIONS.findIndex((r, k) => r.c === a && EU_NEIGHBORS[k].some((n) => EU_REGIONS[n].c === b));
-  if (i < 0) continue;
-  const j = EU_NEIGHBORS[i].find((n) => EU_REGIONS[n].c === b);
-  const [x, y] = px((EU_REGIONS[i].x + EU_REGIONS[j].x) / 2, (EU_REGIONS[i].y + EU_REGIONS[j].y) / 2);
-  const s = unit * 0.16;
-  if (x < s / 3 || y < s / 3 || x > W - s / 3 || y > H - s / 3) continue;
-  if (x > box.left - s * 0.4 && x < box.right + s * 0.4 && y > box.top - s * 0.4 && y < box.bottom + s * 0.4) continue; // keep the logo clean
-  c.querySelector('.plate').insertAdjacentHTML('beforebegin', `<div class="glow" style="left:${x}px;top:${y}px;width:${s}px;height:${s}px;font-size:${s}px"><span>⚔️</span></div>`);
+function addBattles() {
+  const px = (x, y) => [((x - vb[0]) / vb[2]) * W, ((y - vb[1]) / vb[3]) * H];
+  const fronts = [['FR', 'DE'], ['DE', 'PL'], ['IT', 'AT'], ['HU', 'RO'], ['ES', 'FR'], ['CZ', 'DE'], ['SE', 'NO'], ['GB', 'IE']];
+  const unit = Math.min(W, H);
+  const box = c.querySelector('.logo').getBoundingClientRect();
+  for (const [a, b] of fronts) {
+    const i = EU_REGIONS.findIndex((r, k) => r.c === a && EU_NEIGHBORS[k].some((n) => EU_REGIONS[n].c === b));
+    if (i < 0) continue;
+    const j = EU_NEIGHBORS[i].find((n) => EU_REGIONS[n].c === b);
+    const [x, y] = px((EU_REGIONS[i].x + EU_REGIONS[j].x) / 2, (EU_REGIONS[i].y + EU_REGIONS[j].y) / 2);
+    const s = unit * 0.16;
+    if (x < s / 3 || y < s / 3 || x > W - s / 3 || y > H - s / 3) continue;
+    if (x > box.left - s * 0.4 && x < box.right + s * 0.4 && y > box.top - s * 0.4 && y < box.bottom + s * 0.4) continue; // keep the logo clean
+    c.querySelector('.plate').insertAdjacentHTML('beforebegin', `<div class="glow" style="left:${x}px;top:${y}px;width:${s}px;height:${s}px;font-size:${s}px"><span>⚔️</span></div>`);
+  }
 }
 
+// Place the battles once the title font has its final size.
+document.fonts.ready.then(() => {
+  if (!logoOnly) addBattles();
   document.body.dataset.ready = '1';
 });
 </script>

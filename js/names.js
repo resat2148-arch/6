@@ -50,10 +50,21 @@ function feminine(c, last) {
   return last;
 }
 
-export function citizenName(c, rnd) {
+// taken: names already used in that country. The least used surnames come first and a full name is never repeated.
+export function citizenName(c, rnd, taken = []) {
   const [f, l] = (P[c] || P.GB).map((x) => x.split(','));
-  const i = Math.floor(rnd() * f.length);
-  const female = i >= 5;
-  const last = l[Math.floor(rnd() * l.length)];
-  return { name: `${f[i]} ${female ? feminine(c, last) : last}`, female };
+  const used = new Set(taken);
+  const count = (last) => taken.filter((n) => n.endsWith(' ' + last) || n.endsWith(' ' + feminine(c, last))).length;
+  const fewest = Math.min(...l.map(count));
+  const pool = l.filter((x) => count(x) === fewest);
+  let name = '';
+  let female = false;
+  for (let tries = 0; tries < 12; tries++) {
+    const i = Math.floor(rnd() * f.length);
+    female = i >= 5;
+    const last = pool[Math.floor(rnd() * pool.length)];
+    name = `${f[i]} ${female ? feminine(c, last) : last}`;
+    if (!used.has(name)) break;
+  }
+  return { name, female };
 }
