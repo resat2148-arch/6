@@ -150,10 +150,17 @@ async function maybeMidgame() {
   await SDK.showMidgame();
 }
 
+function adErrorText(code) {
+  if (code === 'adblock') return 'Please disable your ad blocker to watch this ad.';
+  if (code === 'unfilled') return 'No ad available right now. Try again in a minute.';
+  if (code === 'adCooldown') return 'Ads are cooling down. Try again in a minute.';
+  return `Ad not available right now${code ? ` (${code})` : ''}. Try again later.`;
+}
+
 async function rewarded(onReward) {
   const okAd = await SDK.showRewarded();
   if (okAd) { onReward(); sfx.coin(); }
-  else toast('Ad not available right now. Try again later.', 'bad');
+  else toast(adErrorText(SDK.adErrorCode()), 'bad');
   save();
   refresh();
 }

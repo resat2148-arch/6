@@ -65,9 +65,13 @@ export function gameplayStop() {
 export function happytime() { try { if (active()) sdk.game.happytime(); } catch { /* ignore */ } }
 
 export const isAdPlaying = () => adPlaying;
+let lastAdError = '';
+// Why the last ad did not play: 'adblock', 'unfilled', 'adCooldown', 'other'... ('' when it played).
+export const adErrorCode = () => lastAdError;
 
 function requestAd(type) {
   return new Promise((resolve) => {
+    lastAdError = '';
     if (!active()) {
       // No SDK (local file / other host): simulate success so features stay testable.
       resolve(type === 'rewarded');
@@ -90,9 +94,14 @@ function requestAd(type) {
           listeners.adStart.forEach((f) => f());
         },
         adFinished: () => finish(true),
-        adError: (err) => { console.info('[sdk] ad error', err); finish(false); },
+        adError: (err) => {
+          console.info('[sdk] ad error', err);
+          lastAdError = err?.code || String(err || 'other');
+          finish(false);
+        },
       });
     } catch (e) {
+      lastAdError = 'other';
       finish(false);
     }
   });
