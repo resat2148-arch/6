@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Republic Rising</title>
+  <meta name="description" content="Work, train and fight for your nation in this strategy war game. Build companies, win elections and conquer the world map.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="loading" class="loading"><div class="spinner"></div><p>Loading…</p></div>
+
+  <div id="start" class="start" hidden></div>
+
+  <div id="app" hidden>
+    <header id="topbar">
+      <div class="tb-id">
+        <span id="tb-flag"></span>
+        <div class="tb-name-wrap">
+          <b id="tb-name"></b>
+          <div class="tb-lv"><span id="tb-level"></span><div class="bar thin xp"><div id="tb-xpfill"></div></div></div>
+        </div>
+      </div>
+      <button class="tb-energy" data-act="energyMenu" title="Energy (tap for options)">
+        <span class="bolt">⚡</span>
+        <span class="tb-bars">
+          <span class="bar energy"><span id="tb-energyfill"></span><em id="tb-energytxt"></em></span>
+          <span class="bar reserve"><span id="tb-reservefill"></span></span>
+        </span>
+        <span class="plus">+</span>
+      </button>
+      <div class="tb-money">
+        <span title="Money">💰 <b id="tb-money">0</b></span>
+        <span title="Gold">🪙 <b id="tb-gold">0</b></span>
+      </div>
+      <button id="tb-mute" class="icon-btn" data-act="mute" title="Sound">🔊</button>
+    </header>
+
+    <nav id="tabs">
+      <button data-act="tab" data-tab="home"><i>🏠</i><span>Home</span></button>
+      <button data-act="tab" data-tab="war"><i>⚔️</i><span>War</span><em id="badge-war" class="badge" hidden></em></button>
+      <button data-act="tab" data-tab="map"><i>🗺️</i><span>Map</span></button>
+      <button data-act="tab" data-tab="economy"><i>🏭</i><span>Economy</span><em id="badge-eco" class="badge dot" hidden></em></button>
+      <button data-act="tab" data-tab="market"><i>🛒</i><span>Market</span></button>
+      <button data-act="tab" data-tab="politics"><i>🏛️</i><span>Politics</span></button>
+      <button data-act="tab" data-tab="medals"><i>🎖️</i><span>Medals</span></button>
+    </nav>
+
+    <main id="view"></main>
+  </div>
+
+  <div id="battle" class="battle" hidden>
+    <canvas id="bcv"></canvas>
+    <div class="b-top">
+      <div class="b-wall">
+        <div class="b-side"><span id="b-flag-me"></span><small id="b-name-me"></small></div>
+        <div id="b-bar" class="b-bar"><div id="b-fill" class="b-fill"></div><div class="b-mid"></div><span id="b-wallpct"></span></div>
+        <div class="b-side"><span id="b-flag-foe"></span><small id="b-name-foe"></small></div>
+      </div>
+      <div class="b-info"><b id="b-title"></b> · <span id="b-round"></span> · <span id="b-score"></span> · ⏱ <b id="b-timer"></b></div>
+      <div class="b-stats">💥 <b id="b-dmg">0</b> · ☠️ <b id="b-kills">0</b> · 🔥 <b id="b-combo">-</b> · per hit <b id="b-dmgper"></b></div>
+    </div>
+    <div id="b-msg" class="b-msg" hidden></div>
+    <div id="b-noen" class="b-noen" hidden>
+      <b>Out of energy!</b>
+      <div class="row"><button class="btn primary" data-bact="eat">🍞 Eat</button><button class="btn" data-bact="buyfood">🛒 +20 🍞 (💰<span id="b-foodprice"></span>)</button><button class="btn ad" data-bact="adfill">📺 Supply drop</button></div>
+    </div>
+    <div class="b-bottom">
+      <div class="b-energy">
+        <div class="bar energy"><div id="b-energy-fill"></div><em id="b-energy-txt"></em></div>
+        <small id="b-reserve"></small>
+      </div>
+      <button class="b-btn" data-bact="eat" title="Eat food">🍞<small id="b-eat-n">0</small></button>
+      <div id="b-weps" class="b-weps"></div>
+      <button id="b-baz" class="b-btn" data-bact="baz" title="Bazooka: tap, then tap the battlefield">🚀<small id="b-baz-n">0</small></button>
+      <button class="b-btn leave" data-bact="leave">Retreat</button>
+    </div>
+    <div id="b-result" class="b-result" hidden></div>
+  </div>
+
+  <div id="modal" class="modal" hidden></div>
+  <div id="banner" class="banner" hidden></div>
+  <div id="toasts" class="toasts"></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
