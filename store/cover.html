@@ -1,0 +1,93 @@
+<!doctype html>
+<!-- Cover art for the CrazyGames listing. Rendered by scripts/build-covers.mjs as cover.html?w=1920&h=1080 etc. -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Russo+One&display=block" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0f1a; }
+  #c { position: relative; overflow: hidden; background: radial-gradient(ellipse at 50% 40%, #16335a 0%, #0b1526 60%, #070b14 100%); }
+  svg.map { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .region { stroke: rgba(8, 12, 22, .55); stroke-width: .6; }
+  .shade { position: absolute; inset: 0; background:
+    radial-gradient(ellipse at 50% 50%, rgba(7, 11, 20, .05) 25%, rgba(7, 11, 20, .55) 70%, rgba(7, 11, 20, .9) 100%); }
+  .logo { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .plate { position: absolute; left: 50%; transform: translate(-50%, -50%); border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(6, 10, 18, .82) 0%, rgba(6, 10, 18, .6) 45%, rgba(6, 10, 18, 0) 72%); }
+  .title { font-family: 'Russo One', sans-serif; line-height: .92; letter-spacing: .02em; text-transform: uppercase;
+    background: linear-gradient(180deg, #fff6d5 0%, #ffd45c 35%, #f5b83d 60%, #c07a0a 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+    -webkit-text-stroke: .018em #6b4006;
+    filter: drop-shadow(0 .05em 0 #5a3505) drop-shadow(0 .12em .18em rgba(0, 0, 0, .75)); }
+  .star { filter: drop-shadow(0 0 .3em rgba(255, 200, 80, .75)); }
+  .flags { display: flex; gap: .35em; margin-top: .55em; }
+  .flags svg { width: 1.5em; height: 1em; border-radius: .12em; box-shadow: 0 .08em .25em rgba(0, 0, 0, .7); }
+  .glow { position: absolute; transform: translate(-50%, -50%); border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 244, 200, .95) 0%, rgba(255, 170, 40, .85) 18%, rgba(240, 70, 20, .55) 42%, rgba(200, 30, 10, 0) 70%); }
+  .glow span { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 52%; filter: drop-shadow(0 0 .15em #000); }
+</style>
+</head>
+<body>
+<div id="c"></div>
+<script type="module">
+import { MAP_W, MAP_H, EU_COUNTRIES, EU_REGIONS, EU_PATHS, EU_NEIGHBORS, EU_NEUTRAL } from '../js/europe.js';
+import { flagSvg } from '../js/flags.js';
+
+const q = new URLSearchParams(location.search);
+const W = Number(q.get('w')) || 1920;
+const H = Number(q.get('h')) || 1080;
+const c = document.getElementById('c');
+c.style.width = W + 'px';
+c.style.height = H + 'px';
+
+// Which part of the map to show: central Europe, cropped to the cover's shape.
+const cx = 520, cy = W >= H ? 470 : 430;
+const span = W >= H ? 760 : 520;
+const vw = span;
+const vh = vw * (H / W);
+const vb = [cx - vw / 2, cy - vh / 2, vw, vh];
+const colour = Object.fromEntries(EU_COUNTRIES.map((k) => [k.id, k.color]));
+const paths = EU_PATHS.map((d, i) => `<path class="region" d="${d}" fill="${colour[EU_REGIONS[i].c]}"/>`).join('');
+c.insertAdjacentHTML('beforeend', `<svg class="map" viewBox="${vb.join(' ')}" preserveAspectRatio="xMidYMid slice">
+  <path d="${EU_NEUTRAL}" fill="#2a3448"/>
+  <g opacity=".9">${paths}</g></svg><div class="shade"></div>`);
+
+// Logo.
+const wide = W / H > 1.3;
+const size = wide ? W * 0.085 : W * 0.15;
+const top = wide ? H * 0.5 : H * (W === H ? 0.5 : 0.42);
+const star = `<svg class="star" viewBox="-1 -1 2 2" style="width:${size * 0.9}px;height:${size * 0.9}px;margin-bottom:${size * 0.12}px">
+  <defs><linearGradient id="g" x1="0" y1="-1" x2="0" y2="1"><stop offset="0" stop-color="#fff2b8"/><stop offset=".5" stop-color="#f5b83d"/><stop offset="1" stop-color="#b86f06"/></linearGradient></defs>
+  <polygon fill="url(#g)" stroke="#5a3505" stroke-width=".06" points="${Array.from({ length: 10 }, (_, k) => {
+    const r = k % 2 ? 0.42 : 0.98; const t = -Math.PI / 2 + (k * Math.PI) / 5; return `${(r * Math.cos(t)).toFixed(3)},${(r * Math.sin(t)).toFixed(3)}`; }).join(' ')}"/></svg>`;
+const flags = ['FR', 'DE', 'PL', 'IT', 'ES', 'TR', 'GB'].map((id) => flagSvg(id)).join('');
+const plateW = wide ? W * 0.62 : W * 1.1;
+c.insertAdjacentHTML('beforeend', `<div class="plate" style="top:${top}px;width:${plateW}px;height:${plateW * (wide ? 0.62 : 0.9)}px"></div>
+  <div class="logo" style="top:${top}px;transform:translateY(-50%);font-size:${size}px">
+    ${star}
+    <div class="title">${wide ? 'Republic Rising' : 'Republic<br>Rising'}</div>
+    <div class="flags" style="font-size:${size * 0.42}px">${flags}</div>
+  </div>`);
+document.fonts.ready.then(() => {
+// Battles on a few borders.
+const px = (x, y) => [((x - vb[0]) / vb[2]) * W, ((y - vb[1]) / vb[3]) * H];
+const fronts = [['FR', 'DE'], ['DE', 'PL'], ['IT', 'AT'], ['HU', 'RO'], ['ES', 'FR'], ['CZ', 'DE'], ['SE', 'NO'], ['GB', 'IE']];
+const unit = Math.min(W, H);
+const box = c.querySelector('.logo').getBoundingClientRect();
+for (const [a, b] of fronts) {
+  const i = EU_REGIONS.findIndex((r, k) => r.c === a && EU_NEIGHBORS[k].some((n) => EU_REGIONS[n].c === b));
+  if (i < 0) continue;
+  const j = EU_NEIGHBORS[i].find((n) => EU_REGIONS[n].c === b);
+  const [x, y] = px((EU_REGIONS[i].x + EU_REGIONS[j].x) / 2, (EU_REGIONS[i].y + EU_REGIONS[j].y) / 2);
+  const s = unit * 0.16;
+  if (x < s / 3 || y < s / 3 || x > W - s / 3 || y > H - s / 3) continue;
+  if (x > box.left - s * 0.4 && x < box.right + s * 0.4 && y > box.top - s * 0.4 && y < box.bottom + s * 0.4) continue; // keep the logo clean
+  c.querySelector('.plate').insertAdjacentHTML('beforebegin', `<div class="glow" style="left:${x}px;top:${y}px;width:${s}px;height:${s}px;font-size:${s}px"><span>⚔️</span></div>`);
+}
+
+  document.body.dataset.ready = '1';
+});
+</script>
+</body>
+</html>

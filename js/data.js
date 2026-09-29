@@ -1,7 +1,7 @@
 // Static game data and balance knobs.
-// Core rules are adapted from eRepublik (work / train / fight, energy + food,
-// damage formula, military ranks, resource bonuses, campaigns, politics),
-// compressed so one real-time session feels like several eRepublik days.
+// Core rules: work / train / fight, energy + food, damage formula, military ranks,
+// resource bonuses, campaigns and politics, compressed so one real-time session
+// feels like several days of a classic browser strategy game.
 
 import { EU_COUNTRIES } from './europe.js';
 
@@ -58,7 +58,7 @@ export const FOOD_RES = Object.keys(RESOURCES).filter((k) => RESOURCES[k].kind =
 export const WEAPON_RES = Object.keys(RESOURCES).filter((k) => RESOURCES[k].kind === 'weapon');
 export const RESOURCE_BONUS = 0.2; // +20% production per distinct resource
 
-// Military ranks (eRepublik naming). Index = rank level used in the damage formula.
+// Military ranks. Index = rank level used in the damage formula.
 const RANK_BASE = ['Private', 'Corporal', 'Sergeant', 'Lieutenant', 'Captain', 'Major', 'Commander',
   'Lt Colonel', 'Colonel', 'General', 'Field Marshal', 'Supreme Marshal', 'National Force',
   'World Class Force', 'Legendary Force', 'God of War', 'Titan'];
@@ -71,7 +71,7 @@ export function rankIndexOf(rp) {
 }
 export const xpToNextLevel = (lvl) => 30 + lvl * 20;
 
-// Food quality -> energy restored. Weapon quality -> firepower (eRepublik style).
+// Food quality -> energy restored. Weapon quality -> firepower (higher quality, more firepower).
 export const FOOD_ENERGY = [0, 10, 20, 30, 40, 50];
 export const WEAPON_FP = [0, 20, 40, 60, 80, 100];
 
@@ -98,7 +98,7 @@ export const MARKET = {
 
 export const RAW_ICON = { foodRaw: '🌾', weaponRaw: '⛓️', houseRaw: '🧱' };
 
-// Houses (eRepublik style): each quality you live in adds max energy and faster energy regeneration.
+// Houses: each quality you live in adds max energy and faster energy regeneration.
 // Different qualities stack; a house wears out after CONFIG.houseDurationMs.
 export const HOUSES = [
   null,
@@ -163,7 +163,7 @@ export const MEDALS = {
 export const MEDIA_MILESTONES = [100, 500, 1000, 2500, 5000, 10000];
 export const PATRIOT_STEP = 20000;
 
-// Tutorial chain modelled on eRepublik's starter missions.
+// Tutorial chain of starter missions.
 export const TUTORIAL = [
   { text: 'Work at your job to earn money', ev: 'work', n: 1, reward: { money: 20 } },
   { text: 'Train to increase your strength', ev: 'train', n: 1, reward: { gold: 1 } },

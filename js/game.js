@@ -164,7 +164,7 @@ export function policyMult(s, kind) {
 
 export const weaponMult = (q) => (q === 0 ? 0.5 : 1 + WEAPON_FP[q] / 100);
 
-// eRepublik damage formula: 10 * (1 + S/400) * (1 + Rank/5) * (1 + Firepower/100)
+// Damage formula: 10 * (1 + S/400) * (1 + Rank/5) * (1 + Firepower/100)
 export function baseHit(s) {
   const p = s.player;
   return 10 * (1 + p.strength / 400) * (1 + rankIndex(p.rankPoints) / 5) * policyMult(s, 'damage');

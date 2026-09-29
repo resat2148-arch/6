@@ -1,6 +1,6 @@
 # Republic Rising
 
-[eRepublik](https://www.erepublik.com)'ten esinlenen, **CrazyGames** için hazırlanmış hızlı tempolu bir siyaset + savaş strateji oyunu.
+Klasik tarayıcı siyaset-savaş oyunlarından esinlenen, **CrazyGames** için hazırlanmış hızlı tempolu bir siyaset + savaş strateji oyunu.
 Çalış, antrenman yap, savaş; şirket kur, seçim kazan, ülkeni dünya hâkimiyetine taşı.
 
 - Tamamen HTML5 + saf JavaScript (ES modülleri), **derleme adımı yok**, harici görsel/ses dosyası yok (ilk yükleme ~100 KB).
@@ -8,7 +8,7 @@
 - CrazyGames SDK v3 entegre: reklamlar, gameplay sinyalleri, happytime, bulut kayıt.
 - Açılış menüsünde 3 kariyer yuvası: 3 ayrı vatandaş tut, istediğinden devam et.
 
-Tasarım ayrıntıları ve eRepublik → CrazyGames uyarlama kararları: [`docs/GDD.md`](docs/GDD.md)
+Tasarım ayrıntıları ve CrazyGames uyarlama kararları: [`docs/GDD.md`](docs/GDD.md)
 
 ## Çalıştırma
 
@@ -43,6 +43,7 @@ Zip dosyasını CrazyGames Developer Portal → *Submit game* → *HTML5* olarak
 | `js/game.js` | Oyun kuralları (DOM'suz, test edilebilir): enerji, iş, antrenman, şirketler, pazar, siyaset, savaş, yapay zekâ |
 | `js/world.js` | Avrupa haritası mantığı: komşuluk, kaynak bonusları |
 | `js/europe.js` | **Üretilen** harita verisi (ülkeler, bölgeler, SVG yolları). Yeniden üretmek için: `node scripts/build-map.mjs` |
+| `store/` | CrazyGames mağaza sayfası metinleri (`crazygames-listing.md`) ve kapak görselleri (`covers/`, `node scripts/build-covers.mjs` ile üretilir) |
 | `scripts/build-icon-font.py` | Windows 10'da eksik emojiler (🪙 🪖 🪨 🛖) için renkli simge yazı tipini üretip `css/style.css` içine gömer (`pip install fonttools`) |
 | `js/citizens.js` | Yapay zekâ vatandaşları: çalışma, antrenman, savaş, üretim, alışveriş, yatırım |
 | `js/market.js` | İlan tahtası pazarı (alış, ilan verme, ithalat, tüccar) |

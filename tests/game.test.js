@@ -66,7 +66,7 @@ test('eat converts reserve into energy using food', () => {
   assert.equal(G.eat(s).ok, false, 'no reserve');
 });
 
-test('damage formula follows eRepublik: 10*(1+S/400)*(1+R/5)*(1+FP/100)', () => {
+test('damage formula: 10*(1+S/400)*(1+R/5)*(1+FP/100)', () => {
   const s = fresh();
   assert.equal(G.hitDamage(s, 0), 10 * 1.25 * 1 * 0.5);
   assert.equal(G.hitDamage(s, 5), 10 * 1.25 * 1 * 2);

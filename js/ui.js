@@ -120,7 +120,8 @@ export function liveUpdate(s) {
 
 // ------------------------------------------------------------------ start screen
 // Title screen: three career slots (continue, new, delete), Settings and Exit.
-export function renderMenu(slots, lastSlot) {
+// showExit is false on a game portal: the game runs in its page and cannot close the tab.
+export function renderMenu(slots, lastSlot, showExit = true) {
   const cards = slots.map((c) => {
     if (!c.save) {
       return `<div class="save-card empty">
@@ -152,7 +153,7 @@ export function renderMenu(slots, lastSlot) {
       <div class="slots">${cards}</div>
       <div class="menu-buttons">
         <button class="btn big" data-act="menuSettings">⚙ Settings</button>
-        <button class="btn big ghost" data-act="menuExit">🚪 Exit</button>
+        ${showExit ? '<button class="btn big ghost" data-act="menuExit">🚪 Exit</button>' : ''}
       </div>
     </div>`;
   $('menu').hidden = false;

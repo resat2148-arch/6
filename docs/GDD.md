@@ -1,10 +1,10 @@
 # Republic Rising — Oyun Tasarım Dokümanı (GDD)
 
-> eRepublik'in temel mekaniklerini CrazyGames kitlesine uygun, hızlı oturumlu bir tarayıcı oyununa dönüştürme planı.
+> Klasik tarayıcı siyaset-savaş oyunlarının temel mekaniklerini CrazyGames kitlesine uygun, hızlı oturumlu bir tarayıcı oyununa dönüştürme planı.
 
-## 1. eRepublik'ten ne aldık?
+## 1. Türden ne aldık?
 
-| eRepublik mekaniği | Republic Rising uyarlaması |
+| Türün klasik mekaniği | Republic Rising uyarlaması |
 |---|---|
 | Vatandaş: seviye (XP), güç (strength), askeri rütbe | Aynen var. XP ile seviye, antrenmanla güç, verilen hasarla rütbe (Recruit → Titan, 69 rütbe). |
 | Günlük döngü: **Work – Train – Fight** | Ana sayfadaki üç büyük buton. Her biri enerji harcar. |
@@ -26,10 +26,10 @@
 
 ## 2. CrazyGames için neyi değiştirdik?
 
-eRepublik “günde 5 dakika, yıllarca” oynanan yavaş bir oyun. CrazyGames'te ise oyuncu ilk 30 saniyede eğlenmezse çıkıyor. Bu yüzden:
+Bu türün klasik oyunları “günde 5 dakika, yıllarca” oynanan yavaş oyunlar. CrazyGames'te ise oyuncu ilk 30 saniyede eğlenmezse çıkıyor. Bu yüzden:
 
 1. **Savaş aktif bir aksiyon mini oyunu oldu.** Siperden çıkan düşmanlara dokun/tıkla, kafaya vuruş ×2, seri vuruş kombosu +%50'ye kadar. Düşman ateş etmeden öldürmezsen enerjin gider. 5 dakika sonunda duvar %50'nin üstündeyse bölge sizin.
-2. **Zaman sıkıştırıldı.** eRepublik'teki bir “gün” burada birkaç dakika: seçimler 10 dk, yapay zekâ savaş raundları 40–75 sn.
+2. **Zaman sıkıştırıldı.** Klasik oyunlardaki bir “gün” burada birkaç dakika: seçimler 10 dk, yapay zekâ savaş raundları 40–75 sn.
 3. **Hiç bekletmeyen döngü.** Oyuncunun ülkesinin her zaman en az bir aktif cephesi vardır; ilk savaş oyunun ilk saniyesinden hazır.
 4. **Idle/geri dönüş katmanı.** Şirketler çevrimdışı 3 saate kadar üretir; dünya sen yokken de değişir (“Welcome back” özeti).
 5. **Gerçek Avrupa haritası.** 37 gerçek Avrupa ülkesi ve 174 gerçek bölge (ör. Türkiye'nin 7 coğrafi bölgesi, Bavyera, Katalonya). Sınırlar Natural Earth 1:50m verisinden üretilir (`scripts/build-map.mjs`); bölgeler, gerçek bölge merkezlerinden hesaplanan Voronoi hücrelerinin ülke sınırına kırpılmasıyla oluşur. Sınırlar uluslararası tanınan hâliyle çizilir (Kırım Ukrayna'da); Kosova, Kıbrıs, Lüksemburg gibi küçük/hassas topraklar oynanamaz tarafsız bölgedir. Görsel dil kansız.
@@ -52,7 +52,7 @@ Dünya boş hissettirmesin diye ~210 yapay zekâ vatandaşı var (`js/citizens.j
 
 ## 2.2 Kayıt ve kaldığı yerden devam
 
-- **Açılış menüsü ve 3 kariyer:** Oyun her açılışta menüyle başlar. Menüde **3 kariyer yuvası** vardır; her biri ayrı bir vatandaş, ayrı bir dünya ve ayrı bir kayıttır. Dolu yuva kartı bayrak, ad, seviye, ülke, rütbe ve son oynama zamanını gösterir; **▶ Continue** o kariyerden devam eder, **✚ New** onay sorup o yuvada yeni oyun başlatır (eski vatandaş ancak “Become a citizen” denince yenisiyle değiştirilir, o ana kadar geri dönülebilir; eskisinin yedeği tutulmaz), **🗑** onay sorup yalnızca o kariyeri siler. Boş yuvada **✚ New game** ülke seçimini açar (geri dönülebilir) ve yeni vatandaş o yuvaya kaydedilir. En son oynanan kariyer “Last played” ile işaretlenir. Altta **Settings** (ses, nasıl oynanır, yedek kodunu seçilen yuvaya geri yükleme) ve **Exit** (kaydeder, “sekmeyi kapatabilirsin” ekranı; tarayıcılar sayfanın kendi sekmesini kapatmasına izin vermez). Oyun içindeyken üst çubuktaki ☰ açık kariyeri kaydedip menüye döner; başka bir kariyere geçmek böyle yapılır. Kariyerlerin dünyaları birbirinden bağımsızdır; kapalı bir kariyerin dünyası, açıldığında aradaki süre kadar ilerletilir.
+- **Açılış menüsü ve 3 kariyer:** Oyun her açılışta menüyle başlar. Menüde **3 kariyer yuvası** vardır; her biri ayrı bir vatandaş, ayrı bir dünya ve ayrı bir kayıttır. Dolu yuva kartı bayrak, ad, seviye, ülke, rütbe ve son oynama zamanını gösterir; **▶ Continue** o kariyerden devam eder, **✚ New** onay sorup o yuvada yeni oyun başlatır (eski vatandaş ancak “Become a citizen” denince yenisiyle değiştirilir, o ana kadar geri dönülebilir; eskisinin yedeği tutulmaz), **🗑** onay sorup yalnızca o kariyeri siler. Boş yuvada **✚ New game** ülke seçimini açar (geri dönülebilir) ve yeni vatandaş o yuvaya kaydedilir. En son oynanan kariyer “Last played” ile işaretlenir. Altta **Settings** (ses, nasıl oynanır, yedek kodunu seçilen yuvaya geri yükleme) ve **Exit** (kaydeder, “sekmeyi kapatabilirsin” ekranı; tarayıcılar sayfanın kendi sekmesini kapatmasına izin vermez). CrazyGames'te oyun portalın sayfasında çalıştığı ve portal kuralları çıkış düğmesi istemediği için Exit gizlenir (SDK ortamı `crazygames` veya `local` olduğunda). Oyun içindeyken üst çubuktaki ☰ açık kariyeri kaydedip menüye döner; başka bir kariyere geçmek böyle yapılır. Kariyerlerin dünyaları birbirinden bağımsızdır; kapalı bir kariyerin dünyası, açıldığında aradaki süre kadar ilerletilir.
 - **Tek kayıttan geçiş:** Kariyerlerden önceki tek kayıt (cihaz ve bulut kopyası) ilk açılışta otomatik olarak 1. kariyere taşınır.
 
 Tarayıcıyı kapatan oyuncu ilerlemesini kaybetmez (`js/storage.js`):
@@ -100,6 +100,6 @@ SDK çağrıları: `init`, `loadingStart/Stop`, `gameplayStart/Stop` (sekme gizl
 2. **Gerçek müzik ve sprite'lar** (şu an tüm grafik/ses kod ile üretiliyor → çok hızlı yükleme).
 3. **Liderlik tablosu / sezonlar** (CrazyGames hesabı ile); ileride çok oyunculu ortak dünya (Supabase/Node sunucu).
 4. **Askerî birlikler (Military Units)** ve günlük emir ödülleri.
-5. **Uçak/tank savaşları** (eRepublik'teki hava savaşları) — yeni mini oyun türü.
+5. **Uçak/tank savaşları** (hava savaşları) — yeni mini oyun türü.
 6. **Prestij**: dünyayı fethedince yeni harita + kalıcı bonus.
 7. Denge ayarları için analitik (raund kazanma oranı, oturum süresi).

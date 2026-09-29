@@ -400,7 +400,7 @@ const actions = {
     Store.wipe(Number(d.slot));
     closeModal();
     toast('Career deleted.', 'info');
-    renderMenu(await refreshSlots(), Store.lastPlayedSlot());
+    renderMenu(await refreshSlots(), Store.lastPlayedSlot(), showExit());
   },
   menuSettings: () => openModal(settingsHtml(menuMuted())),
   menuMute: () => {
@@ -414,7 +414,7 @@ const actions = {
     try { window.close(); } catch { /* browsers only close tabs a script opened */ }
     renderGoodbye();
   },
-  menuBack: () => { $('start').hidden = true; legacySave = null; renderMenu(slots, Store.lastPlayedSlot()); },
+  menuBack: () => { $('start').hidden = true; legacySave = null; renderMenu(slots, Store.lastPlayedSlot(), showExit()); },
   openMenu: () => showMenu(),
   startGame: () => {
     if (replacing && !legacySave) Store.wipe(pendingSlot, { keepCloud: true }); // no backup of the replaced citizen
@@ -495,6 +495,9 @@ function enterGame() {
 }
 
 // ------------------------------------------------------------------ title screen
+// CrazyGames (and its local test mode) hosts the game in its own page, so there is nothing to exit to.
+const showExit = () => SDK.environment() === 'disabled';
+
 // Saves the open career, closes it and lists all careers again.
 async function showMenu() {
   if (started) { saveAndFlush(); SDK.gameplayStop(); }
@@ -504,8 +507,8 @@ async function showMenu() {
   $('toasts').innerHTML = ''; // messages from the closed career
   $('app').hidden = true;
   $('start').hidden = true;
-  renderMenu(slots, Store.lastPlayedSlot()); // instant, then refreshed with the save just written
-  renderMenu(await refreshSlots(), Store.lastPlayedSlot());
+  renderMenu(slots, Store.lastPlayedSlot(), showExit()); // instant, then refreshed with the save just written
+  renderMenu(await refreshSlots(), Store.lastPlayedSlot(), showExit());
 }
 
 async function openCountrySelect() {
@@ -567,7 +570,7 @@ async function boot() {
   setMuted(menuMuted() || SDK.muteRequested());
   SDK.loadingStop();
   $('loading').hidden = true;
-  renderMenu(slots, Store.lastPlayedSlot());
+  renderMenu(slots, Store.lastPlayedSlot(), showExit());
 }
 
 boot();

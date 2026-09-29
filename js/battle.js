@@ -1,5 +1,5 @@
 // Real-time battle round: tap enemy soldiers popping up from the trenches.
-// Every shot costs energy (and a weapon if equipped); damage follows the eRepublik formula.
+// Every shot costs energy (and a weapon if equipped); damage follows the damage formula in game.js.
 import { countryById, CONFIG, FOOD_ENERGY } from './data.js';
 import * as G from './game.js';
 import { sfx } from './sfx.js';
