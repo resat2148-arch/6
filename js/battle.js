@@ -111,9 +111,8 @@ function setupHud() {
   $('b-fill').style.background = countryById(setup.me).color;
   $('b-bar').style.background = countryById(setup.foe).color;
   $('b-title').textContent = setup.title;
-  $('b-round').textContent = setup.training ? 'Practice' : 'Single round';
+  $('b-round').textContent = 'Single round';
   $('b-score').textContent = setup.boost > 1 ? `Rookie boost ×${setup.boost.toFixed(1)}` : `D${setup.division}`;
-  $('b-leave').textContent = setup.training ? 'Retreat' : 'Leave';
   const weps = $('b-weps');
   weps.innerHTML = [0, 1, 2, 3, 4, 5].map((q) =>
     `<button class="b-wep" data-bact="wep" data-q="${q}" title="${q ? 'Weapon Q' + q : 'Bare hands (50% damage)'}"><span>${q ? 'Q' + q : '✊'}</span><small id="b-wq${q}"></small></button>`,
@@ -173,10 +172,7 @@ function onHudClick(e) {
     else { S.armed = !S.armed; sfx.click(); }
   } else if (act === 'leave') {
     if (S.phase === 'intro') { closeBattle(); hooks.onExit?.(null); }
-    else if (S.phase === 'fight') {
-      if (S.setup.training) endRound(true);
-      else leaveBattle();
-    }
+    else if (S.phase === 'fight') leaveBattle();
   } else if (act === 'buyfood') {
     const r = G.buy(st, 'food1', 20);
     if (r.ok) { sfx.coin(); G.eat(st); floatText(W / 2, H * 0.8, '+20 🍞', '#86efac', 24); }
@@ -184,7 +180,7 @@ function onHudClick(e) {
   } else if (act === 'adfill') {
     hooks.onAdRefill?.();
   } else if (act === 'next') {
-    const id = b.dataset.id ? (b.dataset.id === 'training' ? 'training' : Number(b.dataset.id)) : S.setup.campId;
+    const id = b.dataset.id ? Number(b.dataset.id) : S.setup.campId;
     closeBattle();
     hooks.onExit?.(id);
   } else if (act === 'exit') {
@@ -202,13 +198,9 @@ function flashMsg(text) {
 }
 
 // ------------------------------------------------------------ simulation
-// Training uses a simulated wall; real battles read the shared wall of the running battle.
+// Reads the shared wall of the running battle (the last known one once it has ended).
 function sides() {
   const { setup } = S;
-  if (setup.training) {
-    const el = Math.min(S.t, setup.seconds);
-    return { me: setup.wallBase + setup.allyDps * el + S.dmg, foe: setup.wallBase + setup.enemyDps * el };
-  }
   const c = G.campaignById(S.state, setup.campId);
   if (!c) return S.lastSides || { me: 1, foe: 1 };
   const w = G.battleWall(c);
@@ -222,7 +214,6 @@ function wallPct() {
 }
 
 function timeLeft() {
-  if (S.setup.training) return S.phase === 'intro' ? S.setup.seconds : Math.max(0, S.setup.seconds - S.t);
   return Math.max(0, (S.setup.endsAt - Date.now()) / 1000);
 }
 
@@ -262,7 +253,7 @@ function update(dt) {
   const target = wallPct();
   S.wallShown = S.wallShown === null ? target : S.wallShown + (target - S.wallShown) * Math.min(1, dt * 2.5);
   // Real battles run on the world clock: when it is over, the rules engine removes it.
-  if (!S.setup.training && S.phase !== 'done' && !G.campaignById(S.state, S.setup.campId)) { battleOver(); return; }
+  if (S.phase !== 'done' && !G.campaignById(S.state, S.setup.campId)) { battleOver(); return; }
   if (S.phase === 'intro') {
     S.introT += dt;
     if (S.introT >= 2) S.phase = 'fight';
@@ -286,7 +277,6 @@ function update(dt) {
     if (S.t >= e.fireAt) enemyFire(e);
   }
   S.enemies = S.enemies.filter((e) => !e.dead || e.deadT < 0.9);
-  if (S.setup.training && S.t >= S.setup.seconds) endRound(false);
   effects(dt);
 }
 
@@ -366,7 +356,7 @@ function onPointer(e) {
   en.hp -= dmg;
   en.hitT = 0.1;
   S.dmg += dmg;
-  if (!S.setup.training) G.battleHit(S.state, S.setup.campId, dmg);
+  G.battleHit(S.state, S.setup.campId, dmg);
   S.muzzle = 0.06;
   const m = muzzlePos();
   S.tracers.push({ x1: m.x, y1: m.y, x2: pt.x, y2: pt.y, life: 0.06 });
@@ -412,33 +402,10 @@ function fireBazooka(pt) {
     kill(e);
   }
   S.dmg += total;
-  if (!S.setup.training) G.battleHit(S.state, S.setup.campId, total);
+  G.battleHit(S.state, S.setup.campId, total);
   for (let i = 0; i < 3; i++) burst(pt.x + randRange(-40, 40), pt.y + randRange(-20, 20), i ? '#f97316' : '#fde047', 30, 320);
   S.parts.push({ x: pt.x, y: pt.y, vx: 0, vy: 0, life: 0.4, ring: true, size: 10, color: '#fff7ed' });
   floatText(pt.x, pt.y - 30, `BOOM ${fmt(total)}`, '#fb923c', 30);
-}
-
-// Training war only: a private 60-second round.
-function endRound(retreat) {
-  if (S.phase === 'done') return;
-  S.phase = 'done';
-  let { me, foe } = sides();
-  if (retreat) {
-    const rem = Math.max(0, S.setup.seconds - S.t);
-    me += S.setup.allyDps * rem;
-    foe += S.setup.enemyDps * rem;
-  }
-  const won = me > foe;
-  const res = G.finishVisit(S.state, S.setup, { dmg: Math.round(S.dmg), kills: S.kills, headshots: S.headshots, won });
-  won ? sfx.win() : sfx.lose();
-  showCard({
-    cls: won ? 'win' : 'lose',
-    title: won ? 'PRACTICE WON' : 'PRACTICE LOST',
-    sub: `Wall ${((me / (me + foe)) * 100).toFixed(1)}% · Training wars never change the map.`,
-    res,
-    buttons: `<button class="btn primary" data-bact="next" data-id="training">Train again</button>`,
-  });
-  hooks.onRoundEnd?.(won, res);
 }
 
 function visitResult() {
@@ -761,7 +728,7 @@ function draw() {
     ctx.textAlign = 'center';
     ctx.fillStyle = '#fff';
     ctx.font = `900 ${48 * unit}px system-ui, sans-serif`;
-    const txt = t < 1.2 ? (S.setup.training ? 'TRAINING' : `${fmtSec(timeLeft())} LEFT`) : 'FIGHT!';
+    const txt = t < 1.2 ? `${fmtSec(timeLeft())} LEFT` : 'FIGHT!';
     ctx.fillText(txt, W / 2, H * 0.42);
     ctx.font = `600 ${16 * unit}px system-ui, sans-serif`;
     ctx.fillStyle = '#e2e8f0';

@@ -18,7 +18,6 @@ export const CONFIG = {
   shotEnergy: 1,
   enemyShotEnergy: 4,
   battleMs: 5 * 60 * 1000, // every battle is a single 5-minute round
-  trainingSeconds: 60,
   aiTickMs: 20000,
   maxAiCampaigns: 8,
   aiWarChance: 0.04,

@@ -56,6 +56,7 @@ export function newGame({ name, country, now = Date.now(), seed = Math.floor(Mat
     articles: [],
     nextArticleId: 1,
     presidents: {},
+    nationStats: {},
     world,
     politics: {
       party: false, congress: false, president: false, candidate: null,
@@ -660,6 +661,40 @@ export function playerSide(s, c) {
 }
 
 export const campaignById = (s, id) => s.world.campaigns.find((c) => c.id === id);
+// Nations of Europe with the numbers the country ranking can sort by.
+export const NATION_METRICS = {
+  regions: { label: 'Regions', val: (n) => n.regions * 1e9 + n.dmg / 1e3 },
+  dmg: { label: 'Military', val: (n) => n.dmg },
+  won: { label: 'Battles won', val: (n) => n.won * 1e6 - n.lost },
+  citizens: { label: 'Population', val: (n) => n.citizens },
+  wealth: { label: 'Wealth', val: (n) => n.wealth },
+  lvl: { label: 'Avg level', val: (n) => n.avgLvl },
+};
+
+export function nationRanking(s, by = 'regions') {
+  const me = s.player.country;
+  const rows = COUNTRIES.map((c) => {
+    const people = s.citizens.filter((b) => b.c === c.id);
+    const mine = c.id === me;
+    const st = (s.nationStats || {})[c.id] || { won: 0, lost: 0, conquered: 0 };
+    const pres = mine && s.politics.president ? s.player.name : s.citizens[s.presidents?.[c.id]]?.n || (mine ? s.politics.presidentName : '');
+    const levels = people.map((b) => b.lvl).concat(mine ? [s.player.level] : []);
+    return {
+      id: c.id, name: c.name, me: mine, president: pres,
+      regions: regionsOf(s.world, c.id).length,
+      dmg: people.reduce((a, b) => a + b.dmg, 0) + (mine ? s.player.damage : 0),
+      citizens: people.length + (mine ? 1 : 0),
+      wealth: people.reduce((a, b) => a + b.m, 0) + (mine ? s.player.money : 0),
+      avgLvl: levels.length ? levels.reduce((a, b) => a + b, 0) / levels.length : 0,
+      won: st.won, lost: st.lost, conquered: st.conquered,
+    };
+  });
+  const val = (NATION_METRICS[by] || NATION_METRICS.regions).val;
+  return rows.sort((a, b) => val(b) - val(a));
+}
+
+export const nationRank = (s, by = 'regions') => nationRanking(s, by).findIndex((n) => n.me) + 1;
+
 export const activeFronts = (s) => s.world.campaigns.filter((c) => playerSide(s, c)).sort((a, b) => a.endsAt - b.endsAt);
 
 function makeCampaign(s, att, def, regionId, type, now) {
@@ -724,6 +759,11 @@ function endCampaign(s, c, now) {
   const wall = battleWall(c);
   const attWon = wall.att > wall.def;
   const side = playerSide(s, c);
+  const stats = (s.nationStats ||= {});
+  const rec = (cid) => (stats[cid] ||= { won: 0, lost: 0, conquered: 0 });
+  rec(attWon ? c.att : c.def).won++;
+  rec(attWon ? c.def : c.att).lost++;
+  if (attWon) rec(c.att).conquered++;
   if (attWon) {
     const loser = reg.owner;
     reg.owner = c.att;
@@ -847,34 +887,23 @@ function aiStep(s, now) {
 }
 
 // ---------------------------------------------------------------- the battle scene
-// Real battles: the scene joins the running 5-minute battle; every hit goes straight onto the wall.
-// Training war: a private 60-second practice round against a simulated enemy.
+// The scene joins the running 5-minute battle; every hit goes straight onto the shared wall.
 export function roundSetup(s, campId) {
-  const training = campId === 'training';
-  const c = training ? null : campaignById(s, campId);
-  if (!training && !c) return null;
-  const side = training ? 'att' : playerSide(s, c);
+  const c = campaignById(s, campId);
+  if (!c) return null;
+  const side = playerSide(s, c);
   if (!side) return null;
-  const me = s.player.country;
-  const foe = training
-    ? COUNTRIES.filter((x) => x.id !== me)[(s.counters.roundPlay || 0) % (COUNTRIES.length - 1)].id
-    : side === 'att' ? c.def : c.att;
+  const foe = side === 'att' ? c.def : c.att;
   const ref = refHit(s);
-  const reg = training ? null : s.world.regions[c.region];
-  const f = s.player.level <= 3 ? 0.4 : 0.55;
+  const reg = s.world.regions[c.region];
   return {
-    campId, training, side, me, foe,
-    regionName: training ? 'Training Grounds' : reg.name,
-    title: training ? 'Training War' : c.type === 'rw' ? `Resistance: ${reg.name}` : `Battle for ${reg.name}`,
-    endsAt: training ? 0 : c.endsAt,
-    seconds: CONFIG.trainingSeconds,
-    boost: training ? 1 : playerBoost(s),
+    campId, side, me: s.player.country, foe,
+    regionName: reg.name,
+    title: c.type === 'rw' ? `Resistance: ${reg.name}` : `Battle for ${reg.name}`,
+    endsAt: c.endsAt,
+    boost: playerBoost(s),
     ref,
-    enemyHp: ref * 3 * (training ? 1 : 1 + 0.1 * (countryPower(s.world, foe) - 1)),
-    // Training only: simulated sides of the practice wall.
-    enemyDps: f * ref * 3,
-    allyDps: 0.3 * ref * 3,
-    wallBase: ref * 40,
+    enemyHp: ref * 3 * (1 + 0.1 * (countryPower(s.world, foe) - 1)),
     division: division(s.player.level),
   };
 }
@@ -918,12 +947,11 @@ export function useBazooka(s, setup) {
 // Rewards for one visit to the battlefield (leaving, or the battle ending while you fight).
 // Victory bonuses and battle medals are handed out when the battle itself ends.
 export function finishVisit(s, setup, result) {
-  const { dmg, kills, headshots, won } = result;
+  const { dmg, kills, headshots } = result;
   const p = s.player;
-  const t = setup.training ? 0.5 : 1;
-  const money = (kills * 0.3 + (setup.training ? (won ? 10 : 4) : 0)) * (1 + p.level * 0.1) * t;
-  const xp = Math.round((kills + (setup.training ? (won ? 10 : 3) : Math.floor(dmg / (setup.ref * 20)))) * t);
-  const rp = Math.round((dmg / 10) * t);
+  const money = kills * 0.3 * (1 + p.level * 0.1);
+  const xp = Math.round(kills + Math.floor(dmg / (setup.ref * 20)));
+  const rp = Math.round(dmg / 10);
   p.money += money;
   p.damage += dmg;
   addXp(s, xp);
@@ -931,12 +959,9 @@ export function finishVisit(s, setup, result) {
   count(s, 'kill', kills);
   count(s, 'headshot', headshots);
   count(s, 'roundPlay');
-  if (setup.training && won) count(s, 'trainingWin');
   const medals = [];
-  if (!setup.training) {
-    p.patriotDmg += dmg;
-    while (Math.floor(p.patriotDmg / PATRIOT_STEP) > (s.medals.truePatriot || 0)) { awardMedal(s, 'truePatriot'); medals.push('truePatriot'); }
-  }
+  p.patriotDmg += dmg;
+  while (Math.floor(p.patriotDmg / PATRIOT_STEP) > (s.medals.truePatriot || 0)) { awardMedal(s, 'truePatriot'); medals.push('truePatriot'); }
   return { money, xp, rp, medals };
 }
 

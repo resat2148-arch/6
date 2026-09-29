@@ -144,7 +144,7 @@ function startFight(id) {
       refresh();
       save();
       await maybeMidgame();
-      if (nextId !== null && nextId !== undefined && (nextId === 'training' || G.campaignById(state, nextId))) startFight(nextId);
+      if (nextId !== null && nextId !== undefined && G.campaignById(state, nextId)) startFight(nextId);
     },
     onRoundEnd: () => { saveAndFlush(); },
     onAdRefill: () => energyAd(),
@@ -180,11 +180,11 @@ function refresh() {
 
 const actions = {
   tab: (d) => { ui.tab = d.tab; if (d.tab === 'people') G.count(state, 'rankView'); sfx.click(); $('view').scrollTop = 0; refresh(); },
-  rankSet: (d) => { ui[d.k] = d.v; sfx.click(); refresh(); },
+  rankSet: (d) => { ui[d.k] = d.k === 'nationAll' ? d.v === '1' : d.v; sfx.click(); refresh(); },
   work: () => result(G.work(state), (r) => { sfx.work(); toast(`🛠️ Worked: +💰${fmtMoney(r.money)}`, 'good'); }),
   train: () => result(G.train(state), (r) => { sfx.work(); toast(`🏋️ Trained: +${r.gain} strength`, 'good'); }),
   eat: () => result(G.eat(state), (r) => { sfx.eat(); closeModal(); toast(`🍞 +${Math.round(r.gained)} energy`, 'good'); }),
-  fight: (d) => startFight(d.id === 'training' ? 'training' : Number(d.id)),
+  fight: (d) => startFight(Number(d.id)),
   claimTutorial: () => result(G.claimTutorial(state), (r) => { sfx.coin(); toast(`🎯 Mission complete: ${G.rewardText(r.reward)}`, 'gold'); }),
   claimDaily: (d) => result(G.claimDaily(state, d.id), () => sfx.coin()),
   claimDailyBonus: () => result(G.claimDailyBonus(state), () => { sfx.win(); SDK.happytime(); toast('📅 Daily bonus claimed!', 'gold'); }),

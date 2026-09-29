@@ -422,3 +422,22 @@ test('old boolean facilities become qualities; Super Soldier thresholds grow', (
   G.train(s);
   assert.equal(s.medals.superSoldier, 1, 'one medal at 705 strength gained, not two');
 });
+
+test('country ranking covers every nation and tracks battle records', () => {
+  const s = fresh();
+  const rows = G.nationRanking(s, 'regions');
+  assert.equal(rows.length, COUNTRIES.length);
+  assert.equal(rows[0].id, 'RU', 'Russia starts with the most regions');
+  assert.ok(rows.find((n) => n.me).citizens >= 2, 'the player counts as a citizen');
+  assert.ok(G.nationRank(s, 'regions') >= 1);
+  s.politics.president = true;
+  const target = borderTargets(s.world, 'TR').find((r) => !s.world.campaigns.some((c) => c.region === r.id));
+  const loser = target.owner;
+  const camp = G.declareWar(s, target.id, T0).campaign;
+  G.battleHit(s, camp.id, 1e7);
+  G.tick(s, camp.endsAt + 1);
+  assert.equal(s.nationStats.TR.won, 1);
+  assert.equal(s.nationStats.TR.conquered, 1);
+  assert.equal(s.nationStats[loser].lost, 1);
+  for (const by of Object.keys(G.NATION_METRICS)) assert.equal(G.nationRanking(s, by).length, COUNTRIES.length);
+});

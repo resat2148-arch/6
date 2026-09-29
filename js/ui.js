@@ -11,7 +11,7 @@ import { PERSONAS, botRank, citizensOf, sellerName } from './citizens.js';
 import { neighborsOf, regionsOf, isAlive, countryPower, distinctResources, resourceBonus } from './world.js';
 
 const $ = (id) => document.getElementById(id);
-export const ui = { tab: 'home', sel: null, vb: null, dragged: false, rankScope: 'country', rankBy: 'dmg', pressScope: 'country' };
+export const ui = { tab: 'home', sel: null, vb: null, dragged: false, rankScope: 'country', rankBy: 'dmg', pressScope: 'country', nationBy: 'regions', nationAll: false };
 
 export const TABS = [
   { id: 'home', icon: '🏠', label: 'Home' },
@@ -294,11 +294,6 @@ function war(s) {
       <h3>⚔️ Your country's battles</h3>
       ${mine.length ? mine.map((c) => campRow(s, c, true)).join('') : '<p class="muted">No active campaigns. A new front will open soon…</p>'}
       <p class="muted small">Every battle is a single ${CONFIG.battleMs / 60000}-minute round. Your hits and your fellow citizens' damage push the same wall; when time runs out, the side above 50% wins the region. Join, leave and come back as often as you like: your damage stays.${s.player.level < 10 ? ` Rookie boost: your damage counts ×${G.playerBoost(s).toFixed(1)} until level 10.` : ''}</p>
-    </div>
-    <div class="card">
-      <h3>🎯 Training war</h3>
-      <p class="muted">A private ${CONFIG.trainingSeconds}-second practice round against weaker troops. Half rewards, no map changes.</p>
-      ${btn('Start training round', 'fight', 'data-id="training"')}
     </div>
     <div class="card">
       <h3>🪖 Military profile</h3>
@@ -699,6 +694,7 @@ function politics(s) {
       <div class="kv"><span>Your role</span><b>${role}</b></div>
       <div class="kv"><span>Your popularity</span><b>${fmt(G.popularity(s))}</b></div>
       <div class="kv"><span>Citizens · Regions</span><b>${citizensOf(s, c.id).length + 1} · ${regionsOf(s.world, c.id).length}</b></div>
+      <div class="kv"><span>Rank in Europe</span><b>#${G.nationRank(s, 'regions')} by regions · #${G.nationRank(s, 'dmg')} military</b></div>
       <h3 class="sub">🏛️ Congress (${seats} seats)</h3>
       <div class="members">${pol.congress ? `<div class="kv"><span>${candName(s, 'P')}</span><b>🏛️</b></div>` : ''}
       ${congress.map((b) => `<div class="kv"><span>${candName(s, b.id)}${b.pres ? ' 👑' : ''}</span><small class="muted">popularity ${fmt(G.botPopularity(b))}</small></div>`).join('')}</div>
@@ -751,6 +747,36 @@ const RANK_BY = {
   m: { label: 'Wealth', val: (x) => x.m },
 };
 
+function nationValue(n, by) {
+  if (by === 'regions') return `${n.regions} region${n.regions === 1 ? '' : 's'}`;
+  if (by === 'dmg') return `💥${fmt(n.dmg)}`;
+  if (by === 'won') return `${n.won} won`;
+  if (by === 'citizens') return `${n.citizens} citizens`;
+  if (by === 'wealth') return `💰${fmt(n.wealth)}`;
+  return `Lv ${n.avgLvl.toFixed(1)}`;
+}
+
+function nationsCard(s) {
+  const by = ui.nationBy;
+  const rows = G.nationRanking(s, by);
+  const myPos = rows.findIndex((n) => n.me) + 1;
+  const shown = ui.nationAll ? rows : rows.slice(0, 10);
+  const row = (n, i) => `<div class="rk ${n.me ? 'me' : ''} ${n.regions ? '' : 'wiped'}">
+    <b class="pos">${i + 1}</b>${flagSvg(n.id)}
+    <span class="grow"><b>${esc(n.name)}</b>${n.me ? ' <span class="pill gold">your country</span>' : ''}${n.regions ? '' : ' <span class="pill red">wiped</span>'}<br>
+      <small class="muted">${n.president ? `👑 ${esc(n.president)} · ` : ''}${n.regions} regions · ⚔️ ${n.won}W ${n.lost}L${n.conquered ? ` · 🏳️ ${n.conquered} conquered` : ''}</small></span>
+    <b>${nationValue(n, by)}</b></div>`;
+  const tab = (k, label) => `<button class="btn small ${by === k ? 'primary' : 'ghost'}" data-act="rankSet" data-k="nationBy" data-v="${k}">${label}</button>`;
+  return `<div class="card span2">
+    <div class="row spread"><h3>🌍 Country ranking</h3><small class="muted">${G.pc(s).name} is <b>#${myPos}</b> of ${rows.length} by ${G.NATION_METRICS[by].label.toLowerCase()}</small></div>
+    <div class="row rank-by">${Object.entries(G.NATION_METRICS).map(([k, m]) => tab(k, m.label)).join('')}</div>
+    <div class="ranking">${shown.map(row).join('')}
+      ${!ui.nationAll && myPos > 10 ? `<div class="gap">…</div>${row(rows[myPos - 1], myPos - 1)}` : ''}</div>
+    <div class="row">${btn(ui.nationAll ? 'Show top 10' : `Show all ${rows.length}`, 'rankSet', `data-k="nationAll" data-v="${ui.nationAll ? '' : '1'}"`, 'small ghost')}</div>
+    <p class="muted small">Military = total damage dealt by the nation's citizens. Battles won and conquests count every battle since your game began.</p>
+  </div>`;
+}
+
 function people(s) {
   const p = s.player;
   const me = { n: p.name, c: p.country, lvl: p.level, xp: p.xp, str: p.strength, dmg: p.damage, m: p.money, rank: G.rankName(s), you: true, pres: s.politics.president, cong: s.politics.congress, np: s.politics.news };
@@ -765,8 +791,9 @@ function people(s) {
   const tabBtn = (k, v, label) => `<button class="btn small ${ui[k] === v ? 'primary' : 'ghost'}" data-act="rankSet" data-k="${k}" data-v="${v}">${label}</button>`;
   const countryCount = citizensOf(s, p.country).length;
   return `<section class="grid">
+    ${nationsCard(s)}
     <div class="card span2">
-      <div class="row spread"><h3>🏅 Rankings</h3>
+      <div class="row spread"><h3>🏅 Citizen rankings</h3>
         <div class="row">${tabBtn('rankScope', 'country', G.pc(s).name)}${tabBtn('rankScope', 'world', 'Europe')}</div></div>
       <div class="row rank-by">${Object.entries(RANK_BY).map(([k, r]) => tabBtn('rankBy', k, r.label)).join('')}</div>
       <div class="ranking">${shown.map((x, i) => `<div class="rk ${x.you ? 'me' : ''}">
