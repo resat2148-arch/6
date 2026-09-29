@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as G from '../js/game.js';
-import { CONFIG, COUNTRIES, rankThreshold, RANKS } from '../js/data.js';
+import { CONFIG, COUNTRIES, rankThreshold, RANKS, superSoldierThreshold } from '../js/data.js';
 import { EU_REGIONS } from '../js/europe.js';
 import { createWorld, neighborsOf, regionsOf, borderTargets } from '../js/world.js';
 
@@ -358,4 +358,43 @@ test('saves from the fictional-map version keep the citizen progress', () => {
   assert.equal(s.companies[0].lvl, 3);
   assert.equal(s.medals.hardWorker, 2);
   assert.equal(s.v, G.migrate(s, T0).v, 'upgraded save loads normally');
+});
+
+test('training grounds: build and upgrade facilities from Q1 to Q5', () => {
+  const s = fresh();
+  assert.equal(G.facilityQ(s, 'weights'), 1);
+  assert.equal(G.trainGain(s), 5);
+  s.player.gold = 0;
+  assert.equal(G.upgradeFacility(s, 'weights').ok, false, 'needs gold');
+  s.player.gold = 1000;
+  const g0 = s.player.gold;
+  const r = G.upgradeFacility(s, 'weights');
+  assert.ok(r.ok);
+  assert.equal(r.q, 2);
+  assert.equal(s.player.gold, g0 - 3);
+  assert.equal(G.trainGain(s), 6.3, 'Q2 weights = 5 x 1.25');
+  assert.ok(G.upgradeFacility(s, 'special').ok, 'build special forces (Q1)');
+  assert.equal(G.facilityQ(s, 'special'), 1);
+  for (let i = 0; i < 10; i++) G.upgradeFacility(s, 'special');
+  assert.equal(G.facilityQ(s, 'special'), 5, 'capped at Q5');
+  assert.equal(G.upgradeFacility(s, 'special').ok, false);
+  assert.equal(G.trainGain(s), 6.3 + 22);
+  const str = s.player.strength;
+  G.train(s);
+  assert.equal(s.player.strength, str + 28.3);
+});
+
+test('old boolean facilities become qualities; Super Soldier thresholds grow', () => {
+  const s = fresh();
+  const raw = JSON.parse(JSON.stringify(s));
+  raw.facilities = { weights: true, climbing: true, shooting: false, special: false };
+  const m = G.migrate(raw, T0);
+  assert.deepEqual(m.facilities, { weights: 1, climbing: 1, shooting: 0, special: 0 });
+  assert.equal(G.trainGain(m), 7.5);
+  const t = [1, 2, 3].map((k) => superSoldierThreshold(k));
+  assert.deepEqual(t, [250, 758, 1450]);
+  s.player.strengthGained = 700;
+  s.player.energy = 100;
+  G.train(s);
+  assert.equal(s.medals.superSoldier, 1, 'one medal at 705 strength gained, not two');
 });

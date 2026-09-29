@@ -200,7 +200,10 @@ const actions = {
       if (r.ok) collectToast(r);
     });
   },
-  unlockFacility: (d) => result(G.unlockFacility(state, d.id), () => { sfx.coin(); toast('🏋️ Facility unlocked!', 'good'); }),
+  upFacility: (d) => result(G.upgradeFacility(state, d.id), (r) => {
+    sfx.coin();
+    toast(r.q === 1 ? `🏋️ Facility built: +${r.gain} strength per training` : `🏋️ Upgraded to Q${r.q}: +${r.gain} strength per training`, 'good');
+  }),
   buy: (d) => result(G.buy(state, d.key, Number(d.n)), (r) => {
     sfx.coin();
     toast(`🛒 Bought ${fmt(r.qty)} ${MARKET[d.key].name} for 💰${fmtMoney(r.cost)}${r.partial ? ' (all you could afford)' : ''}`, 'good');

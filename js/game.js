@@ -1,7 +1,7 @@
 // Core game rules. Pure state manipulation (no DOM) so it can run in Node tests.
 import {
   CONFIG, COUNTRIES, RANKS, rankThreshold, MEDALS, COMPANY_TYPES, MARKET, GOLD_SHOP, FOOD_ENERGY, WEAPON_FP,
-  FACILITIES, POLICIES, TUTORIAL, DAILY_POOL, DAILY_COUNT, DAILY_REWARD_GOLD, DAILY_BONUS, LOGIN_REWARDS,
+  FACILITIES, FACILITY_MAX_Q, FACILITY_QUALITY_MULT, superSoldierThreshold, POLICIES, TUTORIAL, DAILY_POOL, DAILY_COUNT, DAILY_REWARD_GOLD, DAILY_BONUS, LOGIN_REWARDS,
   MEDIA_MILESTONES, PATRIOT_STEP, PRESIDENT_NAMES, SAVE_VERSION, HOUSES, countryById, rankIndexOf, xpToNextLevel,
 } from './data.js';
 import {
@@ -47,7 +47,7 @@ export function newGame({ name, country, now = Date.now(), seed = Math.floor(Mat
       food: [0, 40, 0, 0, 0, 0], weapon: [0, 300, 0, 0, 0, 0], house: [0, 0, 0, 0, 0, 0], bazooka: 2,
     },
     housing: {},
-    facilities: { weights: true, climbing: false, shooting: false, special: false },
+    facilities: { weights: 1, climbing: 0, shooting: 0, special: 0 },
     companies: [],
     nextCompanyId: 1,
     market: { prices, offers: [], nextOfferId: 1, sold: {} },
@@ -96,6 +96,7 @@ export function migrate(saved, now = Date.now()) {
   };
   const s = merge(fresh, saved);
   s.world = saved.world;
+  for (const f of FACILITIES) s.facilities[f.id] = facilityQ(s, f.id);
   // Saves from before AI politics: give every nation a government.
   if (saved.citizens && !saved.citizens.some((b) => b.amb !== undefined)) {
     s.presidents = {};
@@ -119,6 +120,7 @@ export function upgradeLegacy(saved, country, now = Date.now()) {
     for (const k of ['food', 'weapon', 'house']) if (Array.isArray(saved.inv[k])) s.inv[k] = saved.inv[k].slice(0, 6);
   }
   for (const k of ['housing', 'facilities', 'medals', 'counters', 'tutorial', 'settings']) if (saved[k]) s[k] = { ...s[k], ...saved[k] };
+  for (const f of FACILITIES) s.facilities[f.id] = facilityQ(s, f.id);
   if (Array.isArray(saved.companies)) { s.companies = saved.companies; s.nextCompanyId = saved.nextCompanyId || saved.companies.length + 1; }
   if (saved.politics) {
     s.politics.party = !!saved.politics.party;
@@ -178,7 +180,14 @@ export const refHit = (s) => Math.pow(baseHit(s), 0.6) * Math.pow(expectedBase(s
 
 export const salary = (s) => (10 + s.player.level * 1.5) * (s.politics.congress ? 1.2 : 1) * policyMult(s, 'salary');
 
-export const trainGain = (s) => FACILITIES.reduce((a, f) => a + (s.facilities[f.id] ? f.gain : 0), 0);
+// Quality 0-5 of a training facility (older saves stored true/false for built or not).
+export function facilityQ(s, id) {
+  const v = s.facilities[id];
+  return typeof v === 'number' ? clamp(Math.floor(v), 0, FACILITY_MAX_Q) : v ? 1 : 0;
+}
+export const facilityGain = (f, q) => Math.round(f.gain * FACILITY_QUALITY_MULT[q] * 10) / 10;
+export const trainGain = (s) => Math.round(FACILITIES.reduce((a, f) => a + facilityGain(f, facilityQ(s, f.id)), 0) * 10) / 10;
+export const nextSuperSoldier = (s) => superSoldierThreshold((s.medals.superSoldier || 0) + 1);
 
 export const bestWeapon = (s) => { for (let q = 5; q >= 1; q--) if (s.inv.weapon[q] > 0) return q; return 0; };
 
@@ -270,7 +279,7 @@ export function train(s) {
   p.strengthGained += g;
   addXp(s, 2);
   count(s, 'train');
-  while (Math.floor(p.strengthGained / 250) > (s.medals.superSoldier || 0)) awardMedal(s, 'superSoldier');
+  while (p.strengthGained >= nextSuperSoldier(s)) awardMedal(s, 'superSoldier');
   return ok({ gain: g });
 }
 
@@ -313,13 +322,18 @@ export function refillEnergy(s) {
   s.player.reserve = Math.max(s.player.reserve, maxReserve(s));
 }
 
-export function unlockFacility(s, id) {
+// Builds a facility (to Q1) or raises its quality by one step.
+export function upgradeFacility(s, id) {
   const f = FACILITIES.find((x) => x.id === id);
-  if (!f || s.facilities[id]) return fail('Already unlocked.');
-  if (s.player.gold < f.gold) return fail('Not enough gold.');
-  s.player.gold -= f.gold;
-  s.facilities[id] = true;
-  return ok();
+  if (!f) return fail('Unknown facility.');
+  const q = facilityQ(s, id);
+  if (q >= FACILITY_MAX_Q) return fail('Already at maximum quality.');
+  const cost = f.cost[q];
+  if (s.player.gold < cost) return fail(`Not enough gold (${cost} needed).`);
+  s.player.gold -= cost;
+  s.facilities[id] = q + 1;
+  count(s, 'facilityUp');
+  return ok({ q: q + 1, gain: facilityGain(f, q + 1) });
 }
 
 // ---------------------------------------------------------------- market (offers from AI citizens and the player)

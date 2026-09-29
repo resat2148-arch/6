@@ -133,12 +133,18 @@ export const COMPANY_TYPES = {
     desc: 'Builds houses. Each house needs 100 × Q building materials.' },
 };
 
+// Training grounds: each facility has a quality from Q1 to Q5 (0 = not built).
+// `gain` is the Q1 strength per training; `cost[q-1]` is the gold price to reach quality q.
 export const FACILITIES = [
-  { id: 'weights', name: 'Weights Room', icon: '🏋️', gain: 5, gold: 0 },
-  { id: 'climbing', name: 'Climbing Center', icon: '🧗', gain: 2.5, gold: 5 },
-  { id: 'shooting', name: 'Shooting Range', icon: '🎯', gain: 5, gold: 15 },
-  { id: 'special', name: 'Special Forces Center', icon: '🪖', gain: 10, gold: 40 },
+  { id: 'weights', name: 'Weights Room', icon: '🏋️', gain: 5, cost: [0, 3, 6, 12, 25] },
+  { id: 'climbing', name: 'Climbing Center', icon: '🧗', gain: 2.5, cost: [5, 5, 10, 20, 35] },
+  { id: 'shooting', name: 'Shooting Range', icon: '🎯', gain: 5, cost: [15, 10, 20, 35, 60] },
+  { id: 'special', name: 'Special Forces Center', icon: '🪖', gain: 10, cost: [40, 20, 40, 70, 120] },
 ];
+export const FACILITY_MAX_Q = 5;
+export const FACILITY_QUALITY_MULT = [0, 1, 1.25, 1.5, 1.8, 2.2];
+// The k-th Super Soldier medal needs 250 * k^1.6 strength gained in total (250, 758, 1450, ...).
+export const superSoldierThreshold = (k) => Math.round(250 * Math.pow(k, 1.6));
 
 export const POLICIES = {
   production: { name: 'Industrial Plan', desc: '+15% company production', mult: 1.15 },
@@ -148,7 +154,7 @@ export const POLICIES = {
 
 export const MEDALS = {
   hardWorker: { name: 'Hard Worker', icon: '🛠️', desc: 'Work 30 times', gold: 5 },
-  superSoldier: { name: 'Super Soldier', icon: '💪', desc: 'Gain 250 strength', gold: 5 },
+  superSoldier: { name: 'Super Soldier', icon: '💪', desc: 'Strength milestones (250, 758, 1450…)', gold: 5 },
   battleHero: { name: 'Battle Hero', icon: '🎖️', desc: 'Top damage in a battle round', gold: 3 },
   campaignHero: { name: 'Campaign Hero', icon: '🏆', desc: 'Top fighter of a won campaign', gold: 5 },
   truePatriot: { name: 'True Patriot', icon: '🛡️', desc: 'Deal 20,000 damage for your country', gold: 5 },

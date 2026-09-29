@@ -527,11 +527,39 @@ function economy(s) {
       <div class="kv"><span>Food bonus</span><b>+${Math.round((resourceBonus(s.world, me, 'food') - 1) * 100)}% ${fr.map((r) => RESOURCES[r].icon).join('')}</b></div>
       <div class="kv"><span>Weapon bonus</span><b>+${Math.round((resourceBonus(s.world, me, 'weapon') - 1) * 100)}% ${wr.map((r) => RESOURCES[r].icon).join('')}</b></div>
       <p class="muted small">Conquer regions with new resources to boost your Farms and Mines.</p>
-      <h3>🏋️ Training grounds</h3>
-      ${FACILITIES.map((f) => `<div class="kv"><span>${f.icon} ${f.name} (+${f.gain})</span>
-        ${s.facilities[f.id] ? '<b class="green">✔</b>' : btn(`Unlock 🪙${f.gold}`, 'unlockFacility', `data-id="${f.id}"`, 'small')}</div>`).join('')}
     </div>
+    ${trainingCard(s)}
   </section>`;
+}
+
+// ------------------------------------------------------------------ training grounds
+const stars = (q) => `<span class="stars">${'★'.repeat(q)}<span class="off">${'★'.repeat(5 - q)}</span></span>`;
+
+function trainingCard(s) {
+  const rows = FACILITIES.map((f) => {
+    const q = G.facilityQ(s, f.id);
+    const now = G.facilityGain(f, q);
+    const next = q < 5 ? G.facilityGain(f, q + 1) : null;
+    const action = q >= 5
+      ? '<b class="green">MAX</b>'
+      : btn(`${q ? `Q${q + 1}` : 'Build'} 🪙${f.cost[q]}`, 'upFacility', `data-id="${f.id}"`, `small ${s.player.gold >= f.cost[q] ? 'primary' : ''}`);
+    return `<div class="facility ${q ? '' : 'locked'}">
+      <i>${f.icon}</i>
+      <div class="grow"><b>${f.name}</b> ${q ? stars(q) : '<small class="muted">not built</small>'}
+        <small class="muted">${q ? `+${now} per training` : `Q1: +${f.gain} per training`}${next !== null && q ? ` → Q${q + 1}: +${next}` : ''}</small></div>
+      ${action}
+    </div>`;
+  }).join('');
+  const got = s.player.strengthGained || 0;
+  const target = G.nextSuperSoldier(s);
+  return `<div class="card">
+    <h3>🏋️ Training grounds</h3>
+    <div class="kv"><span>Strength per training</span><b>+${G.trainGain(s)} 💪</b></div>
+    ${rows}
+    <div class="kv"><span>Next Super Soldier medal</span><b>${fmt(got)} / ${fmt(target)}</b></div>
+    ${bar((got / target) * 100, 'thin')}
+    <p class="muted small">Each facility trains alongside the others every time you train. Higher quality multiplies its gain (Q1 ×1 → Q5 ×2.2).</p>
+  </div>`;
 }
 
 // ------------------------------------------------------------------ market

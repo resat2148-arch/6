@@ -17,6 +17,7 @@
 | Savaşlar, raundlar, duvar (wall), bölge fethi | Her kampanya “ilk 3 raundu kazanan” formatında. Raund = 60 sn'lik aksiyon mini oyunu. |
 | Direniş savaşları (RW) | İşgal edilmiş anavatan bölgesinde 5 altınla başlatılabilir; yapay zekâ ülkeleri de başlatır. |
 | Eğitim savaşları | Her zaman açık “Training War” (yarı ödül, haritayı değiştirmez). |
+| Antrenman sahaları (Training Grounds) ve kaliteleri | 4 tesis (Ağırlık Odası, Tırmanma Merkezi, Atış Poligonu, Özel Kuvvetler Merkezi), her biri Q1–Q5. Kalite, tesisin güç kazancını çarpar (Q1 ×1, Q2 ×1,25, Q3 ×1,5, Q4 ×1,8, Q5 ×2,2); tüm tesisler her antrenmanda birlikte çalışır. İnşa ve yükseltme altınla. Hepsi Q5'te antrenman başına +49,5 güç. Süper Asker madalyası artan eşiklerle verilir (250 × k^1,6: 250, 758, 1450…) ki hızlı antrenman altın makinesine dönüşmesin. |
 | Siyaset: parti, kongre, başkan | Parti → Kongre (+%20 maaş) → Başkan (savaş ilan eder, ulusal politika seçer). Seçimler her 10 dakikada bir, kongre/başkanlık dönüşümlü. |
 | Gazete, abone, Media Mogul | Gazete kur, makale yayınla (3 dk bekleme), abone kazan → popülerlik → seçim şansı. |
 | Madalyalar (+5 altın) | Hard Worker, Super Soldier, Battle Hero, Campaign Hero, True Patriot, Resistance Hero, Congress Member, President, Media Mogul, Tycoon. |
