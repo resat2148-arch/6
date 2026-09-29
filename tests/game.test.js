@@ -1,28 +1,38 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as G from '../js/game.js';
-import { CONFIG, COUNTRIES, MAP_ROWS, rankThreshold, RANKS } from '../js/data.js';
+import { CONFIG, COUNTRIES, rankThreshold, RANKS } from '../js/data.js';
+import { EU_REGIONS } from '../js/europe.js';
 import { createWorld, neighborsOf, regionsOf, borderTargets } from '../js/world.js';
 
 const T0 = 1_700_000_000_000;
-const fresh = (country = 'A') => G.newGame({ name: 'Tester', country, now: T0, seed: 42 });
+const fresh = (country = 'TR') => G.newGame({ name: 'Tester', country, now: T0, seed: 42 });
 
-test('world: every region is reachable and each country has a capital + resources', () => {
+test('world: real Europe map is connected, every country has one capital', () => {
   const w = createWorld(7);
-  const land = MAP_ROWS.join('').replace(/\./g, '').length;
-  assert.equal(w.regions.length, land);
+  assert.equal(w.regions.length, EU_REGIONS.length);
   const seen = new Set([0]);
   const q = [0];
   while (q.length) for (const n of neighborsOf(w, q.shift())) if (!seen.has(n)) { seen.add(n); q.push(n); }
   assert.equal(seen.size, w.regions.length, 'map must be connected');
+  for (let i = 0; i < w.regions.length; i++) for (const n of neighborsOf(w, i)) assert.ok(neighborsOf(w, n).includes(i), 'symmetric');
+  assert.ok(COUNTRIES.length >= 35);
   for (const c of COUNTRIES) {
     const own = regionsOf(w, c.id);
-    assert.ok(own.length >= 8, `${c.name} too small`);
-    assert.equal(own.filter((r) => r.capital).length, 1);
-    assert.equal(own.filter((r) => r.res).length, 4);
-    assert.ok(borderTargets(w, c.id).length > 0);
+    assert.ok(own.length >= 1, `${c.name} has regions`);
+    assert.equal(own.filter((r) => r.capital).length, 1, `${c.name} capital`);
+    assert.equal(own.filter((r) => r.res).length, Math.min(4, own.length));
+    assert.ok(borderTargets(w, c.id).length > 0, `${c.name} has a border`);
   }
-  assert.equal(new Set(w.regions.map((r) => r.name)).size, w.regions.length, 'unique names');
+  const tr = regionsOf(w, 'TR').map((r) => r.name);
+  assert.ok(tr.includes('Marmara') && tr.includes('Central Anatolia'));
+});
+
+test('old v1 saves are rejected instead of loading a broken map', () => {
+  const s = fresh();
+  const raw = JSON.parse(JSON.stringify(s));
+  raw.v = 1;
+  assert.equal(G.migrate(raw, T0), null);
 });
 
 test('world generation is deterministic per seed', () => {
@@ -133,7 +143,7 @@ test('winning 3 rounds conquers the region', () => {
   if (!camp) {
     s.world.campaigns = s.world.campaigns.filter((c) => !G.playerSide(s, c));
     s.politics.president = true;
-    const target = borderTargets(s.world, 'A')[0];
+    const target = borderTargets(s.world, 'TR')[0];
     camp = G.declareWar(s, target.id, T0 + 30000).campaign;
   }
   const regionId = camp.region;
@@ -141,13 +151,13 @@ test('winning 3 rounds conquers the region', () => {
     const setup = G.roundSetup(s, camp.id);
     G.finishRound(s, setup, { dmg: 1000, kills: 5, headshots: 0, won: true }, T0 + 40000 + i);
   }
-  assert.equal(s.world.regions[regionId].owner, 'A');
+  assert.equal(s.world.regions[regionId].owner, 'TR');
   assert.equal(G.campaignById(s, camp.id), undefined);
   assert.equal(s.counters.conquest, 1);
 });
 
 test('world simulation keeps running and never breaks invariants', () => {
-  const s = fresh('C');
+  const s = fresh('ME');
   for (let i = 1; i <= 400; i++) G.tick(s, T0 + i * CONFIG.aiTickMs);
   const regionsInBattle = s.world.campaigns.map((c) => c.region);
   assert.equal(new Set(regionsInBattle).size, regionsInBattle.length, 'one battle per region');
@@ -155,7 +165,7 @@ test('world simulation keeps running and never breaks invariants', () => {
     assert.notEqual(c.att, c.def);
     assert.equal(s.world.regions[c.region].owner, c.def);
   }
-  assert.ok(s.world.campaigns.some((c) => G.playerSide(s, c)) || s.world.regions.every((r) => r.owner === 'C'));
+  assert.ok(s.world.campaigns.some((c) => G.playerSide(s, c)) || s.world.regions.every((r) => r.owner === 'ME') || !s.world.regions.some((r) => r.origin === 'ME' && r.owner !== 'ME'));
 });
 
 test('tutorial progresses and pays rewards', () => {

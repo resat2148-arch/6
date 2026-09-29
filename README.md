@@ -40,7 +40,8 @@ Zip dosyasını CrazyGames Developer Portal → *Submit game* → *HTML5* olarak
 | `index.html`, `css/style.css` | Arayüz iskeleti ve stil |
 | `js/data.js` | Tüm denge değerleri, ülkeler, rütbeler, madalyalar, görevler |
 | `js/game.js` | Oyun kuralları (DOM'suz, test edilebilir): enerji, iş, antrenman, şirketler, pazar, siyaset, savaş, yapay zekâ |
-| `js/world.js` | Altıgen harita, komşuluk, kaynak bonusları |
+| `js/world.js` | Avrupa haritası mantığı: komşuluk, kaynak bonusları |
+| `js/europe.js` | **Üretilen** harita verisi (ülkeler, bölgeler, SVG yolları). Yeniden üretmek için: `node scripts/build-map.mjs` |
 | `js/battle.js` | Canvas savaş mini oyunu |
 | `js/ui.js` | Sekme ekranları (Home, War, Map, Economy, Market, Politics, Medals) |
 | `js/sdk.js` | CrazyGames SDK sarmalayıcısı (SDK yoksa güvenli geri dönüş) |

@@ -68,6 +68,7 @@ export function openFirstFront(s, now = Date.now()) {
 // Fill any fields missing from older saves.
 export function migrate(saved, now = Date.now()) {
   if (!saved || typeof saved !== 'object' || !saved.player || !saved.world) return null;
+  if (saved.v !== SAVE_VERSION) return null; // incompatible world map: start a new citizen
   const fresh = newGame({ name: saved.player.name || 'Citizen', country: saved.player.country || 'A', now });
   const merge = (dst, src) => {
     for (const k in src) {

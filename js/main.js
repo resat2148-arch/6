@@ -3,17 +3,29 @@ import * as G from './game.js';
 import * as SDK from './sdk.js';
 import { sfx, unlock, setMuted } from './sfx.js';
 import {
-  ui, renderTab, renderTop, liveUpdate, renderStart, toast, openModal, closeModal, modalOpen, banner, helpHtml,
+  ui, renderTab, renderTop, liveUpdate, renderStart, toast, openModal, closeModal, modalOpen, banner, helpHtml, zoomMap,
 } from './ui.js';
 import { initBattle, openBattle, isOpen as battleOpen, setAdPause, debugTargets } from './battle.js';
-import { CONFIG, GAME_TITLE, MEDALS, GOLD_SHOP, RAW_ICON, HOUSES } from './data.js';
+import { CONFIG, GAME_TITLE, MEDALS, GOLD_SHOP, RAW_ICON, HOUSES, countryById } from './data.js';
 import { fmt, fmtMoney, fmtTime, esc } from './util.js';
 
 const SAVE_KEY = 'republic-rising-save-v1';
 const ENERGY_AD_COOLDOWN = 4 * 60 * 1000;
 
 let state = null;
-let pickedCountry = 'A';
+// Pre-select the player's own country when the browser language reveals it (tr-TR -> Turkey).
+function localCountry() {
+  const langs = navigator.languages || [navigator.language || ''];
+  for (const l of langs) {
+    const region = (l.split('-')[1] || '').toUpperCase();
+    if (countryById(region)) return region;
+    const lang = { tr: 'TR', de: 'DE', fr: 'FR', es: 'ES', it: 'IT', pl: 'PL', nl: 'NL', pt: 'PT', ro: 'RO', el: 'GR', hu: 'HU', cs: 'CZ', sv: 'SE',
+      da: 'DK', fi: 'FI', nb: 'NO', uk: 'UA', ru: 'RU', bg: 'BG', hr: 'HR', sr: 'RS', sk: 'SK', sl: 'SI', et: 'EE', lv: 'LV', lt: 'LT' }[l.split('-')[0]];
+    if (lang) return lang;
+  }
+  return 'DE';
+}
+let pickedCountry = localCountry();
 let quietLog = null; // collects toasts during offline catch-up
 let dirty = false;
 let started = false;
@@ -184,7 +196,8 @@ const actions = {
   policy: (d) => result(G.setPolicy(state, d.key), () => toast('📜 Policy enacted.', 'good')),
   newspaper: () => result(G.createNewspaper(state, $('news-name')?.value), () => toast('📰 Newspaper founded!', 'good')),
   article: () => result(G.writeArticle(state), (r) => toast(`📰 Article published: +${r.gain} subscribers`, 'good')),
-  region: (d) => { ui.sel = Number(d.id); sfx.click(); refresh(); },
+  region: (d) => { if (ui.dragged) return; ui.sel = Number(d.id); sfx.click(); refresh(); },
+  mapZoom: (d) => zoomMap(Number(d.z)),
   declareWar: (d) => result(G.declareWar(state, Number(d.id)), () => sfx.alarm()),
   resist: (d) => result(G.startResistance(state, Number(d.id))),
   energyMenu: () => openEnergyMenu(),
@@ -326,7 +339,7 @@ async function boot() {
     SDK.loadingStop();
     $('loading').hidden = true;
     const uname = await SDK.getUsername();
-    renderStart(uname || `Citizen${Math.floor(1000 + Math.random() * 9000)}`);
+    renderStart(uname || `Citizen${Math.floor(1000 + Math.random() * 9000)}`, pickedCountry);
   }
 }
 

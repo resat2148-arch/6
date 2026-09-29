@@ -1,15 +1,16 @@
 // DOM rendering for the management screens. Actions are dispatched by main.js via data-act attributes.
 import * as G from './game.js';
 import {
-  CONFIG, COUNTRIES, MAP_ROWS, RESOURCES, RANKS, rankThreshold, MEDALS, COMPANY_TYPES, MARKET, GOLD_SHOP,
+  CONFIG, COUNTRIES, RESOURCES, RANKS, rankThreshold, MEDALS, COMPANY_TYPES, MARKET, GOLD_SHOP,
   FACILITIES, POLICIES, FOOD_ENERGY, WEAPON_FP, countryById, GAME_TITLE, DAILY_BONUS, HOUSES, RAW_ICON,
 } from './data.js';
 import { flagSvg } from './flags.js';
 import { fmt, fmtMoney, fmtTime, esc } from './util.js';
+import { MAP_W, MAP_H, EU_REGIONS, EU_PATHS, EU_NEUTRAL, EU_BORDERS } from './europe.js';
 import { neighborsOf, regionsOf, isAlive, countryPower, distinctResources, resourceBonus } from './world.js';
 
 const $ = (id) => document.getElementById(id);
-export const ui = { tab: 'home', sel: null };
+export const ui = { tab: 'home', sel: null, vb: null, dragged: false };
 
 export const TABS = [
   { id: 'home', icon: '🏠', label: 'Home' },
@@ -116,22 +117,26 @@ export function liveUpdate(s) {
 }
 
 // ------------------------------------------------------------------ start screen
-export function renderStart(defaultName) {
-  const cards = COUNTRIES.map((c, i) => `
-    <button class="country-card ${i === 0 ? 'sel' : ''}" data-act="pickCountry" data-id="${c.id}" style="--cc:${c.color}">
+export function renderStart(defaultName, picked) {
+  const count = (id) => EU_REGIONS.filter((r) => r.c === id).length;
+  const cards = [...COUNTRIES].sort((a, b) => a.name.localeCompare(b.name)).map((c) => `
+    <button class="country-card ${c.id === picked ? 'sel' : ''}" data-act="pickCountry" data-id="${c.id}" style="--cc:${c.color}">
       ${flagSvg(c.id, 'flag big')}
-      <b>${c.name}</b><small>“${c.motto}”</small>
+      <b>${c.name}</b><small>${count(c.id)} region${count(c.id) > 1 ? 's' : ''}</small>
     </button>`).join('');
   $('start').innerHTML = `
     <div class="start-card">
       <div class="logo">⭐ ${GAME_TITLE}</div>
       <p class="tag">Work. Train. Fight. Build an empire and rule a nation.</p>
       <label class="field"><span>Citizen name</span><input id="start-name" maxlength="18" value="${esc(defaultName)}" autocomplete="off"></label>
-      <p class="muted small">Choose your citizenship</p>
+      <p class="muted small">Choose your citizenship — big nations are safer, small ones are a challenge</p>
       <div class="country-grid">${cards}</div>
       <button class="btn primary big" data-act="startGame">Become a citizen</button>
     </div>`;
   $('start').hidden = false;
+  const grid = document.querySelector('.country-grid');
+  const sel = grid.querySelector('.sel');
+  if (sel) grid.scrollTop = sel.offsetTop - grid.offsetTop - grid.clientHeight / 2 + sel.offsetHeight / 2;
 }
 
 // ------------------------------------------------------------------ tab renderers
@@ -141,6 +146,7 @@ export function renderTab(s) {
   const scroll = v.scrollTop;
   v.innerHTML = fn(s);
   v.scrollTop = scroll;
+  if (ui.tab === 'map') bindMap();
   renderTop(s);
   liveUpdate(s);
 }
@@ -293,40 +299,123 @@ function war(s) {
 }
 
 // ------------------------------------------------------------------ map
-function hexPoints(cx, cy, r) {
-  const pts = [];
-  for (let i = 0; i < 6; i++) {
-    const a = (Math.PI / 180) * (60 * i - 30);
-    pts.push(`${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`);
-  }
-  return pts.join(' ');
-}
+const FULL_VB = [0, 0, MAP_W, MAP_H];
 
 export function mapSvg(s, sel) {
-  const size = 30;
-  const w = Math.sqrt(3) * size;
-  const cols = Math.max(...MAP_ROWS.map((r) => r.length));
-  const vbW = w * (cols + 0.5) + 8;
-  const vbH = size * 1.5 * (MAP_ROWS.length - 1) + size * 2 + 8;
+  const vb = ui.vb || FULL_VB;
   const battle = new Map(s.world.campaigns.map((c) => [c.region, c]));
   const me = s.player.country;
-  let out = '';
+  const colors = Object.fromEntries(COUNTRIES.map((c) => [c.id, c]));
+  let fills = '';
+  let marks = '';
   for (const r of s.world.regions) {
-    const cx = w * (r.c + 0.5 * (r.r & 1)) + w / 2 + 4;
-    const cy = size * 1.5 * r.r + size + 4;
-    const own = countryById(r.owner);
+    const own = colors[r.owner];
     const b = battle.get(r.id);
-    const cls = ['hex', r.id === sel ? 'sel' : '', r.owner === me ? 'mine' : '', b ? 'battle' : ''].join(' ');
-    out += `<g class="${cls}" data-act="region" data-id="${r.id}">
-      <polygon points="${hexPoints(cx, cy, size - 1)}" fill="${own.color}" />
-      ${r.origin !== r.owner ? `<polygon points="${hexPoints(cx, cy, size * 0.42)}" fill="${countryById(r.origin).dark}" opacity=".85"/>` : ''}
-      ${r.capital ? `<text x="${cx}" y="${cy - 11}" class="cap">★</text>` : ''}
-      ${r.res ? `<text x="${cx}" y="${cy + 7}" class="res">${RESOURCES[r.res].icon}</text>` : ''}
-      ${b ? `<text x="${cx + 13}" y="${cy + 18}" class="bat">⚔️</text>` : ''}
-    </g>`;
+    const g = EU_REGIONS[r.id];
+    const cls = ['rg', r.id === sel ? 'sel' : '', r.owner === me ? 'mine' : ''].join(' ');
+    fills += `<path class="${cls}" d="${EU_PATHS[r.id]}" fill="${own.color}" data-act="region" data-id="${r.id}"/>`;
+    if (r.origin !== r.owner) marks += `<circle cx="${g.x}" cy="${g.y}" r="3.2" fill="${colors[r.origin].color}" stroke="#000" stroke-width=".8"/>`;
+    if (r.capital) marks += `<text x="${g.x}" y="${g.y - 4}" class="cap">★</text>`;
+    if (r.res) marks += `<text x="${g.x}" y="${g.y + 9}" class="res">${RESOURCES[r.res].icon}</text>`;
+    if (b) marks += `<text x="${g.x + 7}" y="${g.y + 3}" class="bat">⚔️</text>`;
+    marks += `<text x="${g.x}" y="${g.y + (r.res ? 15 : 8)}" class="lbl">${esc(r.name)}</text>`;
   }
-  return `<svg class="map" viewBox="0 0 ${vbW.toFixed(0)} ${vbH.toFixed(0)}" preserveAspectRatio="xMidYMid meet">
-    <rect x="0" y="0" width="${vbW}" height="${vbH}" fill="transparent"/>${out}</svg>`;
+  const zoomed = vb[2] < MAP_W / 2.2;
+  return `<svg id="map-svg" class="map ${zoomed ? 'zoomed' : ''}" viewBox="${vb.map((v) => v.toFixed(1)).join(' ')}" preserveAspectRatio="xMidYMid meet">
+    <rect x="-2000" y="-2000" width="${MAP_W + 4000}" height="${MAP_H + 4000}" class="sea"/>
+    <path d="${EU_NEUTRAL}" class="neutral"/>
+    <g class="regions">${fills}</g>
+    <path d="${EU_BORDERS}" class="borders"/>
+    ${sel !== null && sel !== undefined ? `<path d="${EU_PATHS[sel]}" class="sel-outline"/>` : ''}
+    <g class="marks">${marks}</g>
+  </svg>
+  <div class="map-ctl"><button class="icon-btn" data-act="mapZoom" data-z="1.6" title="Zoom in">＋</button><button class="icon-btn" data-act="mapZoom" data-z="0.625" title="Zoom out">－</button><button class="icon-btn" data-act="mapZoom" data-z="0" title="Show all">⤢</button></div>`;
+}
+
+// Pan (drag), zoom (wheel / pinch / buttons) by rewriting the SVG viewBox in place.
+function setVb(svg, vb) {
+  const w = Math.min(MAP_W * 1.2, Math.max(MAP_W / 12, vb[2]));
+  const h = (w * MAP_H) / MAP_W;
+  const cx = vb[0] + vb[2] / 2;
+  const cy = vb[1] + vb[3] / 2;
+  const x = Math.min(MAP_W - w / 3, Math.max(-w * 2 / 3, cx - w / 2));
+  const y = Math.min(MAP_H - h / 3, Math.max(-h * 2 / 3, cy - h / 2));
+  ui.vb = [x, y, w, h];
+  svg.setAttribute('viewBox', ui.vb.map((v) => v.toFixed(1)).join(' '));
+  svg.classList.toggle('zoomed', w < MAP_W / 2.2);
+}
+
+export function zoomMap(factor, cx, cy) {
+  const svg = document.getElementById('map-svg');
+  if (!svg) return;
+  if (!factor) { ui.vb = null; setVb(svg, FULL_VB); ui.vb = null; return; }
+  const vb = ui.vb || FULL_VB;
+  const px = cx ?? vb[0] + vb[2] / 2;
+  const py = cy ?? vb[1] + vb[3] / 2;
+  const w = vb[2] / factor;
+  const h = vb[3] / factor;
+  setVb(svg, [px - ((px - vb[0]) / vb[2]) * w, py - ((py - vb[1]) / vb[3]) * h, w, h]);
+}
+
+export function bindMap() {
+  const svg = document.getElementById('map-svg');
+  if (!svg) return;
+  const pts = new Map();
+  let start = null;
+  const toMap = (e) => {
+    const r = svg.getBoundingClientRect();
+    const vb = ui.vb || FULL_VB;
+    const scale = Math.max(vb[2] / r.width, vb[3] / r.height);
+    const ox = (r.width - vb[2] / scale) / 2;
+    const oy = (r.height - vb[3] / scale) / 2;
+    return { x: vb[0] + (e.clientX - r.left - ox) * scale, y: vb[1] + (e.clientY - r.top - oy) * scale, scale };
+  };
+  svg.addEventListener('pointerdown', (e) => {
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    ui.dragged = false;
+    start = { vb: [...(ui.vb || FULL_VB)], x: e.clientX, y: e.clientY, dist: 0 };
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()];
+      start.dist = Math.hypot(a.x - b.x, a.y - b.y);
+      start.mid = toMap({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 });
+    }
+  });
+  svg.addEventListener('pointermove', (e) => {
+    if (!pts.has(e.pointerId) || !start) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2 && start.dist) {
+      const [a, b] = [...pts.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      const f = d / start.dist;
+      const w = start.vb[2] / f;
+      const h = start.vb[3] / f;
+      const m = start.mid;
+      setVb(svg, [m.x - ((m.x - start.vb[0]) / start.vb[2]) * w, m.y - ((m.y - start.vb[1]) / start.vb[3]) * h, w, h]);
+      ui.dragged = true;
+      return;
+    }
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (!ui.dragged && Math.hypot(dx, dy) < 6) return;
+    ui.dragged = true;
+    const r = svg.getBoundingClientRect();
+    const scale = Math.max(start.vb[2] / r.width, start.vb[3] / r.height);
+    setVb(svg, [start.vb[0] - dx * scale, start.vb[1] - dy * scale, start.vb[2], start.vb[3]]);
+  });
+  const end = (e) => {
+    pts.delete(e.pointerId);
+    if (pts.size === 1) {
+      const [p] = [...pts.values()];
+      start = { vb: [...(ui.vb || FULL_VB)], x: p.x, y: p.y, dist: 0 };
+    } else if (!pts.size) start = null;
+  };
+  svg.addEventListener('pointerup', end);
+  svg.addEventListener('pointercancel', end);
+  svg.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const m = toMap(e);
+    zoomMap(e.deltaY < 0 ? 1.25 : 0.8, m.x, m.y);
+  }, { passive: false });
 }
 
 function regionPanel(s, id) {
@@ -363,13 +452,13 @@ function map(s) {
     <div class="card map-card">
       <div class="row spread"><h3>🗺️ World map</h3><small class="muted">${G.pc(s).name} controls ${mine}/${total} regions (${Math.round((mine / total) * 100)}%)</small></div>
       <div id="map-holder">${mapSvg(s, ui.sel)}</div>
-      <p class="muted small">★ capital · dark center = occupied region · ⚔️ active battle · icons = resources (+20% production each)</p>
+      <p class="muted small">Drag to move, pinch or scroll to zoom. ★ capital · colored dot = occupied (original owner) · ⚔️ battle · icons = resources (+20% production each)</p>
     </div>
     <div class="side">
       <div class="card" id="region-panel">${regionPanel(s, ui.sel)}</div>
       <div class="card">
         <h3>🏆 Nations</h3>
-        ${counts.map(({ c, n }) => `<div class="kv ${c.id === s.player.country ? 'me' : ''}"><span>${flagSvg(c.id)} ${c.name}</span><b>${n ? `${n} regions` : '<span class="red">wiped</span>'}</b></div>`).join('')}
+        <div class="nations">${counts.map(({ c, n }) => `<div class="kv ${c.id === s.player.country ? 'me' : ''}"><span>${flagSvg(c.id)} ${c.name}</span><b>${n ? `${n} regions` : '<span class="red">wiped</span>'}</b></div>`).join('')}</div>
       </div>
     </div>
   </section>`;
@@ -496,7 +585,6 @@ function politics(s) {
   return `<section class="grid">
     <div class="card" style="--cc:${c.color}">
       <h3>${flagSvg(c.id, 'flag big')} ${c.name}</h3>
-      <p class="muted">“${c.motto}”</p>
       <div class="kv"><span>President</span><b>${pol.president ? '👑 You' : esc(pol.presidentName)}</b></div>
       <div class="kv"><span>Your role</span><b>${role}</b></div>
       <div class="kv"><span>Regions</span><b>${regionsOf(s.world, c.id).length}</b></div>
