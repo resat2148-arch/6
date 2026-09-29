@@ -32,32 +32,107 @@ function weighted(list, rnd) {
   return list[0][0];
 }
 
+// Population follows territory: more regions, more citizens (and more damage in battles).
+// A nation without regions keeps a single resistance citizen.
+export const populationTarget = (regions) => (regions > 0 ? Math.round(2 + 0.75 * regions) : 1);
+
+function makeCitizen(id, cid, rnd, newcomer = false) {
+  const { name, female } = citizenName(cid, rnd);
+  const lvl = newcomer ? 1 + Math.floor(rnd() * 6) : 1 + Math.floor(rnd() * rnd() * 32);
+  const p = weighted([['s', 40], ['w', 35], ['t', 25]], rnd);
+  const b = {
+    id, n: name, fem: female, c: cid, p, lvl, xp: 0,
+    str: Math.round(100 + lvl * 35 * (0.6 + rnd() * 0.8)),
+    rp: rankThreshold(Math.floor(lvl * 1.5 * (0.5 + rnd() * 0.7))),
+    m: Math.round(80 + lvl * 40 * rnd()), e: 100, fe: 150, w: [0, 0, 0, 0, 0, 0],
+    dmg: 0, co: null, stock: 0, px: 0, last: 0, amb: rnd(), np: null, cong: false, pres: false,
+  };
+  if (lvl >= 5 && (b.amb > 0.65 || rnd() < 0.08)) b.np = { name: newspaperName(b, rnd), subs: Math.floor(lvl * (2 + rnd() * 10)), articles: 0 };
+  b.w[clamp(Math.ceil(lvl / 7), 1, 5)] = 100 + lvl * 15;
+  if (!newcomer && rnd() < PERSONAS[p].company) {
+    b.co = { t: weighted(COMPANY_WEIGHTS, rnd), q: clamp(1 + Math.floor(lvl / 8 + rnd() * 2), 1, 5), l: clamp(1 + Math.floor(rnd() * 3 + lvl / 8), 1, 10) };
+  }
+  return b;
+}
+
 export function createCitizens(seed) {
   const rnd = mulberry32(seed ^ 0x5eed);
   const list = [];
   for (const c of COUNTRIES) {
-    const regions = EU_REGIONS.filter((r) => r.c === c.id).length;
-    const n = 3 + Math.ceil(regions / 2);
-    for (let i = 0; i < n; i++) {
-      const { name, female } = citizenName(c.id, rnd);
-      const lvl = 1 + Math.floor(rnd() * rnd() * 32);
-      const p = weighted([['s', 40], ['w', 35], ['t', 25]], rnd);
-      const b = {
-        id: list.length, n: name, fem: female, c: c.id, p, lvl, xp: 0,
-        str: Math.round(100 + lvl * 35 * (0.6 + rnd() * 0.8)),
-        rp: rankThreshold(Math.floor(lvl * 1.5 * (0.5 + rnd() * 0.7))),
-        m: Math.round(80 + lvl * 40 * rnd()), e: 100, fe: 150, w: [0, 0, 0, 0, 0, 0],
-        dmg: 0, co: null, stock: 0, px: 0, last: 0, amb: rnd(), np: null, cong: false, pres: false,
-      };
-      if (lvl >= 5 && (b.amb > 0.65 || rnd() < 0.08)) b.np = { name: newspaperName(b, rnd), subs: Math.floor(lvl * (2 + rnd() * 10)), articles: 0 };
-      b.w[clamp(Math.ceil(lvl / 7), 1, 5)] = 100 + lvl * 15;
-      if (rnd() < PERSONAS[p].company) {
-        b.co = { t: weighted(COMPANY_WEIGHTS, rnd), q: clamp(1 + Math.floor(lvl / 8 + rnd() * 2), 1, 5), l: clamp(1 + Math.floor(rnd() * 3 + lvl / 8), 1, 10) };
-      }
-      list.push(b);
-    }
+    const n = populationTarget(EU_REGIONS.filter((r) => r.c === c.id).length);
+    for (let i = 0; i < n; i++) list.push(makeCitizen(list.length, c.id, rnd));
   }
   return list;
+}
+
+// Active citizens only: emigrants who left Europe keep their slot (ids are indexes) but have no country.
+export const activeCitizens = (s) => s.citizens.filter((b) => b.c);
+
+export function populationOf(s, cid) {
+  let n = 0;
+  for (const b of s.citizens) if (b.c === cid) n++;
+  return n;
+}
+
+// A newcomer takes the slot of someone who left Europe, so the save does not grow forever.
+function newcomer(s, cid, rnd) {
+  const slot = s.citizens.findIndex((x) => !x.c);
+  const id = slot >= 0 ? slot : s.citizens.length;
+  const b = makeCitizen(id, cid, rnd, true);
+  if (slot >= 0) {
+    s.articles = (s.articles || []).filter((a) => a.a !== id);
+    for (const c of s.world.campaigns) if (c.fighters) delete c.fighters[id];
+  }
+  s.citizens[id] = b;
+  return b;
+}
+
+// Moves each nation's population one step toward its target: surplus citizens emigrate to nations
+// that need people, newcomers fill the rest, and anyone with nowhere to go leaves Europe.
+export function populationStep(s, news, rnd = Math.random) {
+  const regions = {};
+  for (const r of s.world.regions) regions[r.owner] = (regions[r.owner] || 0) + 1;
+  const player = s.player.country;
+  // The target counts AI citizens; the player always comes on top of it.
+  const gap = {};
+  for (const c of COUNTRIES) gap[c.id] = populationTarget(regions[c.id] || 0) - populationOf(s, c.id);
+  const leaving = [];
+  for (const c of COUNTRIES) {
+    if (gap[c.id] >= 0 || rnd() > 0.35) continue;
+    const pool = s.citizens.filter((b) => b.c === c.id && !b.pres);
+    if (!pool.length) continue;
+    // The least rooted citizen goes first: low level, no seat in Congress.
+    pool.sort((a, b) => (a.cong - b.cong) || (a.lvl - b.lvl));
+    leaving.push(pool[0]);
+  }
+  const moves = [];
+  for (const c of COUNTRIES) {
+    if (gap[c.id] <= 0 || rnd() > 0.35) continue;
+    const from = leaving.shift();
+    if (from) {
+      moves.push({ b: from, from: from.c, to: c.id });
+      from.c = c.id;
+      from.cong = false;
+    } else {
+      const b = newcomer(s, c.id, rnd);
+      if (c.id === player && news.budget > 0) { news.budget--; news.feed(`👶 ${b.n} became a new citizen of ${countryById(c.id).name}`); }
+    }
+  }
+  for (const b of leaving) {
+    const from = b.c;
+    b.c = null;
+    b.cong = false;
+    s.market.offers = s.market.offers.filter((o) => o.seller !== b.id);
+    if (from === player && news.budget > 0) { news.budget--; news.feed(`✈️ ${b.n} left ${countryById(from).name} for good`); }
+  }
+  for (const m of moves) {
+    if (news.budget <= 0) break;
+    if (m.from === player || m.to === player || rnd() < 0.3) {
+      news.budget--;
+      news.feed(`🧳 ${m.b.n} moved from ${countryById(m.from).name} to ${countryById(m.to).name}`);
+    }
+  }
+  return { moves: moves.length, left: leaving.length };
 }
 
 const productKey = (co) => {
@@ -98,6 +173,7 @@ export function citizensStep(s, now) {
   }
   const news = { budget: 3 };
   for (const b of s.citizens) {
+    if (!b.c) continue;
     const P = PERSONAS[b.p];
     const mx = botMaxEnergy(b);
     b.e = Math.min(mx, b.e + 4);
@@ -124,7 +200,9 @@ export function citizensStep(s, now) {
     grow(s, b, news);
   }
   pruneOffers(s);
-  pressStep(s, { budget: news.budget, feed: (t) => feed(s, t) });
+  const press = { budget: news.budget, feed: (t) => feed(s, t) };
+  pressStep(s, press);
+  populationStep(s, { budget: 1, feed: press.feed });
 }
 
 function fight(s, b, { c, side }, news) {

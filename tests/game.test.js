@@ -441,3 +441,31 @@ test('country ranking covers every nation and tracks battle records', () => {
   assert.equal(s.nationStats[loser].lost, 1);
   for (const by of Object.keys(G.NATION_METRICS)) assert.equal(G.nationRanking(s, by).length, COUNTRIES.length);
 });
+
+test('population follows territory: winners grow, losers shrink, migrants move between them', async () => {
+  const { populationTarget, populationStep, populationOf } = await import('../js/citizens.js');
+  assert.ok(populationTarget(1) < populationTarget(7) && populationTarget(7) < populationTarget(16));
+  assert.equal(populationTarget(0), 1, 'a wiped nation keeps a resistance cell');
+  const s = fresh();
+  for (const c of COUNTRIES) {
+    const regions = s.world.regions.filter((r) => r.owner === c.id).length;
+    assert.equal(populationOf(s, c.id), populationTarget(regions), `${c.name} starts at its target`);
+  }
+  // Turkey takes all of Greece.
+  const greek = s.world.regions.filter((r) => r.owner === 'GR');
+  greek.forEach((r) => { r.owner = 'TR'; });
+  const trTarget = populationTarget(s.world.regions.filter((r) => r.owner === 'TR').length);
+  const ids = s.citizens.map((b) => b.id);
+  const grPresident = s.citizens.find((b) => b.c === 'GR' && b.pres);
+  const news = { budget: 0, feed: () => {} };
+  for (let i = 0; i < 40; i++) populationStep(s, news, () => 0);
+  assert.equal(populationOf(s, 'TR'), trTarget, 'Turkey grew to its target');
+  const before = populationOf(s, 'DE');
+  populationStep(s, news, () => 0);
+  assert.equal(populationOf(s, 'DE'), before, 'a nation at its target does not change');
+  assert.equal(populationOf(s, 'GR'), populationTarget(0), 'Greece shrank to one resistance citizen');
+  assert.ok(grPresident && grPresident.c === 'GR', 'the president stays');
+  assert.deepEqual(s.citizens.slice(0, ids.length).map((b) => b.id), ids, 'ids stay stable');
+  s.citizens.forEach((b, i) => assert.equal(b.id, i));
+  assert.ok(s.citizens.some((b) => b.c === 'TR' && b.fem !== undefined));
+});

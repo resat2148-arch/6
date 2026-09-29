@@ -7,7 +7,7 @@ import {
 import { flagSvg } from './flags.js';
 import { fmt, fmtMoney, fmtTime, esc } from './util.js';
 import { MAP_W, MAP_H, EU_REGIONS, EU_PATHS, EU_NEUTRAL, EU_BORDERS } from './europe.js';
-import { PERSONAS, botRank, citizensOf, sellerName } from './citizens.js';
+import { PERSONAS, botRank, citizensOf, sellerName, activeCitizens, populationTarget } from './citizens.js';
 import { neighborsOf, regionsOf, isAlive, countryPower, distinctResources, resourceBonus } from './world.js';
 
 const $ = (id) => document.getElementById(id);
@@ -661,6 +661,13 @@ function candName(s, id) {
   return b ? `${flagSvg(b.c)} ${esc(b.n)}` : '?';
 }
 
+function popTrend(s, cid) {
+  const now = citizensOf(s, cid).length + (cid === s.player.country ? 1 : 0);
+  const target = populationTarget(regionsOf(s.world, cid).length) + (cid === s.player.country ? 1 : 0);
+  const txt = target > now ? `<b class="green">growing ↑ to ${target}</b>` : target < now ? `<b class="red">shrinking ↓ to ${target}</b>` : '<b>stable</b>';
+  return `<div class="kv"><span>Population</span>${txt}</div>`;
+}
+
 function politics(s) {
   const pol = s.politics;
   const c = G.pc(s);
@@ -683,7 +690,7 @@ function politics(s) {
   const last = pol.lastResult;
   const total = last ? last.rows.reduce((a, r) => a + r.votes, 0) || 1 : 1;
   const press = s.articles.filter((a) => ui.pressScope === 'world' || a.c === c.id).slice(0, 12);
-  const papers = [...s.citizens.filter((b) => b.np).map((b) => ({ name: b.np.name, subs: b.np.subs, c: b.c, owner: b.n })),
+  const papers = [...activeCitizens(s).filter((b) => b.np).map((b) => ({ name: b.np.name, subs: b.np.subs, c: b.c, owner: b.n })),
     ...(news ? [{ name: news.name, subs: news.subs, c: s.player.country, owner: s.player.name, you: true }] : [])]
     .sort((a, b) => b.subs - a.subs).slice(0, 6);
   const voted = new Set(pol.voted);
@@ -694,6 +701,7 @@ function politics(s) {
       <div class="kv"><span>Your role</span><b>${role}</b></div>
       <div class="kv"><span>Your popularity</span><b>${fmt(G.popularity(s))}</b></div>
       <div class="kv"><span>Citizens · Regions</span><b>${citizensOf(s, c.id).length + 1} · ${regionsOf(s.world, c.id).length}</b></div>
+      ${popTrend(s, c.id)}
       <div class="kv"><span>Rank in Europe</span><b>#${G.nationRank(s, 'regions')} by regions · #${G.nationRank(s, 'dmg')} military</b></div>
       <h3 class="sub">🏛️ Congress (${seats} seats)</h3>
       <div class="members">${pol.congress ? `<div class="kv"><span>${candName(s, 'P')}</span><b>🏛️</b></div>` : ''}
@@ -764,7 +772,7 @@ function nationsCard(s) {
   const row = (n, i) => `<div class="rk ${n.me ? 'me' : ''} ${n.regions ? '' : 'wiped'}">
     <b class="pos">${i + 1}</b>${flagSvg(n.id)}
     <span class="grow"><b>${esc(n.name)}</b>${n.me ? ' <span class="pill gold">your country</span>' : ''}${n.regions ? '' : ' <span class="pill red">wiped</span>'}<br>
-      <small class="muted">${n.president ? `👑 ${esc(n.president)} · ` : ''}${n.regions} regions · ⚔️ ${n.won}W ${n.lost}L${n.conquered ? ` · 🏳️ ${n.conquered} conquered` : ''}</small></span>
+      <small class="muted">${n.president ? `👑 ${esc(n.president)} · ` : ''}${n.regions} regions · 👥 ${n.citizens}${n.target !== n.citizens ? `<span class="${n.target > n.citizens ? 'green' : 'red'}"> → ${n.target}</span>` : ''} · ⚔️ ${n.won}W ${n.lost}L${n.conquered ? ` · 🏳️ ${n.conquered} conquered` : ''}</small></span>
     <b>${nationValue(n, by)}</b></div>`;
   const tab = (k, label) => `<button class="btn small ${by === k ? 'primary' : 'ghost'}" data-act="rankSet" data-k="nationBy" data-v="${k}">${label}</button>`;
   return `<div class="card span2">
@@ -773,14 +781,14 @@ function nationsCard(s) {
     <div class="ranking">${shown.map(row).join('')}
       ${!ui.nationAll && myPos > 10 ? `<div class="gap">…</div>${row(rows[myPos - 1], myPos - 1)}` : ''}</div>
     <div class="row">${btn(ui.nationAll ? 'Show top 10' : `Show all ${rows.length}`, 'rankSet', `data-k="nationAll" data-v="${ui.nationAll ? '' : '1'}"`, 'small ghost')}</div>
-    <p class="muted small">Military = total damage dealt by the nation's citizens. Battles won and conquests count every battle since your game began.</p>
+    <p class="muted small">Population follows territory: every region conquered brings new citizens (newcomers and migrants from shrinking nations), every region lost sends people away. More citizens means more damage on the wall in every battle. Military = total damage dealt by the nation's citizens.</p>
   </div>`;
 }
 
 function people(s) {
   const p = s.player;
   const me = { n: p.name, c: p.country, lvl: p.level, xp: p.xp, str: p.strength, dmg: p.damage, m: p.money, rank: G.rankName(s), you: true, pres: s.politics.president, cong: s.politics.congress, np: s.politics.news };
-  const pool = (ui.rankScope === 'country' ? citizensOf(s, p.country) : s.citizens)
+  const pool = (ui.rankScope === 'country' ? citizensOf(s, p.country) : activeCitizens(s))
     .map((b) => ({ n: b.n, c: b.c, lvl: b.lvl, xp: b.xp, str: b.str, dmg: b.dmg, m: b.m, rank: botRank(b), p: b.p, co: b.co, pres: b.pres, cong: b.cong, np: b.np }));
   pool.push(me);
   const val = RANK_BY[ui.rankBy].val;
@@ -809,7 +817,7 @@ function people(s) {
     <div class="card">
       <h3>👥 Society</h3>
       <div class="kv"><span>Citizens of ${G.pc(s).name}</span><b>${countryCount + 1}</b></div>
-      <div class="kv"><span>Citizens in Europe</span><b>${s.citizens.length + 1}</b></div>
+      <div class="kv"><span>Citizens in Europe</span><b>${activeCitizens(s).length + 1}</b></div>
       <div class="kv"><span>Active market offers</span><b>${fmt(s.market.offers.length)}</b></div>
       <p class="muted small">AI citizens live like you: they work, train, eat, fight in their country's battles, run companies and trade on the market. Their damage decides battles you are not fighting in, and your allies' damage makes your own rounds easier.</p>
     </div>

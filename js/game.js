@@ -8,7 +8,7 @@ import {
   createWorld, neighborsOf, regionsOf, isAlive, countryPower, borderTargets, resourceBonus,
 } from './world.js';
 import { clamp, pick, randRange, shuffle, dayKey } from './util.js';
-import { createCitizens, seedMarket, citizensStep, topCitizen, feed } from './citizens.js';
+import { createCitizens, seedMarket, citizensStep, topCitizen, feed, populationTarget } from './citizens.js';
 import { articleTitle, addArticle, botPopularity } from './press.js';
 import {
   candidates, vote, estimateChance, congressSeats, electForeignPresidents, seatInitialGovernments, CAMPAIGN_COST,
@@ -682,6 +682,7 @@ export function nationRanking(s, by = 'regions') {
     return {
       id: c.id, name: c.name, me: mine, president: pres,
       regions: regionsOf(s.world, c.id).length,
+      target: populationTarget(regionsOf(s.world, c.id).length) + (mine ? 1 : 0),
       dmg: people.reduce((a, b) => a + b.dmg, 0) + (mine ? s.player.damage : 0),
       citizens: people.length + (mine ? 1 : 0),
       wealth: people.reduce((a, b) => a + b.m, 0) + (mine ? s.player.money : 0),
@@ -1069,6 +1070,8 @@ export function tick(s, now = Date.now()) {
   }
   if (s.world.nextAiTick <= now) s.world.nextAiTick = now + CONFIG.aiTickMs;
   resolveDueBattles(s, now);
+  // Territory may have changed: a lost resource region shrinks each company's storage.
+  for (const c of s.companies) c.pending = Math.min(c.pending, companyCap(s, c));
 
   if (now >= s.politics.nextElection) resolveElection(s, now);
   const sold = s.market.sold;

@@ -71,6 +71,7 @@ export function addArticle(s, author, c, paper, title) {
 // One world tick of the press: citizens publish, readers vote, votes bring subscribers.
 export function pressStep(s, news) {
   for (const b of s.citizens) {
+    if (!b.c) continue;
     if (b.amb === undefined) b.amb = Math.random();
     if (!b.np) {
       if (b.amb > 0.6 && b.lvl >= 5 && b.m > 300 && Math.random() < 0.004) {
