@@ -36,7 +36,7 @@ export function articleTitle(s, b) {
       attacking ? `On to ${reg}: why ${c} will win this war` : `${c} must hold ${reg}!`,
       `All soldiers to ${reg}, the front needs you`,
       `${foe}'s ${attacking ? 'defence is crumbling' : 'aggression will not go unanswered'}`,
-      `Battle report: ${reg}, round ${front.round}`,
+      `Battle report: ${reg}, ${Math.round((front.endsAt - s.lastTick) / 60000)} minutes to go`,
     );
   }
   const pol = s.politics;

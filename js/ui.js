@@ -70,7 +70,7 @@ function avatarSvg(color) {
 }
 
 export function activeCampaigns(s) {
-  return s.world.campaigns.filter((c) => G.playerSide(s, c)).sort((a, b) => a.deadline - b.deadline);
+  return G.activeFronts(s);
 }
 
 // ------------------------------------------------------------------ top bar
@@ -262,8 +262,11 @@ function campRow(s, c, joinable) {
     <div class="camp-flags">${flagSvg(c.att)}<span>vs</span>${flagSvg(c.def)}</div>
     <div class="grow">
       <b>${esc(reg.name)}${reg.capital ? ' ★' : ''}</b> <span class="pill ${side === 'def' ? 'red' : ''}">${type}</span>
-      <div class="muted small">${cName(c.att)} ${c.attWins} : ${c.defWins} ${cName(c.def)} · Round ${c.round}
-      ${side ? ` · auto-resolves in <span data-cd="${c.deadline}"></span>` : ''}</div>
+      <div class="wall-mini" style="background:${countryById(c.def).color}" title="Wall: ${cName(c.att)} ${G.battleWall(c).attPct.toFixed(1)}%">
+        <div style="width:${G.battleWall(c).attPct.toFixed(1)}%;background:${countryById(c.att).color}"></div>
+        <span>${G.battleWall(c).attPct.toFixed(0)}% : ${(100 - G.battleWall(c).attPct).toFixed(0)}%</span>
+      </div>
+      <div class="muted small">${cName(c.att)} vs ${cName(c.def)} · ends in <span data-cd="${c.endsAt}"></span></div>
     </div>
     ${joinable ? btn('Fight', 'fight', `data-id="${c.id}"`, 'primary') : ''}
     ${side ? topFighters(s, c) : ''}
@@ -276,7 +279,7 @@ function topFighters(s, c) {
   const allies = (mine === 'att' ? c.dmgAtt : c.dmgDef) || 0;
   const foes = (mine === 'att' ? c.dmgDef : c.dmgAtt) || 0;
   return `<div class="fighters">
-    <small class="muted">Since last round: allied citizens 💥${fmt(allies)} · enemy citizens 💥${fmt(foes)}</small>
+    <small class="muted">On the wall so far: allied citizens 💥${fmt(allies)} · enemy citizens 💥${fmt(foes)}${c.playerDmg ? ` · you 💥${fmt(c.playerDmg)}` : ''}</small>
     ${f.length ? `<small>Top fighters: ${f.map(([id, d]) => `${who(s, id === 'P' ? 'P' : Number(id))} ${fmt(d)}`).join(' · ')}</small>` : ''}
   </div>`;
 }
@@ -286,16 +289,15 @@ function war(s) {
   const others = s.world.campaigns.filter((c) => !G.playerSide(s, c));
   const p = s.player;
   const ri = G.rankIndex(p.rankPoints);
-  const setupPreview = mine[0] ? G.roundSetup(s, mine[0].id) : null;
   return `<section class="grid">
     <div class="card span2">
       <h3>⚔️ Your country's battles</h3>
       ${mine.length ? mine.map((c) => campRow(s, c, true)).join('') : '<p class="muted">No active campaigns. A new front will open soon…</p>'}
-      ${setupPreview ? `<p class="muted small">Enemy strength: ${setupPreview.difficulty < 0.8 ? '🟢 weak' : setupPreview.difficulty < 1 ? '🟡 even' : '🔴 strong'} · Win ${CONFIG.roundsToWin} rounds to take the region. If you don't fight, the campaign resolves without you.</p>` : ''}
+      <p class="muted small">Every battle is a single ${CONFIG.battleMs / 60000}-minute round. Your hits and your fellow citizens' damage push the same wall; when time runs out, the side above 50% wins the region. Join, leave and come back as often as you like: your damage stays.${s.player.level < 10 ? ` Rookie boost: your damage counts ×${G.playerBoost(s).toFixed(1)} until level 10.` : ''}</p>
     </div>
     <div class="card">
       <h3>🎯 Training war</h3>
-      <p class="muted">Practice any time against weaker troops. Half rewards, no map changes.</p>
+      <p class="muted">A private ${CONFIG.trainingSeconds}-second practice round against weaker troops. Half rewards, no map changes.</p>
       ${btn('Start training round', 'fight', 'data-id="training"')}
     </div>
     <div class="card">
@@ -810,7 +812,7 @@ function medals(s) {
       <div class="kv"><span>Strength</span><b>${fmt(p.strength)}</b></div>
       <div class="kv"><span>Enemies defeated</span><b>${fmt(cnt.kill || 0)}</b></div>
       <div class="kv"><span>Headshots</span><b>${fmt(cnt.headshot || 0)}</b></div>
-      <div class="kv"><span>Rounds won / played</span><b>${fmt(cnt.roundWin || 0)} / ${fmt(cnt.roundPlay || 0)}</b></div>
+      <div class="kv"><span>Battles won / fought</span><b>${fmt(cnt.roundWin || 0)} / ${fmt(cnt.battlePlay || 0)}</b></div>
       <div class="kv"><span>Regions conquered</span><b>${fmt(cnt.conquest || 0)}</b></div>
       <div class="kv"><span>Total damage</span><b>${fmt(p.damage)}</b></div>
     </div>
@@ -832,7 +834,7 @@ export function helpHtml() {
     <li><b>Energy ⚡</b> powers everything: working, training and every shot in battle. It regenerates slowly.</li>
     <li><b>Food reserve 🍞</b> refills quickly. <b>Eat</b> food to turn reserve into usable energy.</li>
     <li><b>Work</b> earns money. <b>Train</b> raises strength, which raises your damage.</li>
-    <li><b>Fight</b>: tap enemies before they shoot you. Headshots deal double damage, fast hits build combos. Push the wall above 50% by the end of the round to win it. Win ${CONFIG.roundsToWin} rounds to take a region.</li>
+    <li><b>Fight</b>: tap enemies before they shoot you. Headshots deal double damage, fast hits build combos. Each battle is one ${CONFIG.battleMs / 60000}-minute round: push the wall above 50% together with your fellow citizens before time runs out to take (or keep) the region. You can leave and rejoin at any time.</li>
     <li><b>Citizens 👥</b>: hundreds of AI citizens live the same life: they fight in battles, run companies and post offers on the Market. Buy from them, sell to them, and climb the rankings.</li>
     <li><b>Rank</b> grows with damage and multiplies your damage further.</li>
     <li><b>Houses 🏠</b> raise your max energy and energy regeneration for a few hours. Buy them on the Market or build them with a Construction company.</li>

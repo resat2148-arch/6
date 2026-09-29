@@ -4,7 +4,7 @@ import { countryById, CONFIG, FOOD_ENERGY } from './data.js';
 import * as G from './game.js';
 import { sfx } from './sfx.js';
 import { flagSvg } from './flags.js';
-import { fmt, randRange, clamp } from './util.js';
+import { fmt, randRange, clamp, esc } from './util.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -48,7 +48,7 @@ export function openBattle(state, campId, h) {
     dmg: 0, kills: 0, headshots: 0, combo: 0, lastHit: -9, spawnT: 0.2,
     q: G.bestWeapon(state), armed: false, shake: 0, hurt: 0, muzzle: 0,
     aim: null, paused: document.hidden, adPause: false, last: performance.now(), hudT: 0, raf: 0,
-    msgT: 0,
+    msgT: 0, wallShown: null, visitDone: false,
   };
   resize();
   buildBg();
@@ -111,8 +111,9 @@ function setupHud() {
   $('b-fill').style.background = countryById(setup.me).color;
   $('b-bar').style.background = countryById(setup.foe).color;
   $('b-title').textContent = setup.title;
-  $('b-round').textContent = setup.training ? 'Practice' : `Round ${setup.round}`;
-  $('b-score').textContent = setup.training ? `D${setup.division}` : `${setup.myWins} : ${setup.foeWins}`;
+  $('b-round').textContent = setup.training ? 'Practice' : 'Single round';
+  $('b-score').textContent = setup.boost > 1 ? `Rookie boost ×${setup.boost.toFixed(1)}` : `D${setup.division}`;
+  $('b-leave').textContent = setup.training ? 'Retreat' : 'Leave';
   const weps = $('b-weps');
   weps.innerHTML = [0, 1, 2, 3, 4, 5].map((q) =>
     `<button class="b-wep" data-bact="wep" data-q="${q}" title="${q ? 'Weapon Q' + q : 'Bare hands (50% damage)'}"><span>${q ? 'Q' + q : '✊'}</span><small id="b-wq${q}"></small></button>`,
@@ -124,11 +125,10 @@ function updateHud() {
   const st = S.state;
   const p = st.player;
   const mx = G.maxEnergy(st);
-  const { me, foe } = sides();
-  const pct = (me / (me + foe)) * 100;
+  const pct = S.wallShown ?? wallPct();
   $('b-fill').style.width = pct.toFixed(1) + '%';
   $('b-wallpct').textContent = pct.toFixed(1) + '%';
-  $('b-timer').textContent = S.phase === 'intro' ? '1:00' : fmtSec(Math.max(0, S.setup.seconds - S.t));
+  $('b-timer').textContent = fmtSec(timeLeft());
   $('b-dmg').textContent = fmt(S.dmg);
   $('b-kills').textContent = S.kills;
   $('b-combo').textContent = S.combo > 1 ? `x${S.combo}` : '-';
@@ -172,10 +172,11 @@ function onHudClick(e) {
     if (st.inv.bazooka <= 0) { sfx.error(); flashMsg('No bazookas. Get them in the Market (gold) or watch an ad.'); hooks.onNeedBazooka?.(); }
     else { S.armed = !S.armed; sfx.click(); }
   } else if (act === 'leave') {
-    if (S.phase === 'fight') {
-      if (b.dataset.confirm) endRound(true);
-      else { b.dataset.confirm = '1'; b.textContent = 'Sure?'; setTimeout(() => { if (b) { delete b.dataset.confirm; b.textContent = 'Retreat'; } }, 2000); }
-    } else if (S.phase === 'intro') { closeBattle(); hooks.onExit?.(null); }
+    if (S.phase === 'intro') { closeBattle(); hooks.onExit?.(null); }
+    else if (S.phase === 'fight') {
+      if (S.setup.training) endRound(true);
+      else leaveBattle();
+    }
   } else if (act === 'buyfood') {
     const r = G.buy(st, 'food1', 20);
     if (r.ok) { sfx.coin(); G.eat(st); floatText(W / 2, H * 0.8, '+20 🍞', '#86efac', 24); }
@@ -183,7 +184,7 @@ function onHudClick(e) {
   } else if (act === 'adfill') {
     hooks.onAdRefill?.();
   } else if (act === 'next') {
-    const id = S.setup.campId;
+    const id = b.dataset.id ? (b.dataset.id === 'training' ? 'training' : Number(b.dataset.id)) : S.setup.campId;
     closeBattle();
     hooks.onExit?.(id);
   } else if (act === 'exit') {
@@ -201,13 +202,28 @@ function flashMsg(text) {
 }
 
 // ------------------------------------------------------------ simulation
+// Training uses a simulated wall; real battles read the shared wall of the running battle.
 function sides() {
   const { setup } = S;
-  const el = Math.min(S.t, setup.seconds);
-  return {
-    me: setup.wallBase + setup.allyDps * el + S.dmg,
-    foe: setup.wallBase + setup.enemyDps * el,
-  };
+  if (setup.training) {
+    const el = Math.min(S.t, setup.seconds);
+    return { me: setup.wallBase + setup.allyDps * el + S.dmg, foe: setup.wallBase + setup.enemyDps * el };
+  }
+  const c = G.campaignById(S.state, setup.campId);
+  if (!c) return S.lastSides || { me: 1, foe: 1 };
+  const w = G.battleWall(c);
+  S.lastSides = setup.side === 'att' ? { me: w.att, foe: w.def } : { me: w.def, foe: w.att };
+  return S.lastSides;
+}
+
+function wallPct() {
+  const { me, foe } = sides();
+  return (me / Math.max(1, me + foe)) * 100;
+}
+
+function timeLeft() {
+  if (S.setup.training) return S.phase === 'intro' ? S.setup.seconds : Math.max(0, S.setup.seconds - S.t);
+  return Math.max(0, (S.setup.endsAt - Date.now()) / 1000);
 }
 
 function spawn() {
@@ -221,7 +237,7 @@ function spawn() {
     if (!S.enemies.some((e) => !e.dead && e.row === ri && Math.abs(e.x - x) < 70 * row.s)) break;
   }
   const hp = S.setup.enemyHp;
-  const speedUp = 1 - Math.min(0.3, S.t / 200) - 0.03 * (S.setup.round - 1);
+  const speedUp = 1 - Math.min(0.3, S.t / 200);
   S.enemies.push({
     x, row: ri, y: row.y, s: row.s, hp, maxHp: hp, rise: 0, dead: false, deadT: 0, hitT: 0,
     fireAt: S.t + randRange(2.6, 4.0) * speedUp, bob: Math.random() * 6,
@@ -242,6 +258,11 @@ function enemyFire(e) {
 
 function update(dt) {
   if (S.msgT > 0) { S.msgT -= dt; if (S.msgT <= 0) $('b-msg').hidden = true; }
+  // The wall glides toward its real value (citizen damage lands in bursts every world tick).
+  const target = wallPct();
+  S.wallShown = S.wallShown === null ? target : S.wallShown + (target - S.wallShown) * Math.min(1, dt * 2.5);
+  // Real battles run on the world clock: when it is over, the rules engine removes it.
+  if (!S.setup.training && S.phase !== 'done' && !G.campaignById(S.state, S.setup.campId)) { battleOver(); return; }
   if (S.phase === 'intro') {
     S.introT += dt;
     if (S.introT >= 2) S.phase = 'fight';
@@ -265,7 +286,7 @@ function update(dt) {
     if (S.t >= e.fireAt) enemyFire(e);
   }
   S.enemies = S.enemies.filter((e) => !e.dead || e.deadT < 0.9);
-  if (S.t >= S.setup.seconds) endRound(false);
+  if (S.setup.training && S.t >= S.setup.seconds) endRound(false);
   effects(dt);
 }
 
@@ -345,6 +366,7 @@ function onPointer(e) {
   en.hp -= dmg;
   en.hitT = 0.1;
   S.dmg += dmg;
+  if (!S.setup.training) G.battleHit(S.state, S.setup.campId, dmg);
   S.muzzle = 0.06;
   const m = muzzlePos();
   S.tracers.push({ x1: m.x, y1: m.y, x2: pt.x, y2: pt.y, life: 0.06 });
@@ -390,11 +412,13 @@ function fireBazooka(pt) {
     kill(e);
   }
   S.dmg += total;
+  if (!S.setup.training) G.battleHit(S.state, S.setup.campId, total);
   for (let i = 0; i < 3; i++) burst(pt.x + randRange(-40, 40), pt.y + randRange(-20, 20), i ? '#f97316' : '#fde047', 30, 320);
   S.parts.push({ x: pt.x, y: pt.y, vx: 0, vy: 0, life: 0.4, ring: true, size: 10, color: '#fff7ed' });
   floatText(pt.x, pt.y - 30, `BOOM ${fmt(total)}`, '#fb923c', 30);
 }
 
+// Training war only: a private 60-second round.
 function endRound(retreat) {
   if (S.phase === 'done') return;
   S.phase = 'done';
@@ -405,49 +429,89 @@ function endRound(retreat) {
     foe += S.setup.enemyDps * rem;
   }
   const won = me > foe;
-  const res = G.finishRound(S.state, S.setup, {
-    dmg: Math.round(S.dmg), kills: S.kills, headshots: S.headshots, won,
-  });
+  const res = G.finishVisit(S.state, S.setup, { dmg: Math.round(S.dmg), kills: S.kills, headshots: S.headshots, won });
   won ? sfx.win() : sfx.lose();
-  showResult(won, res, me / (me + foe));
+  showCard({
+    cls: won ? 'win' : 'lose',
+    title: won ? 'PRACTICE WON' : 'PRACTICE LOST',
+    sub: `Wall ${((me / (me + foe)) * 100).toFixed(1)}% · Training wars never change the map.`,
+    res,
+    buttons: `<button class="btn primary" data-bact="next" data-id="training">Train again</button>`,
+  });
   hooks.onRoundEnd?.(won, res);
 }
 
-function showResult(won, res, share) {
-  const { setup, state } = S;
-  const myWins = setup.myWins + (won ? 1 : 0);
-  const foeWins = setup.foeWins + (won ? 0 : 1);
-  let camp = '';
-  let canNext = false;
-  if (setup.training) {
-    camp = 'Practice round complete. Training wars never change the map.';
-    canNext = true;
-  } else if (myWins >= CONFIG.roundsToWin) {
-    camp = setup.side === 'att' ? `🏳️ ${setup.regionName} has been conquered!` : `🛡️ ${setup.regionName} has been defended!`;
-  } else if (foeWins >= CONFIG.roundsToWin) {
-    camp = setup.side === 'att' ? `The attack on ${setup.regionName} failed.` : `${setup.regionName} has fallen to the enemy.`;
-  } else {
-    camp = `Campaign score ${myWins} : ${foeWins} — first to ${CONFIG.roundsToWin} wins.`;
-    canNext = !!G.campaignById(state, setup.campId);
-  }
-  const medalHtml = res.medals.map((m) => `<span class="pill gold">🎖️ ${m === 'battleHero' ? 'Battle Hero' : 'True Patriot'}</span>`).join(' ');
+function visitResult() {
+  if (S.visitDone) return null;
+  S.visitDone = true;
+  return G.finishVisit(S.state, S.setup, { dmg: Math.round(S.dmg), kills: S.kills, headshots: S.headshots });
+}
+
+// Leaving a real battle: your damage stays on the wall, the battle keeps running without you.
+function leaveBattle() {
+  S.phase = 'done';
+  const res = visitResult();
+  const left = timeLeft();
+  showCard({
+    cls: '',
+    title: 'LEFT THE BATTLE',
+    sub: `Your damage stays on the wall (${wallPct().toFixed(1)}% for ${countryById(S.setup.me).name}). The battle ends in ${fmtSec(left)}.`,
+    res,
+    buttons: `<button class="btn primary" data-bact="next">Back to the fight</button>`,
+  });
+  hooks.onRoundEnd?.(null, res);
+}
+
+// The 5 minutes are up while you are on the battlefield.
+function battleOver() {
+  S.phase = 'done';
+  const res = visitResult();
+  const r = (S.state.battleResults || []).find((x) => x.id === S.setup.campId);
+  const won = r ? r.won : wallPct() > 50;
+  won ? sfx.win() : sfx.lose();
+  const reg = S.setup.regionName;
+  const outcome = S.setup.side === 'att'
+    ? (won ? `🏳️ ${reg} has been conquered!` : `The attack on ${reg} failed.`)
+    : (won ? `🛡️ ${reg} has been defended!` : `${reg} has fallen to the enemy.`);
+  const next = G.activeFronts(S.state)[0];
+  const extra = r && r.fought && won ? '<p class="rewards">Victory bonus: 🪙 +2 · 💰 +' + (50 + S.state.player.level * 5) + '</p>' : '';
+  const medals = [...(r?.medals || []), ...(res?.medals || [])];
+  showCard({
+    cls: won ? 'win' : 'lose',
+    title: won ? 'VICTORY' : 'DEFEAT',
+    sub: `Final wall ${(r ? r.pct : wallPct()).toFixed(1)}% for ${countryById(S.setup.me).name}`,
+    res,
+    extra: extra + `<p class="camp">${outcome}</p>` + (r?.top?.length ? `<p class="small muted">Top fighters: ${r.top.slice(0, 3).map(([id, d]) => `${esc(fighterName(id))} ${fmt(d)}`).join(' · ')}</p>` : ''),
+    medals,
+    buttons: next ? `<button class="btn primary" data-bact="next" data-id="${next.id}">Next battle</button>` : '',
+  });
+  hooks.onRoundEnd?.(won, res);
+}
+
+function fighterName(id) {
+  if (id === 'P') return S.state.player.name;
+  return S.state.citizens?.[Number(id)]?.n || 'Citizen';
+}
+
+const MEDAL_NAMES = { battleHero: 'Battle Hero', truePatriot: 'True Patriot', campaignHero: 'Campaign Hero', resistanceHero: 'Resistance Hero' };
+
+function showCard({ cls, title, sub, res, extra = '', medals, buttons }) {
+  const list = medals || res?.medals || [];
+  const medalHtml = list.map((m) => `<span class="pill gold">🎖️ ${MEDAL_NAMES[m] || m}</span>`).join(' ');
   const el = $('b-result');
   el.innerHTML = `
-    <div class="b-card ${won ? 'win' : 'lose'}">
-      <h2>${won ? 'ROUND WON' : 'ROUND LOST'}</h2>
-      <p class="muted">Wall ${(share * 100).toFixed(1)}% for ${countryById(setup.me).name}</p>
+    <div class="b-card ${cls}">
+      <h2>${title}</h2>
+      <p class="muted">${sub}</p>
       <div class="b-res-grid">
         <div><b>${fmt(S.dmg)}</b><span>Damage</span></div>
         <div><b>${S.kills}</b><span>Kills</span></div>
         <div><b>${S.headshots}</b><span>Headshots</span></div>
       </div>
-      <p class="rewards">💰 +${res.money.toFixed(2)} &nbsp; ✨ +${res.xp} XP &nbsp; 🎖️ +${fmt(res.rp)} rank pts</p>
+      ${res ? `<p class="rewards">💰 +${res.money.toFixed(2)} &nbsp; ✨ +${res.xp} XP &nbsp; 🎖️ +${fmt(res.rp)} rank pts</p>` : ''}
       ${medalHtml ? `<p>${medalHtml}</p>` : ''}
-      <p class="camp">${camp}</p>
-      <div class="row">
-        ${canNext ? `<button class="btn primary" data-bact="next">${setup.training ? 'Train again' : 'Next round'}</button>` : ''}
-        <button class="btn" data-bact="exit">Back to HQ</button>
-      </div>
+      ${extra}
+      <div class="row">${buttons}<button class="btn" data-bact="exit">Back to HQ</button></div>
     </div>`;
   el.hidden = false;
 }
@@ -697,7 +761,7 @@ function draw() {
     ctx.textAlign = 'center';
     ctx.fillStyle = '#fff';
     ctx.font = `900 ${48 * unit}px system-ui, sans-serif`;
-    const txt = t < 1.2 ? (S.setup.training ? 'TRAINING' : `ROUND ${S.setup.round}`) : 'FIGHT!';
+    const txt = t < 1.2 ? (S.setup.training ? 'TRAINING' : `${fmtSec(timeLeft())} LEFT`) : 'FIGHT!';
     ctx.fillText(txt, W / 2, H * 0.42);
     ctx.font = `600 ${16 * unit}px system-ui, sans-serif`;
     ctx.fillStyle = '#e2e8f0';

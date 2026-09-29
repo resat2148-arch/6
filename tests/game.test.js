@@ -117,43 +117,67 @@ test('companies produce over time and factories convert raw', () => {
   for (const c of s.companies) assert.ok(c.pending <= G.companyCap(s, c) + 1e-6);
 });
 
-test('battle round: shooting consumes weapons and energy, finishing updates campaign', () => {
+test('battle: shooting consumes weapons and energy; hits go straight onto the shared wall', () => {
   const s = fresh();
-  G.tick(s, T0 + CONFIG.aiTickMs + 1);
+  G.openFirstFront(s, T0);
   const camp = s.world.campaigns.find((c) => G.playerSide(s, c));
-  assert.ok(camp, 'player always has a campaign');
+  assert.ok(camp, 'player always has a battle');
+  assert.equal(camp.endsAt - camp.started, 5 * 60 * 1000, 'single 5-minute round');
   const setup = G.roundSetup(s, camp.id);
-  assert.ok(setup.enemyHp > 0 && setup.enemyDps > 0);
+  assert.ok(setup.enemyHp > 0 && setup.endsAt === camp.endsAt);
   const w0 = s.inv.weapon[1];
   const shot = G.shoot(s, 1);
   assert.equal(shot.q, 1);
   assert.equal(s.inv.weapon[1], w0 - 1);
   assert.equal(s.player.energy, 99);
-  const res = G.finishRound(s, setup, { dmg: 5000, kills: 30, headshots: 5, won: true }, T0 + 60000);
-  assert.ok(res.money > 0 && res.xp > 0);
-  const c2 = G.campaignById(s, camp.id);
-  const wins = setup.side === 'att' ? c2.attWins : c2.defWins;
-  assert.equal(wins, 1);
+  const side = setup.side === 'att' ? 'dmgAtt' : 'dmgDef';
+  const before = camp[side];
+  assert.ok(G.battleHit(s, camp.id, 100));
+  assert.equal(camp[side] - before, 100 * G.playerBoost(s), 'rookie boost applies to the wall');
+  assert.equal(camp.fighters.P, 100);
+  const res = G.finishVisit(s, setup, { dmg: 100, kills: 3, headshots: 1 });
+  assert.ok(res.money > 0 && res.xp > 0 && res.rp === 10);
+  assert.ok(G.campaignById(s, camp.id), 'leaving does not end the battle');
 });
 
-test('winning 3 rounds conquers the region', () => {
+test('a battle ends after 5 minutes and the bigger wall takes the region', () => {
   const s = fresh();
-  G.tick(s, T0 + CONFIG.aiTickMs + 1);
-  let camp = s.world.campaigns.find((c) => G.playerSide(s, c) === 'att');
+  s.politics.president = true;
+  const target = borderTargets(s.world, 'TR').find((r) => !s.world.campaigns.some((c) => c.region === r.id));
+  const camp = G.declareWar(s, target.id, T0).campaign;
+  assert.ok(G.battleHit(s, camp.id, 1e7), 'overwhelming damage from the player');
+  const regionId = camp.region;
+  G.tick(s, T0 + 4 * 60 * 1000);
+  assert.ok(G.campaignById(s, camp.id), 'still running after 4 minutes');
+  G.tick(s, T0 + 5 * 60 * 1000 + 1);
+  assert.equal(G.campaignById(s, camp.id), undefined, 'over after 5 minutes');
+  assert.equal(s.world.regions[regionId].owner, 'TR');
+  assert.equal(s.counters.conquest, 1);
+  assert.equal(s.counters.roundWin, 1);
+  assert.equal(s.medals.battleHero, 1, 'top damage of the battle');
+  const r = s.battleResults[0];
+  assert.ok(r.won && r.fought && r.id === camp.id);
+});
+
+test('a defended region stays when the attacker has less on the wall', () => {
+  const s = fresh();
+  G.openFirstFront(s, T0);
+  let camp = s.world.campaigns.find((c) => G.playerSide(s, c) === 'def');
   if (!camp) {
     s.world.campaigns = s.world.campaigns.filter((c) => !G.playerSide(s, c));
-    s.politics.president = true;
-    const target = borderTargets(s.world, 'TR')[0];
-    camp = G.declareWar(s, target.id, T0 + 30000).campaign;
+    const mine = s.world.regions.find((r) => r.owner === 'TR' && r.name === 'Marmara');
+    const foe = s.world.regions.find((r) => r.owner !== 'TR' && neighborsOf(s.world, mine.id).includes(r.id));
+    s.politics.president = false;
+    camp = { id: 999, att: foe.owner, def: 'TR', region: mine.id, type: 'war', started: T0, endsAt: T0 + 300000, playerDmg: 0, dmgAtt: 0, dmgDef: 0, baseAtt: 1000, baseDef: 1000, fighters: {} };
+    s.world.campaigns.push(camp);
   }
+  camp.dmgAtt = 0;
+  G.battleHit(s, camp.id, 1e6);
   const regionId = camp.region;
-  for (let i = 0; i < 3; i++) {
-    const setup = G.roundSetup(s, camp.id);
-    G.finishRound(s, setup, { dmg: 1000, kills: 5, headshots: 0, won: true }, T0 + 40000 + i);
-  }
+  s.world.campaigns = [camp];
+  s.world.nextAiTick = T0 + 1e9;
+  G.tick(s, camp.endsAt + 1);
   assert.equal(s.world.regions[regionId].owner, 'TR');
-  assert.equal(G.campaignById(s, camp.id), undefined);
-  assert.equal(s.counters.conquest, 1);
 });
 
 test('world simulation keeps running and never breaks invariants', () => {

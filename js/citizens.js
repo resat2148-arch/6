@@ -18,6 +18,7 @@ export const PERSONAS = {
 const COMPANY_WEIGHTS = [['farm', 7], ['mine', 11], ['quarry', 7], ['bakery', 21], ['armory', 30], ['construction', 25]];
 const BOT_PROD_MULT = 1.2; // one AI citizen stands in for a handful of real players' output
 const TICKS_PER_MIN = 3; // world tick = 20 s
+export const CITIZEN_WALL_WEIGHT = 0.15;
 
 export const botMaxEnergy = (b) => Math.min(400, 100 + (b.lvl - 1) * 10);
 export const botTrainGain = (b) => 5 + (b.lvl >= 8 ? 2.5 : 0) + (b.lvl >= 15 ? 5 : 0) + (b.lvl >= 25 ? 10 : 0);
@@ -135,10 +136,12 @@ function fight(s, b, { c, side }, news) {
   const dmg = Math.round(botHit(b, q) * armed + botHit(b, 0) * (shots - armed));
   if (q) b.w[q] -= armed;
   b.e -= shots;
-  if (side === 'att') c.dmgAtt = (c.dmgAtt || 0) + dmg;
-  else c.dmgDef = (c.dmgDef || 0) + dmg;
+  // Citizens stand in for a whole population, so each one's hits weigh less on the wall than a hero's.
+  const wall = Math.round(dmg * CITIZEN_WALL_WEIGHT);
+  if (side === 'att') c.dmgAtt = (c.dmgAtt || 0) + wall;
+  else c.dmgDef = (c.dmgDef || 0) + wall;
   c.fighters = c.fighters || {};
-  c.fighters[b.id] = (c.fighters[b.id] || 0) + dmg;
+  c.fighters[b.id] = (c.fighters[b.id] || 0) + wall;
   b.dmg += dmg;
   const before = rankIndexOf(b.rp);
   b.rp += dmg / 10;

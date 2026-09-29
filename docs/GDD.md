@@ -14,7 +14,7 @@
 | Şirketler: ham madde → ürün | Çiftlik/Maden (ham madde), Fırın/Silah fabrikası (Q'ya göre ham madde tüketir). Oyuncu yokken de üretir (idle). |
 | Evler (Q1–Q5), ev şirketleri | Kulübe → Malikâne. İçinde yaşadığın her kalite maksimum enerjiyi (+20…+100) ve enerji yenilenmesini (+%10…+%50) artırır; kaliteler üst üste eklenir, ev 4 saat sonra eskir. Taş ocağı yapı malzemesi üretir, inşaat şirketi ev yapar. |
 | Bölge kaynakları üretim bonusu | Ülkenin sahip olduğu her farklı kaynak +%20 üretim. Fetih = ekonomik güç. |
-| Savaşlar, raundlar, duvar (wall), bölge fethi | Her kampanya “ilk 3 raundu kazanan” formatında. Raund = 60 sn'lik aksiyon mini oyunu. |
+| Savaşlar, raundlar, duvar (wall), bölge fethi | Her savaş **tek raund, 5 dakika**, dünya saatine bağlı. Yapay zekâ vatandaşlarının ve oyuncunun hasarı aynı duvara eklenir; süre dolunca duvarı önde olan taraf bölgeyi alır/korur. Oyuncu savaşa istediği an girip çıkabilir, hasarı kalır. Yeni oyunculara 10. seviyeye kadar azalan “Rookie boost” (×3 → ×1). Eğitim savaşı 60 sn'lik özel alıştırma olarak kaldı. |
 | Direniş savaşları (RW) | İşgal edilmiş anavatan bölgesinde 5 altınla başlatılabilir; yapay zekâ ülkeleri de başlatır. |
 | Eğitim savaşları | Her zaman açık “Training War” (yarı ödül, haritayı değiştirmez). |
 | Antrenman sahaları (Training Grounds) ve kaliteleri | 4 tesis (Ağırlık Odası, Tırmanma Merkezi, Atış Poligonu, Özel Kuvvetler Merkezi), her biri Q1–Q5. Kalite, tesisin güç kazancını çarpar (Q1 ×1, Q2 ×1,25, Q3 ×1,5, Q4 ×1,8, Q5 ×2,2); tüm tesisler her antrenmanda birlikte çalışır. İnşa ve yükseltme altınla. Hepsi Q5'te antrenman başına +49,5 güç. Süper Asker madalyası artan eşiklerle verilir (250 × k^1,6: 250, 758, 1450…) ki hızlı antrenman altın makinesine dönüşmesin. |
@@ -28,7 +28,7 @@
 
 eRepublik “günde 5 dakika, yıllarca” oynanan yavaş bir oyun. CrazyGames'te ise oyuncu ilk 30 saniyede eğlenmezse çıkıyor. Bu yüzden:
 
-1. **Savaş aktif bir aksiyon mini oyunu oldu.** Siperden çıkan düşmanlara dokun/tıkla, kafaya vuruş ×2, seri vuruş kombosu +%50'ye kadar. Düşman ateş etmeden öldürmezsen enerjin gider. Duvarı %50'nin üstünde bitir → raundu kazan.
+1. **Savaş aktif bir aksiyon mini oyunu oldu.** Siperden çıkan düşmanlara dokun/tıkla, kafaya vuruş ×2, seri vuruş kombosu +%50'ye kadar. Düşman ateş etmeden öldürmezsen enerjin gider. 5 dakika sonunda duvar %50'nin üstündeyse bölge sizin.
 2. **Zaman sıkıştırıldı.** eRepublik'teki bir “gün” burada birkaç dakika: seçimler 10 dk, yapay zekâ savaş raundları 40–75 sn.
 3. **Hiç bekletmeyen döngü.** Oyuncunun ülkesinin her zaman en az bir aktif cephesi vardır; ilk savaş oyunun ilk saniyesinden hazır.
 4. **Idle/geri dönüş katmanı.** Şirketler çevrimdışı 3 saate kadar üretir; dünya sen yokken de değişir (“Welcome back” özeti).

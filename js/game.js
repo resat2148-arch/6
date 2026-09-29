@@ -660,17 +660,16 @@ export function playerSide(s, c) {
 }
 
 export const campaignById = (s, id) => s.world.campaigns.find((c) => c.id === id);
+export const activeFronts = (s) => s.world.campaigns.filter((c) => playerSide(s, c)).sort((a, b) => a.endsAt - b.endsAt);
 
 function makeCampaign(s, att, def, regionId, type, now) {
   const c = {
-    id: s.world.nextCampId++, att, def, region: regionId, type,
-    attWins: 0, defWins: 0, round: 1, started: now,
-    nextRoundAt: now + randRange(CONFIG.aiRoundMinMs, CONFIG.aiRoundMaxMs),
-    deadline: 0, playerDmg: 0, dmgAtt: 0, dmgDef: 0, fighters: {},
+    id: s.world.nextCampId++, att, def, region: regionId, type, started: now,
+    endsAt: now + CONFIG.battleMs, playerDmg: 0, dmgAtt: 0, dmgDef: 0, fighters: {},
   };
+  setBattleBase(s, c);
   const side = playerSide(s, c);
   if (side) {
-    c.deadline = now + CONFIG.playerCampaignTimeoutMs;
     const reg = s.world.regions[regionId];
     const foe = countryById(side === 'att' ? def : att).name;
     if (type === 'rw' && side === 'att') toast(`✊ Resistance war started in ${reg.name}!`, 'war');
@@ -722,7 +721,8 @@ function endCampaign(s, c, now) {
   const w = s.world;
   w.campaigns = w.campaigns.filter((x) => x !== c);
   const reg = w.regions[c.region];
-  const attWon = c.attWins > c.defWins;
+  const wall = battleWall(c);
+  const attWon = wall.att > wall.def;
   const side = playerSide(s, c);
   if (attWon) {
     const loser = reg.owner;
@@ -735,16 +735,30 @@ function endCampaign(s, c, now) {
   }
   if (side) {
     const won = (side === 'att') === attWon;
-    if (won) {
-      if (side === 'att') count(s, 'conquest');
-      if (c.playerDmg > 0) {
+    const medals = [];
+    const fought = c.playerDmg > 0;
+    if (won && side === 'att') count(s, 'conquest');
+    if (fought) {
+      count(s, 'battlePlay');
+      const top = Object.entries(c.fighters || {}).sort((a, b) => b[1] - a[1])[0];
+      if (top && top[0] === 'P') { awardMedal(s, 'battleHero'); medals.push('battleHero'); }
+      if (won) {
+        count(s, 'roundWin');
         s.player.gold += 2;
         s.player.money += 50 + s.player.level * 5;
-        if (c.playerDmg >= refHit(s) * 250) awardMedal(s, 'campaignHero');
-        if (c.type === 'rw' && side === 'att') awardMedal(s, 'resistanceHero');
+        const sideCitizens = side === 'att' ? c.dmgAtt : c.dmgDef;
+        if (c.playerDmg * playerBoost(s) >= sideCitizens * 0.25) { awardMedal(s, 'campaignHero'); medals.push('campaignHero'); }
+        if (c.type === 'rw' && side === 'att') { awardMedal(s, 'resistanceHero'); medals.push('resistanceHero'); }
       }
     }
-    bus.emit('campaignEnd', { c, won, region: reg });
+    const result = {
+      id: c.id, won, fought, medals, region: reg.name, side, attWon,
+      pct: side === 'att' ? wall.attPct : 100 - wall.attPct,
+      playerDmg: c.playerDmg,
+      top: Object.entries(c.fighters || {}).sort((a, b) => b[1] - a[1]).slice(0, 5),
+    };
+    s.battleResults = [result, ...(s.battleResults || [])].slice(0, 8);
+    bus.emit('campaignEnd', { c, won, region: reg, result });
   }
   if (!s.flags.victory && w.regions.every((r) => r.owner === s.player.country)) {
     s.flags.victory = true;
@@ -752,18 +766,30 @@ function endCampaign(s, c, now) {
   }
 }
 
-// A round is decided by the damage citizens dealt on each side, plus the nation's base strength.
-const ROUND_BASE = 2500;
-function aiRound(s, c, now) {
-  const pa = countryPower(s.world, c.att) * ROUND_BASE + (c.dmgAtt || 0);
-  const pd = countryPower(s.world, c.def) * CONFIG.defenseBonus * ROUND_BASE + (c.dmgDef || 0);
-  if (pa * randRange(0.8, 1.2) > pd * randRange(0.8, 1.2)) c.attWins++;
-  else c.defWins++;
-  c.dmgAtt = 0;
-  c.dmgDef = 0;
-  c.round++;
-  c.nextRoundAt = now + randRange(CONFIG.aiRoundMinMs, CONFIG.aiRoundMaxMs);
-  if (c.attWins >= CONFIG.roundsToWin || c.defWins >= CONFIG.roundsToWin) endCampaign(s, c, now);
+// ---------------------------------------------------------------- battles: one round, 5 minutes, one shared wall
+// Each side starts with a base from its nation's strength; every point of damage from AI citizens and the
+// player is added on top. When the timer runs out the side with the bigger total takes (or keeps) the region.
+const BATTLE_BASE = 4000;
+
+function setBattleBase(s, c) {
+  c.baseAtt = Math.round(countryPower(s.world, c.att) * BATTLE_BASE * randRange(0.85, 1.15));
+  c.baseDef = Math.round(countryPower(s.world, c.def) * CONFIG.defenseBonus * BATTLE_BASE * randRange(0.85, 1.15));
+}
+
+export function battleWall(c) {
+  const att = (c.baseAtt || 0) + (c.dmgAtt || 0);
+  const def = (c.baseDef || 0) + (c.dmgDef || 0);
+  return { att, def, attPct: (att / Math.max(1, att + def)) * 100 };
+}
+
+// New players hit harder in real battles so their first fights matter (fades out by level 10).
+export const playerBoost = (s) => (s.player.level < 10 ? 1 + (2 * (10 - s.player.level)) / 9 : 1);
+
+function resolveDueBattles(s, now) {
+  for (const c of s.world.campaigns.slice()) {
+    if (!c.endsAt) { c.endsAt = now + CONFIG.battleMs * Math.random(); setBattleBase(s, c); }
+    if (now >= c.endsAt) endCampaign(s, c, now);
+  }
 }
 
 function ensurePlayerCampaign(s, now) {
@@ -791,13 +817,7 @@ function ensurePlayerCampaign(s, now) {
 function aiStep(s, now) {
   const w = s.world;
   if (s.citizens) citizensStep(s, now);
-  for (const c of w.campaigns.slice()) {
-    if (playerSide(s, c)) {
-      if (now >= c.deadline) {
-        while (w.campaigns.includes(c)) aiRound(s, c, now);
-      }
-    } else if (now >= c.nextRoundAt) aiRound(s, c, now);
-  }
+  resolveDueBattles(s, now);
   const aiCount = () => w.campaigns.filter((c) => !playerSide(s, c)).length;
   const busy = new Set(w.campaigns.map((c) => c.region));
   const attacking = new Set(w.campaigns.map((c) => c.att));
@@ -826,7 +846,9 @@ function aiStep(s, now) {
   ensurePlayerCampaign(s, now);
 }
 
-// ---------------------------------------------------------------- battle rounds (played in the battle scene)
+// ---------------------------------------------------------------- the battle scene
+// Real battles: the scene joins the running 5-minute battle; every hit goes straight onto the wall.
+// Training war: a private 60-second practice round against a simulated enemy.
 export function roundSetup(s, campId) {
   const training = campId === 'training';
   const c = training ? null : campaignById(s, campId);
@@ -834,47 +856,42 @@ export function roundSetup(s, campId) {
   const side = training ? 'att' : playerSide(s, c);
   if (!side) return null;
   const me = s.player.country;
-  let foe;
-  if (training) {
-    const others = COUNTRIES.filter((x) => x.id !== me);
-    foe = others[(s.counters.roundPlay || 0) % others.length].id;
-  } else foe = side === 'att' ? c.def : c.att;
-  const w = s.world;
-  const pm = Math.max(1, countryPower(w, me));
-  const pe = countryPower(w, foe);
-  let f;
-  if (training) f = 0.55;
-  else {
-    f = 0.6 + 0.6 * pe / (pe + pm);
-    if (side === 'def') f -= 0.06;
-    if (side === 'att' && w.regions[c.region].capital) f += 0.08;
-    f += 0.02 * (c.round - 1);
-  }
+  const foe = training
+    ? COUNTRIES.filter((x) => x.id !== me)[(s.counters.roundPlay || 0) % (COUNTRIES.length - 1)].id
+    : side === 'att' ? c.def : c.att;
   const ref = refHit(s);
-  // Citizens who fought since the last round tilt the odds for (or against) you.
-  const k = ref * 150;
-  const allies = training ? 0 : (side === 'att' ? c.dmgAtt : c.dmgDef) || 0;
-  const enemies = training ? 0 : (side === 'att' ? c.dmgDef : c.dmgAtt) || 0;
-  if (!training) f *= clamp(Math.pow((enemies + k) / (allies + k), 0.35), 0.8, 1.25);
-  if (s.player.level <= 3) f -= 0.15;
-  f = clamp(f, 0.4, 1.25);
-  const reg = training ? null : w.regions[c.region];
+  const reg = training ? null : s.world.regions[c.region];
+  const f = s.player.level <= 3 ? 0.4 : 0.55;
   return {
-    campId, training, side, me, foe, allies, enemies,
+    campId, training, side, me, foe,
     regionName: training ? 'Training Grounds' : reg.name,
     title: training ? 'Training War' : c.type === 'rw' ? `Resistance: ${reg.name}` : `Battle for ${reg.name}`,
-    round: training ? 1 : c.round,
-    myWins: training ? 0 : side === 'att' ? c.attWins : c.defWins,
-    foeWins: training ? 0 : side === 'att' ? c.defWins : c.attWins,
-    seconds: CONFIG.roundSeconds,
+    endsAt: training ? 0 : c.endsAt,
+    seconds: CONFIG.trainingSeconds,
+    boost: training ? 1 : playerBoost(s),
     ref,
-    difficulty: f,
-    enemyHp: ref * 3 * (1 + 0.05 * ((training ? 1 : c.round) - 1)),
+    enemyHp: ref * 3 * (training ? 1 : 1 + 0.1 * (countryPower(s.world, foe) - 1)),
+    // Training only: simulated sides of the practice wall.
     enemyDps: f * ref * 3,
     allyDps: 0.3 * ref * 3,
     wallBase: ref * 40,
     division: division(s.player.level),
   };
+}
+
+// Adds one hit to a running battle. Returns false when the battle is already over.
+export function battleHit(s, campId, dmg) {
+  const c = campaignById(s, campId);
+  if (!c) return false;
+  const side = playerSide(s, c);
+  if (!side) return false;
+  const counted = dmg * playerBoost(s);
+  if (side === 'att') c.dmgAtt = (c.dmgAtt || 0) + counted;
+  else c.dmgDef = (c.dmgDef || 0) + counted;
+  c.playerDmg += dmg;
+  c.fighters = c.fighters || {};
+  c.fighters.P = (c.fighters.P || 0) + dmg;
+  return true;
 }
 
 // One shot from the battle scene. Consumes energy + a weapon; returns base damage or null.
@@ -898,12 +915,14 @@ export function useBazooka(s, setup) {
   return { perEnemy: setup.enemyHp * 2.5, wall: setup.ref * 25 };
 }
 
-export function finishRound(s, setup, result, now = Date.now()) {
+// Rewards for one visit to the battlefield (leaving, or the battle ending while you fight).
+// Victory bonuses and battle medals are handed out when the battle itself ends.
+export function finishVisit(s, setup, result) {
   const { dmg, kills, headshots, won } = result;
   const p = s.player;
   const t = setup.training ? 0.5 : 1;
-  const money = (kills * 0.3 + (won ? 10 : 4)) * (1 + p.level * 0.1) * t;
-  const xp = Math.round((kills + (won ? 10 : 3)) * t);
+  const money = (kills * 0.3 + (setup.training ? (won ? 10 : 4) : 0)) * (1 + p.level * 0.1) * t;
+  const xp = Math.round((kills + (setup.training ? (won ? 10 : 3) : Math.floor(dmg / (setup.ref * 20)))) * t);
   const rp = Math.round((dmg / 10) * t);
   p.money += money;
   p.damage += dmg;
@@ -912,25 +931,11 @@ export function finishRound(s, setup, result, now = Date.now()) {
   count(s, 'kill', kills);
   count(s, 'headshot', headshots);
   count(s, 'roundPlay');
-  if (won) count(s, 'roundWin');
+  if (setup.training && won) count(s, 'trainingWin');
   const medals = [];
   if (!setup.training) {
-    if (dmg >= setup.ref * 110) { awardMedal(s, 'battleHero'); medals.push('battleHero'); }
     p.patriotDmg += dmg;
     while (Math.floor(p.patriotDmg / PATRIOT_STEP) > (s.medals.truePatriot || 0)) { awardMedal(s, 'truePatriot'); medals.push('truePatriot'); }
-    const c = campaignById(s, setup.campId);
-    if (c) {
-      c.playerDmg += dmg;
-      c.fighters = c.fighters || {};
-      c.fighters.P = (c.fighters.P || 0) + dmg;
-      c.dmgAtt = 0;
-      c.dmgDef = 0;
-      if (won === (setup.side === 'att')) c.attWins++;
-      else c.defWins++;
-      c.round++;
-      c.deadline = now + CONFIG.playerCampaignTimeoutMs;
-      if (c.attWins >= CONFIG.roundsToWin || c.defWins >= CONFIG.roundsToWin) endCampaign(s, c, now);
-    }
   }
   return { money, xp, rp, medals };
 }
@@ -1038,6 +1043,7 @@ export function tick(s, now = Date.now()) {
     steps++;
   }
   if (s.world.nextAiTick <= now) s.world.nextAiTick = now + CONFIG.aiTickMs;
+  resolveDueBattles(s, now);
 
   if (now >= s.politics.nextElection) resolveElection(s, now);
   const sold = s.market.sold;

@@ -204,6 +204,9 @@ svg.map.zoomed .lbl { display: inline; }
 .camp { flex-wrap: wrap; }
 .rank-by { margin: 6px 0 10px; }
 .ranking { display: flex; flex-direction: column; gap: 4px; }
+.wall-mini { position: relative; height: 14px; border-radius: 99px; overflow: hidden; background: #3a2230; margin: 3px 0 2px; max-width: 260px; }
+.wall-mini > div { height: 100%; }
+.wall-mini span { position: absolute; inset: 0; font-size: 10px; font-weight: 800; display: grid; place-items: center; text-shadow: 0 1px 2px #000; }
 .rk { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px; background: rgba(0,0,0,.18); }
 .rk.me { background: rgba(245, 184, 61, .14); border: 1px solid rgba(245, 184, 61, .35); }
 .rk .pos { width: 22px; text-align: center; color: var(--muted); }
