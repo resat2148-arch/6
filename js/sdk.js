@@ -21,6 +21,7 @@ function loadScript(src, timeoutMs) {
 }
 
 export async function initSDK() {
+  if (window.RR_NO_SDK) return env; // standalone test builds skip the portal SDK
   try {
     if (!window.CrazyGames?.SDK) await loadScript(SDK_URL, 5000);
     const S = window.CrazyGames?.SDK;

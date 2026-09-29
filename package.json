@@ -7,6 +7,7 @@
   "scripts": {
     "start": "http-server . -p 8080 -c-1",
     "test": "node --test tests/*.test.js",
-    "build": "sh scripts/build.sh"
+    "build": "sh scripts/build.sh",
+    "build:single": "node scripts/build-single.mjs"
   }
 }

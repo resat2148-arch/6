@@ -93,7 +93,7 @@ svg.flag.big { width: 36px; height: 24px; }
 
 /* ---------- app layout ---------- */
 #app { position: fixed; inset: 0; display: grid; grid-template-columns: 86px 1fr; grid-template-rows: auto 1fr; grid-template-areas: "top top" "nav view"; }
-#topbar { grid-area: top; display: flex; align-items: center; gap: 12px; padding: 8px 14px; background: rgba(8, 12, 22, .85); border-bottom: 1px solid var(--line); backdrop-filter: blur(6px); }
+#topbar { grid-area: top; display: flex; align-items: center; gap: 12px; padding: calc(8px + env(safe-area-inset-top, 0px)) 14px 8px; background: rgba(8, 12, 22, .85); border-bottom: 1px solid var(--line); backdrop-filter: blur(6px); }
 #tabs { grid-area: nav; display: flex; flex-direction: column; gap: 4px; padding: 10px 8px; background: rgba(8, 12, 22, .55); border-right: 1px solid var(--line); overflow: auto; }
 #view { grid-area: view; overflow: auto; padding: 14px; scroll-behavior: smooth; }
 
@@ -275,7 +275,7 @@ svg.map { width: 100%; height: auto; max-height: calc(100dvh - 190px); display: 
   #map-holder { overflow-x: auto; margin: 0 -6px; }
   svg.map { min-width: 540px; max-height: none; }
   .grid { grid-template-columns: 1fr; }
-  #topbar { gap: 8px; padding: 6px 8px; }
+  #topbar { gap: 8px; padding: calc(6px + env(safe-area-inset-top, 0px)) 8px 6px; }
   .tb-lv .bar { width: 44px; }
   .tb-name-wrap b { max-width: 80px; font-size: 13px; }
   .tb-money { flex-direction: column; gap: 0; font-size: 12px; }
