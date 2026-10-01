@@ -7,6 +7,7 @@ import {
 import { flagSvg } from './flags.js';
 import { fmt, fmtMoney, fmtTime, esc } from './util.js';
 import { MAP_W, MAP_H, EU_REGIONS, EU_PATHS, EU_NEUTRAL, EU_BORDERS } from './europe.js';
+import { tabBackground } from './backgrounds.js';
 import { PERSONAS, botRank, citizensOf, sellerName, activeCitizens, populationTarget } from './citizens.js';
 import { neighborsOf, regionsOf, isAlive, countryPower, distinctResources, resourceBonus } from './world.js';
 
@@ -206,6 +207,14 @@ export function renderStart(defaultName, picked, legacy = false) {
 export function renderTab(s) {
   const v = $('view');
   const fn = { home, war, economy, market, politics, people, medals }[ui.tab] || home;
+  const bg = $('tab-bg');
+  if (bg && bg.dataset.tab !== ui.tab) {
+    bg.dataset.tab = ui.tab;
+    bg.style.backgroundImage = tabBackground(ui.tab);
+    bg.classList.remove('fade');
+    void bg.offsetWidth;
+    bg.classList.add('fade');
+  }
   const scroll = v.scrollTop;
   v.innerHTML = fn(s);
   v.scrollTop = scroll;

@@ -52,6 +52,7 @@ Zip dosyasını CrazyGames Developer Portal → *Submit game* → *HTML5* olarak
 | `js/press.js` | Vatandaş gazeteleri, makale başlıkları, okur oyları |
 | `js/battle.js` | Canvas savaş mini oyunu |
 | `js/ui.js` | Sekme ekranları (Home + Avrupa haritası, War, Economy, Market, Politics, Citizens, Medals) |
+| `js/backgrounds.js` | Her sekmeye özel, kodla çizilen arka plan sahneleri (SVG) |
 | `js/battle.js` / `js/battle-art.js` | Savaş ekranı: oyun mantığı ve efektler / kodla çizilen modern çatışma sahnesi, askerler, karabina |
 | `js/storage.js` | 3 kariyer yuvası; her yuva için katmanlı kayıt: cihaz + yedek + bulut (CrazyGames data / önizleme db), yedek kodu |
 | `js/sdk.js` | CrazyGames SDK sarmalayıcısı (SDK yoksa güvenli geri dönüş) |
