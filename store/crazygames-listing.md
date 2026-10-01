@@ -38,7 +38,7 @@ Work, train and fight for your nation on a real map of Europe — build companie
 
 ## Description
 
-Start as a simple citizen of one of 37 European countries and rise to lead your nation. Every region on the map of Europe can be won or lost, and a living world of 200+ AI citizens works, trades, votes and fights beside you — and against you.
+Start as a simple citizen of one of 37 European countries and rise to lead your nation. Every region on the map of Europe can be won or lost, and a living world of 1,000+ AI citizens works, trades, votes and fights beside you — and against you.
 
 **Fight for your country.** Battles are fast 5-minute clashes: tap the enemies popping out of the trenches, land headshots, chain combos and push the battle wall. Every hit counts for your whole nation — win the battle and your country takes the region. Bigger countries have more citizens and more firepower, so every conquest makes your nation stronger.
 
@@ -59,7 +59,7 @@ Start as a simple citizen of one of 37 European countries and rise to lead your 
 ## Features (portal "Features" alanı varsa)
 
 - Real map of Europe with 37 countries and 174 regions
-- 200+ AI citizens who work, trade, vote, publish newspapers and fight
+- 1,000+ AI citizens who work, trade, vote, publish newspapers and fight
 - Fast 5-minute battles with headshots, combos and a bazooka
 - Companies, raw materials and a living market with offers from other citizens
 - Elections for Congress and President, national policies and newspapers

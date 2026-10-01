@@ -18,7 +18,7 @@ export const PERSONAS = {
 const COMPANY_WEIGHTS = [['farm', 7], ['mine', 11], ['quarry', 7], ['bakery', 21], ['armory', 30], ['construction', 25]];
 const BOT_PROD_MULT = 1.2; // one AI citizen stands in for a handful of real players' output
 const TICKS_PER_MIN = 3; // world tick = 20 s
-export const CITIZEN_WALL_WEIGHT = 0.15;
+export const CITIZEN_WALL_WEIGHT = 0.15 / 5; // 0.15 split across POP_SCALE times as many citizens
 
 export const botMaxEnergy = (b) => Math.min(400, 100 + (b.lvl - 1) * 10);
 export const botTrainGain = (b) => 5 + (b.lvl >= 8 ? 2.5 : 0) + (b.lvl >= 15 ? 5 : 0) + (b.lvl >= 25 ? 10 : 0);
@@ -34,7 +34,9 @@ function weighted(list, rnd) {
 
 // Population follows territory: more regions, more citizens (and more damage in battles).
 // A nation without regions keeps a single resistance citizen.
-export const populationTarget = (regions) => (regions > 0 ? Math.round(2 + 0.75 * regions) : 1);
+// POP_SCALE citizens stand where one stood before; their wall weight is divided by the same factor.
+export const POP_SCALE = 5;
+export const populationTarget = (regions) => POP_SCALE * (regions > 0 ? Math.round(2 + 0.75 * regions) : 1);
 
 function makeCitizen(id, cid, rnd, newcomer = false, taken = []) {
   const { name, female } = citizenName(cid, rnd, taken);
@@ -63,6 +65,46 @@ export function createCitizens(seed) {
     for (let i = 0; i < n; i++) list.push(makeCitizen(list.length, c.id, rnd, false, list.filter((b) => b.c === c.id).map((b) => b.n)));
   }
   return list;
+}
+
+// Old saves were made with fewer citizens per region: fill every nation up to today's target at once.
+export function fillPopulation(s, rnd = Math.random) {
+  const regions = {};
+  for (const r of s.world.regions) regions[r.owner] = (regions[r.owner] || 0) + 1;
+  let added = 0;
+  for (const c of COUNTRIES) {
+    const missing = populationTarget(regions[c.id] || 0) - populationOf(s, c.id);
+    for (let i = 0; i < missing; i++) {
+      const slot = s.citizens.findIndex((x) => !x.c);
+      const id = slot >= 0 ? slot : s.citizens.length;
+      s.citizens[id] = makeCitizen(id, c.id, rnd, false, s.citizens.filter((x) => x.c === c.id).map((x) => x.n));
+      added++;
+    }
+  }
+  return added;
+}
+
+// Saves keep citizens as short arrays (ids are the indexes): about a third of the object size.
+const r2 = (n) => Math.round(n * 100) / 100;
+export function packCitizens(list) {
+  return list.map((b) => (b.c
+    ? [b.n, b.fem ? 1 : 0, b.c, b.p, b.lvl, Math.round(b.xp), Math.round(b.str * 10) / 10, Math.round(b.rp), r2(b.m), Math.round(b.e), Math.round(b.fe), b.w,
+      Math.round(b.dmg), b.co ? [b.co.t, b.co.q, b.co.l] : 0, Math.round(b.stock || 0), Math.round((b.px || 0) * 1000) / 1000, b.last || 0, r2(b.amb ?? 0.5),
+      b.np ? [b.np.name, b.np.subs, b.np.articles] : 0, b.cong ? 1 : 0, b.pres ? 1 : 0]
+    : [b.n || 'Citizen']));
+}
+
+export function unpackCitizens(rows) {
+  return rows.map((t, id) => {
+    if (t.length === 1) {
+      return { id, n: t[0], fem: false, c: null, p: 'w', lvl: 1, xp: 0, str: 100, rp: 0, m: 0, e: 0, fe: 0, w: [0, 0, 0, 0, 0, 0], dmg: 0, co: null, stock: 0, px: 0, last: 0, amb: 0.5, np: null, cong: false, pres: false };
+    }
+    const [n, fem, c, p, lvl, xp, str, rp, m, e, fe, w, dmg, co, stock, px, last, amb, np, cong, pres] = t;
+    return {
+      id, n, fem: !!fem, c, p, lvl, xp, str, rp, m, e, fe, w, dmg, co: co ? { t: co[0], q: co[1], l: co[2] } : null, stock, px, last, amb,
+      np: np ? { name: np[0], subs: np[1], articles: np[2] } : null, cong: !!cong, pres: !!pres,
+    };
+  });
 }
 
 // Active citizens only: emigrants who left Europe keep their slot (ids are indexes) but have no country.
@@ -96,26 +138,29 @@ export function populationStep(s, news, rnd = Math.random) {
   // The target counts AI citizens; the player always comes on top of it.
   const gap = {};
   for (const c of COUNTRIES) gap[c.id] = populationTarget(regions[c.id] || 0) - populationOf(s, c.id);
+  // A big gap moves a few people per step (populations are POP_SCALE times larger than they used to be).
+  const step = (g) => Math.min(3, Math.ceil(Math.abs(g) / 2));
   const leaving = [];
   for (const c of COUNTRIES) {
     if (gap[c.id] >= 0 || rnd() > 0.35) continue;
     const pool = s.citizens.filter((b) => b.c === c.id && !b.pres);
-    if (!pool.length) continue;
-    // The least rooted citizen goes first: low level, no seat in Congress.
+    // The least rooted citizens go first: low level, no seat in Congress.
     pool.sort((a, b) => (a.cong - b.cong) || (a.lvl - b.lvl));
-    leaving.push(pool[0]);
+    leaving.push(...pool.slice(0, step(gap[c.id])));
   }
   const moves = [];
   for (const c of COUNTRIES) {
     if (gap[c.id] <= 0 || rnd() > 0.35) continue;
-    const from = leaving.shift();
-    if (from) {
-      moves.push({ b: from, from: from.c, to: c.id });
-      from.c = c.id;
-      from.cong = false;
-    } else {
-      const b = newcomer(s, c.id, rnd);
-      if (c.id === player && news.budget > 0) { news.budget--; news.feed(`👶 ${b.n} became a new citizen of ${countryById(c.id).name}`); }
+    for (let k = step(gap[c.id]); k > 0; k--) {
+      const from = leaving.shift();
+      if (from) {
+        moves.push({ b: from, from: from.c, to: c.id });
+        from.c = c.id;
+        from.cong = false;
+      } else {
+        const b = newcomer(s, c.id, rnd);
+        if (c.id === player && news.budget > 0) { news.budget--; news.feed(`👶 ${b.n} became a new citizen of ${countryById(c.id).name}`); }
+      }
     }
   }
   for (const b of leaving) {

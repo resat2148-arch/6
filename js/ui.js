@@ -943,7 +943,7 @@ export function helpHtml() {
     <li><b>Food reserve 🍞</b> refills quickly. <b>Eat</b> food to turn reserve into usable energy.</li>
     <li><b>Work</b> earns money. <b>Train</b> raises strength, which raises your damage.</li>
     <li><b>Fight</b>: tap enemies before they shoot you. Headshots deal double damage, fast hits build combos. Each battle is one ${CONFIG.battleMs / 60000}-minute round: push the wall above 50% together with your fellow citizens before time runs out to take (or keep) the region. You can leave and rejoin at any time.</li>
-    <li><b>Citizens 👥</b>: hundreds of AI citizens live the same life: they fight in battles, run companies and post offers on the Market. Buy from them, sell to them, and climb the rankings.</li>
+    <li><b>Citizens 👥</b>: over a thousand AI citizens live the same life: they fight in battles, run companies and post offers on the Market. Buy from them, sell to them, and climb the rankings.</li>
     <li><b>Rank</b> grows with damage and multiplies your damage further.</li>
     <li><b>Houses 🏠</b> raise your max energy and energy regeneration for a few hours. Buy them on the Market or build them with a Construction company.</li>
     <li><b>Companies</b> produce raw materials, food and weapons — even while you are away. Owning resource regions boosts production.</li>

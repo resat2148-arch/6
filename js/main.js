@@ -48,7 +48,7 @@ const menuMuted = () => { try { return localStorage.getItem(MUTE_KEY) === '1'; }
 function save() {
   clearTimeout(saveTimer);
   saveTimer = 0;
-  if (state) Store.saveNow(state);
+  if (state) Store.saveNow(G.packSave(state));
 }
 
 // Coalesces bursts of clicks into one write shortly after the last one.
@@ -313,7 +313,7 @@ const actions = {
   },
   exportSave: async () => {
     save();
-    const code = await Store.exportCode(state);
+    const code = await Store.exportCode(G.packSave(state));
     openModal(`<h2>💾 Backup code</h2>
       <p class="muted small">This code holds career ${Store.currentSlot()} (${esc(state.player.name)}). Keep it somewhere safe and paste it on another device (Main menu → Settings → Restore from code) to continue there.</p>
       <textarea id="save-code" class="code" readonly>${code}</textarea>
@@ -348,7 +348,7 @@ const actions = {
       saveTimer = 0;
       Store.setSlot(target);
       state = s; // the save handlers now write this state into the chosen slot
-      Store.saveNow(s);
+      Store.saveNow(G.packSave(s));
       Store.flushCloud();
       closeModal();
       if (started) { started = false; SDK.gameplayStop(); }

@@ -443,9 +443,9 @@ test('country ranking covers every nation and tracks battle records', () => {
 });
 
 test('population follows territory: winners grow, losers shrink, migrants move between them', async () => {
-  const { populationTarget, populationStep, populationOf } = await import('../js/citizens.js');
+  const { populationTarget, populationStep, populationOf, POP_SCALE } = await import('../js/citizens.js');
   assert.ok(populationTarget(1) < populationTarget(7) && populationTarget(7) < populationTarget(16));
-  assert.equal(populationTarget(0), 1, 'a wiped nation keeps a resistance cell');
+  assert.equal(populationTarget(0), POP_SCALE, 'a wiped nation keeps a resistance cell');
   const s = fresh();
   for (const c of COUNTRIES) {
     const regions = s.world.regions.filter((r) => r.owner === c.id).length;
@@ -468,4 +468,37 @@ test('population follows territory: winners grow, losers shrink, migrants move b
   assert.deepEqual(s.citizens.slice(0, ids.length).map((b) => b.id), ids, 'ids stay stable');
   s.citizens.forEach((b, i) => assert.equal(b.id, i));
   assert.ok(s.citizens.some((b) => b.c === 'TR' && b.fem !== undefined));
+});
+
+test('five times the citizens: packed saves round-trip and old saves are filled up', async () => {
+  const { POP_SCALE, populationTarget, populationOf } = await import('../js/citizens.js');
+  assert.equal(POP_SCALE, 5);
+  const s = fresh();
+  assert.ok(s.citizens.length > 900, `about a thousand citizens (${s.citizens.length})`);
+  for (let i = 0; i < 30; i++) { s.lastTick -= 20000; s.world.nextAiTick -= 20000; G.tick(s); }
+  s.citizens[3].c = null; // someone emigrated: the slot is kept
+  const packed = JSON.parse(JSON.stringify(G.packSave(s)));
+  assert.ok(!packed.citizens && Array.isArray(packed.cz));
+  assert.ok(JSON.stringify(packed).length < JSON.stringify(s).length * 0.75, 'packed save is smaller');
+  const back = G.migrate(packed);
+  assert.equal(back.citizens.length, s.citizens.length);
+  back.citizens.forEach((b, i) => assert.equal(b.id, i));
+  const a = s.citizens.find((b) => b.co && b.np) || s.citizens[0];
+  const b = back.citizens[a.id];
+  for (const k of ['n', 'c', 'p', 'lvl', 'cong', 'pres']) assert.deepEqual(b[k], a[k], k);
+  assert.deepEqual(b.co, a.co);
+  assert.deepEqual(b.np, a.np);
+  assert.ok(Math.abs(b.m - a.m) < 0.01 && Math.abs(b.str - a.str) < 0.1);
+  // An old save with the old (1x) population grows to the new size when loaded.
+  const old = JSON.parse(JSON.stringify(s));
+  delete old.popScale;
+  const keep = new Set();
+  old.citizens = old.citizens.filter((x) => { if (!x.c || keep.has(x.c)) return false; keep.add(x.c); return true; }).map((x, i) => ({ ...x, id: i }));
+  const up = G.migrate(old);
+  for (const c of ['DE', 'FR', 'TR']) {
+    const regions = up.world.regions.filter((r) => r.owner === c).length;
+    assert.equal(populationOf(up, c), populationTarget(regions), `${c} filled to its target`);
+  }
+  assert.equal(up.popScale, POP_SCALE);
+  assert.equal(G.migrate(JSON.parse(JSON.stringify(G.packSave(up)))).citizens.length, up.citizens.length, 'no second fill');
 });

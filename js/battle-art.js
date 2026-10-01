@@ -780,3 +780,102 @@ function muzzleFlash(g, m, recoil, unit, k) {
   g.fill();
   g.restore();
 }
+
+// ------------------------------------------------------------ allied citizen, seen from behind
+// Crouched behind the near cover, rifle raised towards the enemy lines (up and to the right).
+// Local units: (0,0) is the top of the near cover; mirrored for allies on the right side.
+const ABOX = { x: -44, y: -108, w: 120, h: 128 };
+export const ALLY_MUZZLE = { x: 64, y: -99 };
+const allyCache = new Map();
+
+export function allySprite(id, s, dpr) {
+  const key = `${id}|${s.toFixed(3)}|${dpr}`;
+  if (allyCache.has(key)) return allyCache.get(key);
+  const k = s * dpr;
+  const c = canvas(ABOX.w * k, ABOX.h * k);
+  const g = c.getContext('2d');
+  g.setTransform(k, 0, 0, k, -ABOX.x * k, -ABOX.y * k);
+  paintAlly(g, id);
+  const sp = { img: c, box: ABOX };
+  allyCache.set(key, sp);
+  return sp;
+}
+export function clearAllySprites() { allyCache.clear(); }
+
+function paintAlly(g, id) {
+  const cc = countryById(id);
+  const tint = cc ? cc.color : '#6b7280';
+  const uni = mix('#56604a', tint, 0.25);
+  const uniD = mix('#363d2e', tint, 0.2);
+  const vest = mix('#454c39', tint, 0.12);
+  const vestD = mix('#2b3024', tint, 0.1);
+  const helm = mix('#646a4d', tint, 0.1);
+  const OUT = 'rgba(6,8,12,.6)';
+  g.lineJoin = 'round';
+  g.lineCap = 'round';
+  g.fillStyle = 'rgba(0,0,0,.28)';
+  g.beginPath(); g.ellipse(0, -18, 34, 46, 0, 0, TAU); g.fill();
+  // back and shoulders
+  let gr = g.createLinearGradient(-26, 0, 26, 0);
+  gr.addColorStop(0, uniD);
+  gr.addColorStop(0.5, uni);
+  gr.addColorStop(1, uniD);
+  g.fillStyle = gr;
+  g.beginPath();
+  g.moveTo(-25, 20); g.lineTo(-28, -36); g.quadraticCurveTo(-28, -56, -10, -58); g.lineTo(10, -58); g.quadraticCurveTo(28, -56, 28, -36); g.lineTo(25, 20); g.closePath();
+  g.fill();
+  g.strokeStyle = OUT; g.lineWidth = 1.4; g.stroke();
+  // plate carrier back panel + hydration pack
+  gr = g.createLinearGradient(0, -52, 0, 12);
+  gr.addColorStop(0, vest);
+  gr.addColorStop(1, vestD);
+  g.fillStyle = gr;
+  rr(g, -18, -52, 36, 62, 5); g.fill(); g.strokeStyle = OUT; g.stroke();
+  g.fillStyle = mix('#000000', vest, 0.7);
+  rr(g, -11, -46, 22, 30, 5); g.fill();
+  g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 0.8;
+  for (const y of [-10, -5, 0, 5]) { g.beginPath(); g.moveTo(-16, y); g.lineTo(16, y); g.stroke(); }
+  // flag patch
+  const f = flagImage(id);
+  g.save();
+  g.translate(-27, -50); g.rotate(0.12);
+  g.fillStyle = '#e5e7eb'; g.fillRect(-0.7, -0.7, 13.4, 9.4);
+  if (f.ready) g.drawImage(f.img, 0, 0, 12, 8); else { g.fillStyle = tint; g.fillRect(0, 0, 12, 8); }
+  g.restore();
+  // arms reaching up to the rifle
+  g.strokeStyle = uniD; g.lineWidth = 11;
+  g.beginPath(); g.moveTo(-20, -50); g.quadraticCurveTo(-4, -86, 24, -86); g.stroke();
+  g.strokeStyle = uni; g.lineWidth = 10;
+  g.beginPath(); g.moveTo(21, -52); g.quadraticCurveTo(36, -60, 34, -68); g.stroke();
+  // rifle (stock at the shoulder, muzzle into the scene)
+  g.save();
+  g.translate(30, -64);
+  g.rotate(-0.8);
+  g.fillStyle = '#16181c'; rr(g, -8, -4, 14, 9, 2); g.fill();
+  g.fillStyle = '#1d2025'; rr(g, 4, -4.5, 20, 9, 2); g.fill();
+  g.fillStyle = '#131518'; g.beginPath(); g.moveTo(12, 4.5); g.lineTo(18, 4.5); g.lineTo(17, 15); g.lineTo(11, 14); g.closePath(); g.fill();
+  g.fillStyle = '#2a2e35'; rr(g, 22, -3.5, 18, 7, 2); g.fill();
+  g.fillStyle = '#0e0f12'; g.fillRect(39, -1.6, 9, 3.2);
+  g.fillStyle = '#121418'; rr(g, 8, -10, 11, 6, 1.5); g.fill();
+  g.restore();
+  // gloves
+  g.fillStyle = '#1b1d21';
+  g.beginPath(); g.arc(25, -86, 4.4, 0, TAU); g.fill();
+  g.beginPath(); g.arc(34, -69, 4.2, 0, TAU); g.fill();
+  // neck, ear protection, helmet from behind
+  g.fillStyle = '#23262c'; g.fillRect(-7, -64, 14, 9);
+  g.fillStyle = '#15171b';
+  g.beginPath(); g.arc(-15, -66, 5, 0, TAU); g.fill();
+  g.beginPath(); g.arc(15, -66, 5, 0, TAU); g.fill();
+  gr = g.createRadialGradient(-6, -84, 2, 0, -74, 19);
+  gr.addColorStop(0, mix('#ffffff', helm, 0.72));
+  gr.addColorStop(0.5, helm);
+  gr.addColorStop(1, mix('#000000', helm, 0.6));
+  g.fillStyle = gr;
+  g.beginPath(); g.ellipse(0, -75, 17, 15.5, 0, 0, TAU); g.fill();
+  g.strokeStyle = OUT; g.lineWidth = 1.3; g.stroke();
+  g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(-16, -72); g.quadraticCurveTo(0, -66, 16, -72); g.stroke();
+  g.fillStyle = '#16181c'; rr(g, -6, -78, 12, 8, 2); g.fill(); // battery pack
+  g.fillStyle = 'rgba(80,255,120,.8)'; g.fillRect(-1, -76, 2, 2); // IR strobe
+}

@@ -7,6 +7,7 @@ import { flagSvg } from './flags.js';
 import { fmt, randRange, clamp, esc } from './util.js';
 import {
   buildBackground, buildCover, buildVignette, soldierSprite, clearSprites, setFlagListener, flagImage, sprites, drawCarbine, SOLDIER_MUZZLE,
+  allySprite, clearAllySprites, ALLY_MUZZLE,
 } from './battle-art.js';
 
 const $ = (id) => document.getElementById(id);
@@ -27,7 +28,7 @@ export const isOpen = () => !!S;
 export function initBattle() {
   canvas = $('bcv');
   ctx = canvas.getContext('2d');
-  setFlagListener(() => clearSprites()); // soldiers wear a flag patch once its image has loaded
+  setFlagListener(() => { clearSprites(); clearAllySprites(); }); // soldiers wear a flag patch once its image has loaded
   window.addEventListener('resize', () => { if (S) { resize(); buildBg(); } });
   canvas.addEventListener('pointerdown', onPointer);
   canvas.addEventListener('pointermove', (e) => { if (S) S.aim = toLocal(e); });
@@ -55,6 +56,7 @@ export function openBattle(state, campId, h) {
     aim: null, paused: document.hidden, adPause: false, last: performance.now(), hudT: 0, raf: 0,
     msgT: 0, wallShown: null, visitDone: false,
     recoil: 0, flash: 0, marks: [], rockets: [], inTracers: [], smoke: [], smokeT: 0, skyT: 1.5, sky: [],
+    allies: [], fSnap: { ...(G.campaignById(state, campId)?.fighters || {}) }, allyT: 0,
   };
   flagImage(setup.me);
   flagImage(setup.foe);
@@ -108,6 +110,111 @@ function buildBg() {
     ],
     embers: Array.from({ length: W > 700 ? 30 : 18 }, () => ember(true)),
   };
+  layoutAllies();
+}
+
+// ------------------------------------------------------------ allied citizens beside you
+// Citizens of your country who fight in this battle crouch behind the near cover at the screen edges,
+// shoot at the enemy line and show their real damage when it reaches the wall.
+function layoutAllies() {
+  const sF = clamp(1.15 * unit, 0.85, 1.7);
+  const base = Math.min(H * 0.97, hudTop - 2);
+  const xs = W > 760 ? [[0.08, false], [0.27, false], [0.93, true]] : [[0.07, false], [0.93, true]];
+  const old = S.allies || [];
+  S.allies = xs.map(([fx, mirror], i) => ({
+    ...(old[i] || { id: null, fireT: randRange(0.3, 1.2), flash: 0, recoil: 0, rage: 0, lastBurst: -9 }),
+    x: W * fx, base, s: sF, mirror,
+  }));
+  scene.front = buildCover(W, base, sF * 0.8, dpr);
+  refreshAllies(true);
+}
+
+const myFighters = () => {
+  const c = G.campaignById(S.state, S.setup.campId);
+  const cit = S.state.citizens || [];
+  return Object.entries(c?.fighters || {}).filter(([id]) => id !== 'P' && cit[Number(id)]?.c === S.setup.me);
+};
+
+function refreshAllies(fill) {
+  const cit = S.state.citizens || [];
+  const shown = new Set(S.allies.map((a) => a.id));
+  const ranked = myFighters().sort((a, b) => b[1] - a[1]).map(([id]) => Number(id)).filter((id) => !shown.has(id));
+  for (const a of S.allies) {
+    if (a.id !== null && cit[a.id]?.c === S.setup.me) continue;
+    let id = ranked.shift();
+    if (id === undefined && fill) {
+      // nobody has fought yet: soldiers of your country are already in position
+      const pool = cit.filter((b) => b.c === S.setup.me && !shown.has(b.id));
+      id = pool.length ? pool[Math.floor(Math.random() * pool.length)].id : undefined;
+    }
+    a.id = id ?? null;
+    if (a.id !== null) shown.add(a.id);
+  }
+}
+
+// Real damage from the world simulation lands on the wall in bursts: show who dealt it.
+function allyBursts() {
+  const now = S.t;
+  for (const [key, dmg] of myFighters()) {
+    const delta = dmg - (S.fSnap[key] || 0);
+    S.fSnap[key] = dmg;
+    if (delta <= 0) continue;
+    const id = Number(key);
+    let a = S.allies.find((x) => x.id === id);
+    if (!a) {
+      a = S.allies.filter((x) => now - x.lastBurst > 2.5).sort((x, y) => x.lastBurst - y.lastBurst)[0];
+      if (!a) continue;
+      a.id = id;
+    }
+    a.lastBurst = now;
+    a.rage = 3;
+    a.fireT = Math.min(a.fireT, 0.1);
+    const top = a.base - 118 * a.s;
+    S.floats.push({ x: a.x, y: top - 14 * unit, text: `+${fmt(delta)}`, color: '#86efac', size: 20 * Math.max(0.8, unit), life: 1.6, max: 1.6, vy: 30 });
+  }
+}
+
+function allyMuzzle(a) {
+  return { x: a.x + (a.mirror ? -1 : 1) * ALLY_MUZZLE.x * a.s, y: a.base + ALLY_MUZZLE.y * a.s };
+}
+
+function allyShoot(a) {
+  const targets = S.enemies.filter((e) => !e.dead && e.rise >= 1);
+  if (!targets.length) return;
+  const e = targets[Math.floor(Math.random() * targets.length)];
+  const g = enemyGeom(e);
+  const head = Math.random() < 0.3;
+  const tx = head ? g.hx : g.bx + g.bw / 2 + randRange(-6, 6) * e.s;
+  const ty = head ? g.hy : g.by + randRange(10, 30) * e.s;
+  const m = allyMuzzle(a);
+  S.tracers.push({ x1: m.x, y1: m.y, x2: tx, y2: ty, life: 0.06, ally: true });
+  a.flash = 0.06;
+  a.recoil = 1;
+  sparks(tx, ty, head ? 6 : 4, 300);
+  e.hitT = 0.08;
+  e.kick = 0.6;
+  e.hp -= e.maxHp * (head ? 0.45 : 0.22);
+  if (e.hp <= 0) {
+    e.dead = true;
+    e.deadT = 0;
+    puff(e.x, e.y - 20 * e.s, 'dust', 12, 0.8, 0.6);
+  }
+}
+
+function updateAllies(dt) {
+  S.allyT -= dt;
+  if (S.allyT <= 0) { S.allyT = 0.5; allyBursts(); refreshAllies(false); }
+  for (const a of S.allies) {
+    a.flash = Math.max(0, a.flash - dt);
+    a.recoil = Math.max(0, a.recoil - dt * 8);
+    a.rage = Math.max(0, a.rage - dt);
+    if (a.id === null || S.phase !== 'fight') continue;
+    a.fireT -= dt;
+    if (a.fireT <= 0) {
+      allyShoot(a);
+      a.fireT = randRange(0.9, 2.2) * (a.rage > 0 ? 0.4 : 1);
+    }
+  }
 }
 
 function ember(anywhere) {
@@ -152,6 +259,7 @@ function updateHud() {
   $('b-timebox').classList.toggle('low', timeLeft() < 30 && S.phase !== 'done');
   $('b-dmg').textContent = fmt(S.dmg);
   $('b-kills').textContent = S.kills;
+  $('b-allies').textContent = fmt(myFighters().length);
   $('b-combo').textContent = S.combo > 1 ? `x${S.combo}` : '-';
   $('b-energy-fill').style.width = clamp((p.energy / mx) * 100, 0, 100) + '%';
   $('b-energy-txt').textContent = `${Math.floor(p.energy)} / ${mx}`;
@@ -302,6 +410,7 @@ function update(dt) {
     if (S.t >= e.fireAt) enemyFire(e);
   }
   S.enemies = S.enemies.filter((e) => !e.dead || e.deadT < 0.9);
+  updateAllies(dt);
   effects(dt);
 }
 
@@ -819,7 +928,7 @@ function drawTracers() {
   ctx.globalCompositeOperation = 'lighter';
   for (const t of S.tracers) {
     const k = t.life / 0.07;
-    ctx.strokeStyle = `rgba(255,190,90,${0.35 * k})`;
+    ctx.strokeStyle = t.ally ? `rgba(180,255,170,${0.3 * k})` : `rgba(255,190,90,${0.35 * k})`;
     ctx.lineWidth = 6;
     ctx.beginPath(); ctx.moveTo(t.x1, t.y1); ctx.lineTo(t.x2, t.y2); ctx.stroke();
     ctx.strokeStyle = `rgba(255,245,210,${0.95 * k})`;
@@ -839,6 +948,57 @@ function drawTracers() {
     ctx.drawImage(sp.fire, r.x - rad, r.y - rad, rad * 2, rad * 2);
   }
   ctx.restore();
+}
+
+function drawAllies() {
+  const cit = S.state.citizens || [];
+  for (const a of S.allies) {
+    if (a.id === null) continue;
+    const b = cit[a.id];
+    if (!b) continue;
+    const sp = allySprite(S.setup.me, a.s, dpr);
+    const bx = sp.box;
+    const kick = a.recoil * 3 * a.s;
+    ctx.save();
+    ctx.translate(a.x, a.base + kick);
+    if (a.mirror) ctx.scale(-1, 1);
+    ctx.drawImage(sp.img, bx.x * a.s, bx.y * a.s, bx.w * a.s, bx.h * a.s);
+    ctx.restore();
+    if (a.flash > 0) {
+      const m = allyMuzzle(a);
+      const r = 30 * a.s;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.drawImage(sprites().glow, m.x - r, m.y - r, r * 2, r * 2);
+      ctx.restore();
+    }
+    // near cover in front of the ally
+    const fr = scene.front;
+    const w = 70 * a.s;
+    const sx = Math.max(0, a.x - w);
+    const sw = Math.min(W, a.x + w) - sx;
+    if (sw > 0) ctx.drawImage(fr.img, sx * dpr, 0, sw * dpr, fr.img.height, sx, fr.top, sw, fr.h);
+    // name tag
+    const top = a.base - 118 * a.s;
+    const label = `${b.n} · Lv ${b.lvl}`;
+    ctx.font = `700 ${Math.max(10, 11 * unit)}px system-ui, sans-serif`;
+    const tw = ctx.measureText(label).width;
+    const fw = 14 * Math.max(0.8, unit);
+    const pw = tw + fw + 16;
+    const px = clamp(a.x - pw / 2, 4, W - pw - 4);
+    const ph = 18 * Math.max(0.85, unit);
+    ctx.fillStyle = a.rage > 0 ? 'rgba(22,101,52,.85)' : 'rgba(8,12,22,.72)';
+    roundRect(px, top - ph, pw, ph, ph / 2);
+    ctx.fill();
+    ctx.strokeStyle = a.rage > 0 ? 'rgba(134,239,172,.8)' : 'rgba(255,255,255,.18)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    const f = flagImage(S.setup.me);
+    if (f.ready) ctx.drawImage(f.img, px + 6, top - ph / 2 - fw * 0.33, fw, fw * 0.66);
+    ctx.fillStyle = '#e2e8f0';
+    ctx.textAlign = 'left';
+    ctx.fillText(label, px + fw + 10, top - ph * 0.3);
+  }
 }
 
 function drawFloats() {
@@ -984,6 +1144,7 @@ function draw() {
   }
   drawTracers();
   drawParticles();
+  drawAllies();
   drawFloats();
   ctx.restore();
 

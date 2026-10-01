@@ -101,6 +101,7 @@ async function record(browser, f) {
     const t0 = Date.now();
     let baz = false;
     let shot = false;
+    let tick = false;
     while (Date.now() - t0 < 7200) {
       if (!baz && Date.now() - t0 > 3800) {
         const tg = await p.evaluate(() => window.__rr.targets());
@@ -112,6 +113,7 @@ async function record(browser, f) {
         const head = Math.random() < 0.6;
         await p.mouse.click(box.x + (head ? e.hx : e.bx), box.y + (head ? e.hy : e.by));
       }
+      if (!tick && Date.now() - t0 > 1500) { tick = true; await p.evaluate(() => { window.__rr.state.world.nextAiTick = Date.now() - 1; }); } // allies' damage lands on screen
       if (f.shots && !shot && Date.now() - t0 > 5200) { shot = true; await p.screenshot({ path: SHOTS + '1-battle.png' }); }
       await wait(170);
     }

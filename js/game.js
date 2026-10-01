@@ -8,7 +8,7 @@ import {
   createWorld, neighborsOf, regionsOf, isAlive, countryPower, borderTargets, resourceBonus,
 } from './world.js';
 import { clamp, pick, randRange, shuffle, dayKey } from './util.js';
-import { createCitizens, seedMarket, citizensStep, topCitizen, feed, populationTarget } from './citizens.js';
+import { createCitizens, seedMarket, citizensStep, topCitizen, feed, populationTarget, fillPopulation, packCitizens, unpackCitizens, POP_SCALE } from './citizens.js';
 import { articleTitle, addArticle, botPopularity } from './press.js';
 import {
   candidates, vote, estimateChance, congressSeats, electForeignPresidents, seatInitialGovernments, CAMPAIGN_COST,
@@ -52,6 +52,7 @@ export function newGame({ name, country, now = Date.now(), seed = Math.floor(Mat
     nextCompanyId: 1,
     market: { prices, offers: [], nextOfferId: 1, sold: {} },
     citizens: createCitizens(seed),
+    popScale: POP_SCALE,
     feed: [],
     articles: [],
     nextArticleId: 1,
@@ -87,6 +88,10 @@ export function openFirstFront(s, now = Date.now()) {
 export function migrate(saved, now = Date.now()) {
   if (!saved || typeof saved !== 'object' || !saved.player || !saved.world) return null;
   if (saved.v !== SAVE_VERSION) return null; // incompatible world map: start a new citizen
+  if (Array.isArray(saved.cz)) {
+    saved = { ...saved, citizens: unpackCitizens(saved.cz) };
+    delete saved.cz;
+  }
   const fresh = newGame({ name: saved.player.name || 'Citizen', country: saved.player.country || 'A', now });
   const merge = (dst, src) => {
     for (const k in src) {
@@ -104,8 +109,19 @@ export function migrate(saved, now = Date.now()) {
     s.citizens.forEach((b) => { b.amb = Math.random(); b.cong = false; b.pres = false; });
     seatInitialGovernments(s);
   }
+  // Saves from before the 5x population: newcomers fill every nation up to its new size.
+  if ((saved.popScale || 1) !== POP_SCALE && s.citizens) fillPopulation(s);
+  s.popScale = POP_SCALE;
   s.v = SAVE_VERSION;
   return s;
+}
+
+// What goes to storage: the state with citizens packed into short arrays (see migrate for the reverse).
+export function packSave(s) {
+  if (!s.citizens) return s;
+  const out = { ...s, cz: packCitizens(s.citizens) };
+  delete out.citizens;
+  return out;
 }
 
 // Saves from the fictional-map version (v1): keep the citizen's progress, move them to a real country.
