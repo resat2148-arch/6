@@ -5,10 +5,10 @@ import {
   MEDIA_MILESTONES, PATRIOT_STEP, PRESIDENT_NAMES, SAVE_VERSION, HOUSES, countryById, rankIndexOf, xpToNextLevel,
 } from './data.js';
 import {
-  createWorld, neighborsOf, regionsOf, isAlive, countryPower, borderTargets, resourceBonus,
+  createWorld, neighborsOf, regionsOf, isAlive, countryPower, borderTargets, resourceBonus, morale,
 } from './world.js';
 import { clamp, pick, randRange, shuffle, dayKey } from './util.js';
-import { createCitizens, seedMarket, citizensStep, topCitizen, feed, populationTarget, fillPopulation, packCitizens, unpackCitizens, POP_SCALE } from './citizens.js';
+import { createCitizens, seedMarket, citizensStep, topCitizen, feed, populationTarget, fillPopulation, rebalancePopulation, packCitizens, unpackCitizens, POP_SCALE } from './citizens.js';
 import { articleTitle, addArticle, botPopularity } from './press.js';
 import {
   candidates, vote, estimateChance, congressSeats, electForeignPresidents, seatInitialGovernments, CAMPAIGN_COST,
@@ -703,7 +703,7 @@ export function nationRanking(s, by = 'regions') {
       citizens: people.length + (mine ? 1 : 0),
       wealth: people.reduce((a, b) => a + b.m, 0) + (mine ? s.player.money : 0),
       avgLvl: levels.length ? levels.reduce((a, b) => a + b, 0) / levels.length : 0,
-      won: st.won, lost: st.lost, conquered: st.conquered,
+      won: st.won, lost: st.lost, conquered: st.conquered, titles: st.titles || 0,
     };
   });
   const val = (NATION_METRICS[by] || NATION_METRICS.regions).val;
@@ -769,6 +769,24 @@ export function startResistance(s, regionId, now = Date.now()) {
   return ok({ campaign: c });
 }
 
+// Losing the capital breaks a nation: a small one surrenders entirely, a big one gives up every region
+// it still holds along the conqueror's border.
+function capitulate(s, winner, loser, capital) {
+  const w = s.world;
+  const left = w.regions.filter((r) => r.owner === loser);
+  // a small nation surrenders completely; a big one gives up its regions along the winner's border
+  const taken = left.length <= CONFIG.surrenderAllAt ? left : left.filter((r) => neighborsOf(w, r.id).some((n) => w.regions[n].owner === winner));
+  if (!taken.length) return;
+  const ids = new Set(taken.map((r) => r.id));
+  taken.forEach((r) => { r.owner = winner; });
+  w.campaigns = w.campaigns.filter((x) => !ids.has(x.region));
+  const stats = (s.nationStats ||= {});
+  (stats[winner] ||= { won: 0, lost: 0, conquered: 0 }).conquered += taken.length;
+  const text = `🏛️ ${countryById(loser).name} capitulated after losing ${capital.name}: ${countryById(winner).name} annexes ${taken.length} more region${taken.length > 1 ? 's' : ''}`;
+  if (s.feed) feed(s, text);
+  if (winner === s.player.country || loser === s.player.country) toast(text, winner === s.player.country ? 'gold' : 'bad');
+}
+
 function endCampaign(s, c, now) {
   const w = s.world;
   w.campaigns = w.campaigns.filter((x) => x !== c);
@@ -785,6 +803,7 @@ function endCampaign(s, c, now) {
     const loser = reg.owner;
     reg.owner = c.att;
     if (s.feed) feed(s, `${c.type === 'rw' ? '✊' : '🏳️'} ${countryById(c.att).name} ${c.type === 'rw' ? 'liberated' : 'conquered'} ${reg.name} from ${countryById(loser).name}`);
+    if (c.type === 'war' && reg.capital && reg.origin === loser) capitulate(s, c.att, loser, reg);
     if (!isAlive(w, loser)) {
       toast(`💀 ${countryById(loser).name} has been wiped from the map!`, 'war');
       w.campaigns = w.campaigns.filter((x) => x.att !== loser || x.type === 'rw');
@@ -829,8 +848,9 @@ function endCampaign(s, c, now) {
 const BATTLE_BASE = 4000;
 
 function setBattleBase(s, c) {
-  c.baseAtt = Math.round(countryPower(s.world, c.att) * BATTLE_BASE * randRange(0.85, 1.15));
-  c.baseDef = Math.round(countryPower(s.world, c.def) * CONFIG.defenseBonus * BATTLE_BASE * randRange(0.85, 1.15));
+  const w = s.world;
+  c.baseAtt = Math.round(countryPower(w, c.att) * morale(w, c.att) * BATTLE_BASE * randRange(0.85, 1.15));
+  c.baseDef = Math.round(countryPower(w, c.def) * morale(w, c.def) * CONFIG.defenseBonus * BATTLE_BASE * randRange(0.85, 1.15));
 }
 
 export function battleWall(c) {
@@ -849,10 +869,21 @@ function resolveDueBattles(s, now) {
   }
 }
 
+const frontsOf = (regions) => Math.min(CONFIG.maxFronts, 1 + Math.floor(regions / CONFIG.regionsPerFront));
+// The player's country fights on more fronts as it grows, but never more than the player can follow.
+export const playerFronts = (s) => Math.min(CONFIG.maxPlayerFronts, frontsOf(regionsOf(s.world, s.player.country).length));
+
+function weightedPick(list, weight) {
+  const ws = list.map(weight);
+  let r = Math.random() * ws.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < list.length; i++) { r -= ws[i]; if (r <= 0) return list[i]; }
+  return list[list.length - 1];
+}
+
 function ensurePlayerCampaign(s, now) {
   const w = s.world;
   const me = s.player.country;
-  if (w.campaigns.some((c) => playerSide(s, c))) return;
+  if (w.campaigns.filter((c) => playerSide(s, c)).length >= playerFronts(s)) return;
   const busy = new Set(w.campaigns.map((c) => c.region));
   if (!isAlive(w, me)) {
     const occ = w.regions.filter((r) => r.origin === me && r.owner !== me && !busy.has(r.id));
@@ -875,32 +906,91 @@ function aiStep(s, now) {
   const w = s.world;
   if (s.citizens) citizensStep(s, now);
   resolveDueBattles(s, now);
+  const me = s.player.country;
   const aiCount = () => w.campaigns.filter((c) => !playerSide(s, c)).length;
+  const mine = () => w.campaigns.filter((c) => playerSide(s, c)).length;
   const busy = new Set(w.campaigns.map((c) => c.region));
   const attacking = new Set(w.campaigns.map((c) => c.att));
+  const size = {};
+  for (const r of w.regions) size[r.owner] = (size[r.owner] || 0) + 1;
+  const fronts = {};
+  for (const c of w.campaigns) fronts[c.att] = (fronts[c.att] || 0) + 1;
+  // Every world has its own cast: some nations are hungry for land, others cautious.
+  if (!w.aggr) w.aggr = Object.fromEntries(COUNTRIES.map((c) => [c.id, Math.round(randRange(0.35, 1.65) * 100) / 100]));
   for (const country of shuffle(COUNTRIES)) {
     if (aiCount() >= CONFIG.maxAiCampaigns) break;
-    if (country.id === s.player.country) continue;
-    if (attacking.has(country.id) || !isAlive(w, country.id)) continue;
-    if (Math.random() > CONFIG.aiWarChance) continue;
-    const targets = borderTargets(w, country.id).filter((r) => !busy.has(r.id) && r.owner !== s.player.country);
+    if (country.id === me || !size[country.id]) continue;
+    // Big nations fight on several fronts at once.
+    const ag = w.aggr[country.id] || 1;
+    if ((fronts[country.id] || 0) >= Math.max(1, Math.round(frontsOf(size[country.id]) * ag))) continue;
+    if (Math.random() > CONFIG.aiWarChance * ag) continue;
+    let targets = borderTargets(w, country.id).filter((r) => !busy.has(r.id));
+    if (mine() >= playerFronts(s)) targets = targets.filter((r) => r.owner !== me);
     if (!targets.length) continue;
-    const t = pick(targets);
+    // The strong prey on the weak: small neighbours (and their capitals) are the likeliest targets.
+    // Armies also march on enemy capitals within reach: taking one breaks the nation (see capitulate).
+    const t = weightedPick(targets, (r) => (1 / Math.pow(size[r.owner] || 1, 1.2)) * (r.capital && r.origin === r.owner ? 25 : 1));
     makeCampaign(s, country.id, t.owner, t.id, 'war', now);
     busy.add(t.id);
     attacking.add(country.id);
+    fronts[country.id] = (fronts[country.id] || 0) + 1;
   }
-  // Resistance wars by AI nations.
+  // Resistance wars by AI nations (rarer once the nation is gone).
   for (const r of w.regions) {
     if (r.owner === r.origin || busy.has(r.id) || attacking.has(r.origin)) continue;
-    if (r.origin === s.player.country) continue;
-    if (Math.random() < CONFIG.rwChance) {
+    if (r.origin === me) continue;
+    if (Math.random() < CONFIG.rwChance * (size[r.origin] ? 1 : 0.2)) {
       makeCampaign(s, r.origin, r.owner, r.id, 'rw', now);
       busy.add(r.id);
       attacking.add(r.origin);
     }
   }
+  checkDomination(s, now); // a new era clears every battle: the player gets a fresh front right after
   ensurePlayerCampaign(s, now);
+}
+
+// ---------------------------------------------------------------- eras
+// When one nation rules every region it is crowned; a while later a new era starts and every nation rises again.
+function checkDomination(s, now) {
+  const w = s.world;
+  const by = w.regions[0].owner;
+  if (!w.regions.every((r) => r.owner === by)) { w.domination = null; return; }
+  if (!w.domination) {
+    w.domination = { by, at: now };
+    const st = ((s.nationStats ||= {})[by] ||= { won: 0, lost: 0, conquered: 0 });
+    st.titles = (st.titles || 0) + 1;
+    s.eras = [{ by, at: now }, ...(s.eras || [])].slice(0, 12);
+    const text = `👑 ${countryById(by).name} rules all of Europe! A new era begins in ${Math.round(CONFIG.newEraDelayMs / 60000)} minutes.`;
+    if (s.feed) feed(s, text);
+    toast(text, by === s.player.country ? 'gold' : 'war');
+    return;
+  }
+  if (now - w.domination.at >= CONFIG.newEraDelayMs) newEra(s, now);
+}
+
+function newEra(s, now) {
+  const w = s.world;
+  for (const r of w.regions) r.owner = r.origin;
+  w.campaigns = [];
+  w.aggr = null; // a new cast of ambitious and cautious nations
+  w.domination = null;
+  s.flags.victory = false;
+  rebalancePopulation(s);
+  // Reborn nations get fresh governments; the player's own seat is kept.
+  s.presidents = s.presidents || {};
+  for (const c of COUNTRIES) {
+    const keepPlayer = c.id === s.player.country && s.politics.president;
+    const bots = s.citizens.filter((b) => b.c === c.id);
+    bots.forEach((b) => { b.cong = false; b.pres = false; });
+    const ranked = bots.sort((a, b) => (b.lvl + b.amb * 10) - (a.lvl + a.amb * 10));
+    ranked.slice(0, congressSeats(s, c.id)).forEach((b) => { b.cong = true; });
+    if (!keepPlayer && ranked[0]) { ranked[0].pres = true; s.presidents[c.id] = ranked[0].id; }
+  }
+  w.nextAiTick = now + CONFIG.aiTickMs;
+  const text = '🌍 A new era begins: every nation of Europe rises again within its old borders.';
+  if (s.feed) feed(s, text);
+  toast(text, 'gold');
+  bus.emit('newEra', {});
 }
 
 // ---------------------------------------------------------------- the battle scene

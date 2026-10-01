@@ -4,6 +4,7 @@ import {
   COUNTRIES, COMPANY_TYPES, MARKET, FOOD_ENERGY, WEAPON_FP, RANKS, rankThreshold, rankIndexOf, xpToNextLevel, countryById,
 } from './data.js';
 import { EU_REGIONS } from './europe.js';
+import { morale } from './world.js';
 import { citizenName } from './names.js';
 import { takeOffers, listOffer, offersFor, pruneOffers } from './market.js';
 import { mulberry32, pick, clamp } from './util.js';
@@ -82,6 +83,30 @@ export function fillPopulation(s, rnd = Math.random) {
     }
   }
   return added;
+}
+
+// A new era: people move back so every reborn nation has its full population (veterans keep their stats).
+export function rebalancePopulation(s, rnd = Math.random) {
+  const regions = {};
+  for (const r of s.world.regions) regions[r.owner] = (regions[r.owner] || 0) + 1;
+  const gap = {};
+  for (const c of COUNTRIES) gap[c.id] = populationTarget(regions[c.id] || 0) - populationOf(s, c.id);
+  const surplus = [];
+  for (const c of COUNTRIES) {
+    if (gap[c.id] >= 0) continue;
+    const pool = s.citizens.filter((b) => b.c === c.id && !b.pres).sort(() => rnd() - 0.5);
+    surplus.push(...pool.slice(0, -gap[c.id]));
+  }
+  for (const c of COUNTRIES) {
+    for (let i = 0; i < gap[c.id]; i++) {
+      const b = surplus.pop();
+      if (!b) break;
+      s.market.offers = s.market.offers.filter((o) => o.seller !== b.id);
+      b.c = c.id;
+      b.cong = false;
+    }
+  }
+  return fillPopulation(s, rnd);
 }
 
 // Saves keep citizens as short arrays (ids are the indexes): about a third of the object size.
@@ -207,7 +232,10 @@ export function feed(s, text) {
 const flag = (c) => countryById(c)?.name || c;
 
 // ---------------------------------------------------------------- one world tick
+let moraleOf = new Map();
+
 export function citizensStep(s, now) {
+  moraleOf = new Map(COUNTRIES.map((c) => [c.id, morale(s.world, c.id)]));
   const fronts = new Map();
   for (const c of s.world.campaigns) {
     for (const side of ['att', 'def']) {
@@ -260,7 +288,7 @@ function fight(s, b, { c, side }, news) {
   if (q) b.w[q] -= armed;
   b.e -= shots;
   // Citizens stand in for a whole population, so each one's hits weigh less on the wall than a hero's.
-  const wall = Math.round(dmg * CITIZEN_WALL_WEIGHT);
+  const wall = Math.round(dmg * CITIZEN_WALL_WEIGHT * (moraleOf.get(b.c) ?? 1));
   if (side === 'att') c.dmgAtt = (c.dmgAtt || 0) + wall;
   else c.dmgDef = (c.dmgDef || 0) + wall;
   c.fighters = c.fighters || {};

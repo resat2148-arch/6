@@ -318,10 +318,25 @@ function home(s) {
 
 function homeNations(s) {
   const counts = COUNTRIES.map((c) => ({ c, n: regionsOf(s.world, c.id).length })).sort((a, b) => b.n - a.n);
+  const titles = (id) => (s.nationStats?.[id]?.titles ? ` <span class="pill gold">👑×${s.nationStats[id].titles}</span>` : '');
   return `<div class="card">
     <div class="row spread"><h3>🏆 Nations</h3>${btn('Rankings', 'tab', 'data-tab="people"', 'small ghost')}</div>
-    <div class="nations">${counts.map(({ c, n }) => `<div class="kv ${c.id === s.player.country ? 'me' : ''}"><span>${flagSvg(c.id)} ${c.name}</span><b>${n ? `${n} regions` : '<span class="red">wiped</span>'}</b></div>`).join('')}</div>
+    ${eraBanner(s)}
+    <div class="nations">${counts.map(({ c, n }) => `<div class="kv ${c.id === s.player.country ? 'me' : ''}"><span>${flagSvg(c.id)} ${c.name}${titles(c.id)}</span><b>${n ? `${n} regions` : '<span class="red">wiped</span>'}</b></div>`).join('')}</div>
   </div>`;
+}
+
+// One nation rules Europe: who, and when the new era begins. Otherwise the leader's share of the map.
+function eraBanner(s) {
+  const d = s.world.domination;
+  if (d) {
+    return `<div class="era-banner">👑 <b>${countryById(d.by).name}</b> rules all of Europe. A new era begins in <b data-cd="${d.at + CONFIG.newEraDelayMs}"></b>.</div>`;
+  }
+  const total = s.world.regions.length;
+  const lead = COUNTRIES.map((c) => ({ c, n: regionsOf(s.world, c.id).length })).sort((a, b) => b.n - a.n)[0];
+  const alive = COUNTRIES.filter((c) => isAlive(s.world, c.id)).length;
+  const last = s.eras?.[0];
+  return `<p class="muted small">${flagSvg(lead.c.id)} ${lead.c.name} leads with ${Math.round((lead.n / total) * 100)}% of Europe · ${alive} nations left${last ? ` · last champion: ${countryById(last.by).name}` : ''}</p>`;
 }
 
 function housingCard(s) {
@@ -845,7 +860,7 @@ function nationsCard(s) {
   const row = (n, i) => `<div class="rk ${n.me ? 'me' : ''} ${n.regions ? '' : 'wiped'}">
     <b class="pos">${i + 1}</b>${flagSvg(n.id)}
     <span class="grow"><b>${esc(n.name)}</b>${n.me ? ' <span class="pill gold">your country</span>' : ''}${n.regions ? '' : ' <span class="pill red">wiped</span>'}<br>
-      <small class="muted">${n.president ? `👑 ${esc(n.president)} · ` : ''}${n.regions} regions · 👥 ${n.citizens}${n.target !== n.citizens ? `<span class="${n.target > n.citizens ? 'green' : 'red'}"> → ${n.target}</span>` : ''} · ⚔️ ${n.won}W ${n.lost}L${n.conquered ? ` · 🏳️ ${n.conquered} conquered` : ''}</small></span>
+      <small class="muted">${n.president ? `👑 ${esc(n.president)} · ` : ''}${n.regions} regions · 👥 ${n.citizens}${n.target !== n.citizens ? `<span class="${n.target > n.citizens ? 'green' : 'red'}"> → ${n.target}</span>` : ''} · ⚔️ ${n.won}W ${n.lost}L${n.conquered ? ` · 🏳️ ${n.conquered} conquered` : ''}${n.titles ? ` · 👑 ${n.titles}× ruled Europe` : ''}</small></span>
     <b>${nationValue(n, by)}</b></div>`;
   const tab = (k, label) => `<button class="btn small ${by === k ? 'primary' : 'ghost'}" data-act="rankSet" data-k="nationBy" data-v="${k}">${label}</button>`;
   return `<div class="card span2">

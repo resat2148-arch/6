@@ -1,5 +1,5 @@
 // World map: real European regions, neighbors, ownership stats.
-import { COUNTRIES, FOOD_RES, WEAPON_RES, RESOURCES, RESOURCE_BONUS } from './data.js';
+import { COUNTRIES, FOOD_RES, WEAPON_RES, RESOURCES, RESOURCE_BONUS, CONFIG } from './data.js';
 import { EU_REGIONS, EU_NEIGHBORS } from './europe.js';
 import { mulberry32, shuffle } from './util.js';
 
@@ -45,3 +45,8 @@ export function distinctResources(world, cid, kind) {
 export function resourceBonus(world, cid, kind) {
   return 1 + RESOURCE_BONUS * distinctResources(world, cid, kind).length;
 }
+
+// A nation that has lost its capital fights with broken morale (base strength and its citizens' damage).
+// Fighting spirit also follows the nation's appetite for war in this world (world.aggr, 0.35–1.65 → ×0.85–1.15).
+export const morale = (world, cid) => (world.regions.some((r) => r.capital && r.origin === cid && r.owner !== cid) ? CONFIG.lostCapitalMorale : 1)
+  * (world.aggr ? 0.85 + ((world.aggr[cid] ?? 1) - 0.35) * (0.3 / 1.3) : 1);

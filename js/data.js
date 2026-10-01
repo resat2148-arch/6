@@ -19,10 +19,16 @@ export const CONFIG = {
   enemyShotEnergy: 4,
   battleMs: 5 * 60 * 1000, // every battle is a single 5-minute round
   aiTickMs: 20000,
-  maxAiCampaigns: 8,
-  aiWarChance: 0.04,
-  rwChance: 0.03,
+  maxAiCampaigns: 40,
+  aiWarChance: 0.15,
+  regionsPerFront: 4, // a nation can attack on 1 + regions/4 fronts at once…
+  maxFronts: 14, // …up to this many
+  maxPlayerFronts: 5, // battles of the player's own country at the same time
+  rwChance: 0.004, // per occupied region and world tick (a fifth of it once the nation is wiped out)
   defenseBonus: 1.15,
+  lostCapitalMorale: 0.7, // base strength of a nation whose capital is occupied
+  newEraDelayMs: 10 * 60 * 1000, // after one nation rules all of Europe, every nation rises again
+  surrenderAllAt: 5, // a nation with this many regions or fewer surrenders entirely when its capital falls
   electionEveryMs: 10 * 60 * 1000,
   articleCooldownMs: 3 * 60 * 1000,
   marketShiftMs: 60000,

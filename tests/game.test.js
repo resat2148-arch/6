@@ -189,7 +189,8 @@ test('world simulation keeps running and never breaks invariants', () => {
     assert.notEqual(c.att, c.def);
     assert.equal(s.world.regions[c.region].owner, c.def);
   }
-  assert.ok(s.world.campaigns.some((c) => G.playerSide(s, c)) || s.world.regions.every((r) => r.owner === 'ME') || !s.world.regions.some((r) => r.origin === 'ME' && r.owner !== 'ME'));
+  // the player always has a front, unless their occupied homeland is busy with other nations' battles
+  assert.ok(s.world.campaigns.some((c) => G.playerSide(s, c) || s.world.regions[c.region].origin === 'ME') || s.world.regions.every((r) => r.owner === 'ME') || !s.world.regions.some((r) => r.origin === 'ME' && r.owner !== 'ME'));
 });
 
 test('tutorial progresses and pays rewards', () => {
@@ -320,7 +321,7 @@ test('AI citizens live, fight, produce and trade', () => {
   assert.ok(s.citizens.reduce((a, b) => a + b.str, 0) > str0, 'citizens train');
   assert.ok(s.citizens.some((b) => b.dmg > 0), 'citizens fight');
   const fought = s.world.campaigns.some((c) => Object.keys(c.fighters || {}).length);
-  assert.ok(fought || s.feed.some((f) => /conquered|liberated/.test(f.text)), 'damage reaches campaigns');
+  assert.ok(fought || s.feed.some((f) => /conquered|liberated|capitulated|rules all/.test(f.text)) || Object.values(s.nationStats || {}).some((n) => n.won), 'damage reaches campaigns');
   for (const kind of ['food', 'weapon']) {
     assert.ok([1, 2, 3, 4, 5].some((q) => G.offersFor(s, kind + q).length > 0), `some ${kind} on offer`);
   }
@@ -501,4 +502,60 @@ test('five times the citizens: packed saves round-trip and old saves are filled 
   }
   assert.equal(up.popScale, POP_SCALE);
   assert.equal(G.migrate(JSON.parse(JSON.stringify(G.packSave(up)))).citizens.length, up.citizens.length, 'no second fill');
+});
+
+test('conquest pace: losing the capital breaks a nation, big nations fight on several fronts', async () => {
+  const { neighborsOf: nb, morale } = await import('../js/world.js');
+  const s = fresh('TR');
+  const w = s.world;
+  const cap = w.regions.find((r) => r.origin === 'PL' && r.capital);
+  const plBefore = regionsOf(w, 'PL').length;
+  w.campaigns = [{ id: 999, att: 'DE', def: 'PL', region: cap.id, type: 'war', started: T0, endsAt: T0 + 1, playerDmg: 0, dmgAtt: 1e12, dmgDef: 0, fighters: {}, baseAtt: 1, baseDef: 1 }];
+  s.lastTick = T0;
+  s.world.nextAiTick = T0 + 10 * 60000;
+  G.tick(s, T0 + 2);
+  assert.equal(cap.owner, 'DE', 'the capital fell');
+  const left = regionsOf(w, 'PL');
+  assert.ok(left.length < plBefore - 1, `more than the capital changed hands (${plBefore} -> ${left.length})`);
+  assert.ok(left.every((r) => !nb(w, r.id).some((n) => w.regions[n].owner === 'DE')) || left.length === 0, 'nothing left along the German border');
+  assert.ok(morale(w, 'PL') < morale(w, 'DE'), 'broken morale without the capital');
+  // A large nation attacks on several fronts at once.
+  const t = fresh('TR');
+  t.world.regions.forEach((r) => { if (['UA', 'BY', 'FI', 'EE', 'LV', 'LT', 'PL'].includes(r.owner)) r.owner = 'RU'; });
+  t.world.aggr = Object.fromEntries(COUNTRIES.map((c) => [c.id, c.id === 'RU' ? 1.65 : 0.35])); // a hungry Russia
+  let most = 0;
+  for (let i = 0; i < 60; i++) {
+    t.lastTick -= CONFIG.aiTickMs; t.world.nextAiTick -= CONFIG.aiTickMs;
+    G.tick(t);
+    most = Math.max(most, t.world.campaigns.filter((c) => c.att === 'RU').length);
+  }
+  assert.ok(most >= 3, `Russia ran ${most} attacks at once`);
+});
+
+test('a nation that rules all of Europe is crowned, then a new era starts', () => {
+  const s = fresh('TR');
+  const w = s.world;
+  w.regions.forEach((r) => { r.owner = 'FR'; });
+  w.campaigns = [];
+  let now = T0;
+  const step = () => { now += CONFIG.aiTickMs; s.lastTick = now - CONFIG.aiTickMs; s.world.nextAiTick = now; G.tick(s, now); };
+  step();
+  // the player's resistance may break the crown again; keep France on top for the test
+  w.campaigns = [];
+  w.regions.forEach((r) => { r.owner = 'FR'; });
+  step();
+  assert.ok(w.domination && w.domination.by === 'FR', 'France is crowned');
+  assert.equal(s.nationStats.FR.titles, 1);
+  assert.equal(s.eras[0].by, 'FR');
+  for (let t = 0; t < CONFIG.newEraDelayMs / CONFIG.aiTickMs + 2 && w.domination; t++) {
+    w.campaigns = [];
+    w.regions.forEach((r) => { r.owner = 'FR'; });
+    step();
+  }
+  assert.ok(!w.domination, 'a new era began');
+  assert.ok(w.regions.every((r) => r.owner === r.origin || w.campaigns.some((c) => c.region === r.id)), 'nations are back within their old borders');
+  const sizes = {};
+  for (const r of w.regions) sizes[r.owner] = (sizes[r.owner] || 0) + 1;
+  assert.ok(Object.keys(sizes).length >= 36, 'every nation is alive again');
+  assert.equal(s.nationStats.FR.titles, 1, 'the title stays in the record');
 });

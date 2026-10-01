@@ -400,3 +400,4 @@ textarea.code { width: 100%; min-height: 120px; background: var(--bg2); color: v
   .inv { grid-template-columns: repeat(4, 1fr); }
   .b-wep { min-width: 34px; padding: 2px 3px; }
 }
+.era-banner { margin: 4px 0 10px; padding: 10px 12px; border-radius: 12px; background: linear-gradient(90deg, rgba(245, 184, 61, .22), rgba(245, 184, 61, .06)); border: 1px solid rgba(245, 184, 61, .5); font-size: 13px; }
