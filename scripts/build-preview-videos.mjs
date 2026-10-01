@@ -122,8 +122,8 @@ async function record(browser, f) {
   await p.waitForTimeout(400);
   await dismiss();
 
-  // 2) Map of Europe with a region selected.
-  await p.click('#tabs [data-tab="map"]');
+  // 2) Home: the map of Europe with a region selected.
+  await p.click('#tabs [data-tab="home"]');
   await p.waitForTimeout(400);
   await shoot(async () => {
     await wait(700);
@@ -160,7 +160,7 @@ async function record(browser, f) {
   // Marketing screenshots of the other screens.
   if (f.shots) {
     await p.waitForTimeout(2500); // let the level-up banner fade
-    for (const [n, tab] of [['2-map', 'map'], ['3-economy', 'economy'], ['4-market', 'market'], ['5-politics', 'politics'], ['6-citizens', 'people']]) {
+    for (const [n, tab] of [['2-home', 'home'], ['3-economy', 'economy'], ['4-market', 'market'], ['5-politics', 'politics'], ['6-citizens', 'people']]) {
       await p.click(`#tabs [data-tab="${tab}"]`);
       await p.waitForTimeout(500);
       await p.evaluate(() => { document.getElementById('toasts').innerHTML = ''; });

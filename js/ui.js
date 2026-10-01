@@ -16,7 +16,6 @@ export const ui = { tab: 'home', sel: null, vb: null, dragged: false, rankScope:
 export const TABS = [
   { id: 'home', icon: '🏠', label: 'Home' },
   { id: 'war', icon: '⚔️', label: 'War' },
-  { id: 'map', icon: '🗺️', label: 'Map' },
   { id: 'economy', icon: '🏭', label: 'Economy' },
   { id: 'market', icon: '🛒', label: 'Market' },
   { id: 'politics', icon: '🏛️', label: 'Politics' },
@@ -206,11 +205,11 @@ export function renderStart(defaultName, picked, legacy = false) {
 // ------------------------------------------------------------------ tab renderers
 export function renderTab(s) {
   const v = $('view');
-  const fn = { home, war, map, economy, market, politics, people, medals }[ui.tab] || home;
+  const fn = { home, war, economy, market, politics, people, medals }[ui.tab] || home;
   const scroll = v.scrollTop;
   v.innerHTML = fn(s);
   v.scrollTop = scroll;
-  if (ui.tab === 'map') bindMap();
+  if (ui.tab === 'home') bindMap();
   renderTop(s);
   liveUpdate(s);
 }
@@ -250,7 +249,16 @@ function home(s) {
       ${s.daily.bonusClaimed ? '<small>✔ claimed</small>' : btn('Bonus', 'claimDailyBonus', allClaimed ? '' : 'disabled', 'small')}</div>
     </div>`;
 
-  return `<section class="grid">
+  const total = s.world.regions.length;
+  const mine = regionsOf(s.world, s.player.country).length;
+  return `<section class="home">
+  <div class="home-top">
+    <div class="card map-card home-map">
+      <div class="row spread"><h3>🗺️ Europe</h3><small class="muted">${flagSvg(c.id)} ${c.name} controls <b>${mine}</b>/${total} regions (${Math.round((mine / total) * 100)}%)</small></div>
+      <div id="map-holder">${mapSvg(s, ui.sel)}</div>
+      <p class="muted small">Drag to move, pinch or scroll to zoom, tap a region. ★ capital · colored dot = occupied (original owner) · ⚔️ battle · icons = resources (+20% production each)</p>
+    </div>
+    <div class="side">
     <div class="card citizen" style="--cc:${c.color}">
       <div class="row">${avatarSvg(c.color)}
         <div class="grow"><h2>${esc(p.name)}</h2>
@@ -273,10 +281,14 @@ function home(s) {
           <small>${urgent ? esc(s.world.regions[urgent.region].name) : 'Choose a battle'}</small></button>
       </div>
     </div>
+    ${tutHtml}
+    <div class="card home-region" id="region-panel">${regionPanel(s, ui.sel)}</div>
+    </div>
+  </div>
+  <section class="grid">
     ${housingCard(s)}
     ${s.feed.length ? `<div class="card"><div class="row spread"><h3>📰 Europe news</h3>${btn('More', 'tab', 'data-tab="people"', 'small ghost')}</div>
       ${s.feed.slice(0, 4).map((f) => `<div class="news">${esc(f.text)}</div>`).join('')}</div>` : ''}
-    ${tutHtml}
     ${dailyHtml}
     <div class="card">
       <h3>🎒 Inventory</h3>
@@ -290,7 +302,17 @@ function home(s) {
         <div title="Bazooka">🚀<b>${s.inv.bazooka}</b><small>bazooka</small></div>
       </div>
     </div>
+    ${homeNations(s)}
+  </section>
   </section>`;
+}
+
+function homeNations(s) {
+  const counts = COUNTRIES.map((c) => ({ c, n: regionsOf(s.world, c.id).length })).sort((a, b) => b.n - a.n);
+  return `<div class="card">
+    <div class="row spread"><h3>🏆 Nations</h3>${btn('Rankings', 'tab', 'data-tab="people"', 'small ghost')}</div>
+    <div class="nations">${counts.map(({ c, n }) => `<div class="kv ${c.id === s.player.country ? 'me' : ''}"><span>${flagSvg(c.id)} ${c.name}</span><b>${n ? `${n} regions` : '<span class="red">wiped</span>'}</b></div>`).join('')}</div>
+  </div>`;
 }
 
 function housingCard(s) {
@@ -447,6 +469,7 @@ export function bindMap() {
   };
   svg.addEventListener('pointerdown', (e) => {
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    ui.panning = true;
     ui.dragged = false;
     start = { vb: [...(ui.vb || FULL_VB)], x: e.clientX, y: e.clientY, dist: 0 };
     if (pts.size === 2) {
@@ -482,7 +505,7 @@ export function bindMap() {
     if (pts.size === 1) {
       const [p] = [...pts.values()];
       start = { vb: [...(ui.vb || FULL_VB)], x: p.x, y: p.y, dist: 0 };
-    } else if (!pts.size) start = null;
+    } else if (!pts.size) { start = null; ui.panning = false; }
   };
   svg.addEventListener('pointerup', end);
   svg.addEventListener('pointercancel', end);
@@ -517,26 +540,6 @@ function regionPanel(s, id) {
     ${actions}
     ${!s.politics.president && r.owner !== s.player.country && !camp ? '<p class="muted small">Only the President can declare war. Run for office in Politics!</p>' : ''}
   </div>`;
-}
-
-function map(s) {
-  const counts = COUNTRIES.map((c) => ({ c, n: regionsOf(s.world, c.id).length })).sort((a, b) => b.n - a.n);
-  const total = s.world.regions.length;
-  const mine = regionsOf(s.world, s.player.country).length;
-  return `<section class="map-wrap">
-    <div class="card map-card">
-      <div class="row spread"><h3>🗺️ World map</h3><small class="muted">${G.pc(s).name} controls ${mine}/${total} regions (${Math.round((mine / total) * 100)}%)</small></div>
-      <div id="map-holder">${mapSvg(s, ui.sel)}</div>
-      <p class="muted small">Drag to move, pinch or scroll to zoom. ★ capital · colored dot = occupied (original owner) · ⚔️ battle · icons = resources (+20% production each)</p>
-    </div>
-    <div class="side">
-      <div class="card" id="region-panel">${regionPanel(s, ui.sel)}</div>
-      <div class="card">
-        <h3>🏆 Nations</h3>
-        <div class="nations">${counts.map(({ c, n }) => `<div class="kv ${c.id === s.player.country ? 'me' : ''}"><span>${flagSvg(c.id)} ${c.name}</span><b>${n ? `${n} regions` : '<span class="red">wiped</span>'}</b></div>`).join('')}</div>
-      </div>
-    </div>
-  </section>`;
 }
 
 // ------------------------------------------------------------------ economy

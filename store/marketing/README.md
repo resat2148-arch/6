@@ -25,7 +25,7 @@ Political war strategy game on a real map of Europe: work, train and fight for y
 
 | | |
 |---|---|
-| ![Battle](screenshots/1-battle.png) | ![Map](screenshots/2-map.png) |
+| ![Battle](screenshots/1-battle.png) | ![Home with the map of Europe](screenshots/2-home.png) |
 | ![Economy](screenshots/3-economy.png) | ![Market](screenshots/4-market.png) |
 | ![Politics](screenshots/5-politics.png) | ![Citizens](screenshots/6-citizens.png) |
 

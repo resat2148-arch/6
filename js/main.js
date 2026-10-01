@@ -495,7 +495,7 @@ function enterGame() {
     if (!state || !started) return;
     G.tick(state);
     renderTop(state);
-    if (dirty && !battleOpen() && !modalOpen() && ['home', 'war', 'map', 'people'].includes(ui.tab) && document.activeElement?.tagName !== 'INPUT') refresh();
+    if (dirty && !battleOpen() && !modalOpen() && !ui.panning && ['home', 'war', 'people'].includes(ui.tab) && document.activeElement?.tagName !== 'INPUT') refresh();
     if (Date.now() - lastSave > 5000) { save(); lastSave = Date.now(); }
   }, 500);
   setInterval(() => { if (state && started && !battleOpen()) liveUpdate(state); }, 1000);

@@ -41,7 +41,6 @@
     <nav id="tabs">
       <button data-act="tab" data-tab="home"><i>🏠</i><span>Home</span></button>
       <button data-act="tab" data-tab="war"><i>⚔️</i><span>War</span><em id="badge-war" class="badge" hidden></em></button>
-      <button data-act="tab" data-tab="map"><i>🗺️</i><span>Map</span></button>
       <button data-act="tab" data-tab="economy"><i>🏭</i><span>Economy</span><em id="badge-eco" class="badge dot" hidden></em></button>
       <button data-act="tab" data-tab="market"><i>🛒</i><span>Market</span></button>
       <button data-act="tab" data-tab="politics"><i>🏛️</i><span>Politics</span></button>
@@ -56,12 +55,20 @@
     <canvas id="bcv"></canvas>
     <div class="b-top">
       <div class="b-wall">
-        <div class="b-side"><span id="b-flag-me"></span><small id="b-name-me"></small></div>
-        <div id="b-bar" class="b-bar"><div id="b-fill" class="b-fill"></div><div class="b-mid"></div><span id="b-wallpct"></span></div>
-        <div class="b-side"><span id="b-flag-foe"></span><small id="b-name-foe"></small></div>
+        <div class="b-side me"><span id="b-flag-me"></span><small id="b-name-me"></small></div>
+        <div class="b-center">
+          <div id="b-bar" class="b-bar"><div id="b-fill" class="b-fill"></div><div class="b-mid"></div><span id="b-wallpct"></span></div>
+          <div class="b-info"><b id="b-title"></b><span id="b-round"></span><span id="b-score"></span></div>
+        </div>
+        <div class="b-side foe"><span id="b-flag-foe"></span><small id="b-name-foe"></small></div>
       </div>
-      <div class="b-info"><b id="b-title"></b> · <span id="b-round"></span> · <span id="b-score"></span> · ⏱ <b id="b-timer"></b></div>
-      <div class="b-stats">💥 <b id="b-dmg">0</b> · ☠️ <b id="b-kills">0</b> · 🔥 <b id="b-combo">-</b> · per hit <b id="b-dmgper"></b></div>
+      <div class="b-chips">
+        <div class="b-chip b-time" id="b-timebox">⏱ <b id="b-timer"></b></div>
+        <div class="b-chip">💥 <b id="b-dmg">0</b></div>
+        <div class="b-chip">☠️ <b id="b-kills">0</b></div>
+        <div class="b-chip">🔥 <b id="b-combo">-</b></div>
+        <div class="b-chip dim">per hit <b id="b-dmgper"></b></div>
+      </div>
     </div>
     <div id="b-msg" class="b-msg" hidden></div>
     <div id="b-noen" class="b-noen" hidden>
@@ -76,7 +83,7 @@
       <button class="b-btn" data-bact="eat" title="Eat food">🍞<small id="b-eat-n">0</small></button>
       <div id="b-weps" class="b-weps"></div>
       <button id="b-baz" class="b-btn" data-bact="baz" title="Bazooka: tap, then tap the battlefield">🚀<small id="b-baz-n">0</small></button>
-      <button id="b-leave" class="b-btn leave" data-bact="leave">Leave</button>
+      <button id="b-leave" class="b-btn leave" data-bact="leave">⟵ Leave</button>
     </div>
     <div id="b-result" class="b-result" hidden></div>
   </div>
