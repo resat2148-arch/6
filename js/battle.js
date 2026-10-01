@@ -57,10 +57,12 @@ export function openBattle(state, campId, h) {
     msgT: 0, wallShown: null, visitDone: false,
     recoil: 0, flash: 0, marks: [], rockets: [], inTracers: [], smoke: [], smokeT: 0, skyT: 1.5, sky: [],
     allies: [], fSnap: { ...(G.campaignById(state, campId)?.fighters || {}) }, allyT: 0,
+    board: boardPref(),
   };
   flagImage(setup.me);
   flagImage(setup.foe);
   setupHud(); // fills the bottom panel first: the carbine sits above it
+  renderBoard();
   resize();
   buildBg();
   $('b-result').hidden = true;
@@ -73,6 +75,7 @@ export function closeBattle() {
   cancelAnimationFrame(S.raf);
   S = null;
   $('battle').hidden = true;
+  $('b-board').hidden = true;
 }
 
 // ------------------------------------------------------------ layout
@@ -113,6 +116,38 @@ function buildBg() {
   layoutAllies();
 }
 
+// ------------------------------------------------------------ damage ranking
+// Open by default on wide screens; on phones it starts folded behind the 📊 chip.
+function boardPref() {
+  try { const v = localStorage.getItem('rr-board'); if (v !== null) return v === '1'; } catch { /* ignore */ }
+  return window.innerWidth > 760;
+}
+
+const BOARD_ROWS = 5;
+function boardSide(rows, cid, total, cls) {
+  const shown = rows.slice(0, BOARD_ROWS);
+  const youAt = rows.findIndex((r) => r.you);
+  const line = (r, i) => `<div class="row ${r.you ? 'you' : ''}"><i>${i + 1}</i><span>${r.you ? '⭐ ' : ''}${esc(r.name)} <small>Lv ${r.lvl}</small></span><b>${fmt(r.dmg)}</b></div>`;
+  return `<section class="${cls}">
+    <header>${flagSvg(cid)} ${esc(countryById(cid).name)} <small>· ${rows.length}</small><b>${fmt(total)}</b></header>
+    ${shown.length ? shown.map(line).join('') : '<div class="empty">No hits yet</div>'}
+    ${youAt >= BOARD_ROWS ? `<div class="row gap">…</div>${line(rows[youAt], youAt)}` : ''}
+  </section>`;
+}
+
+function renderBoard() {
+  const el = $('b-board');
+  document.querySelector('.b-boardbtn')?.classList.toggle('on', !!S?.board);
+  if (!S || !S.board) { el.hidden = true; return; }
+  const c = G.campaignById(S.state, S.setup.campId);
+  if (!c) return; // keep the last ranking on screen when the battle ends
+  const bd = G.battleBoard(S.state, c);
+  const mine = S.setup.side === 'def' ? 'def' : 'att';
+  const foe = mine === 'att' ? 'def' : 'att';
+  el.innerHTML = boardSide(bd[mine], S.setup.me, bd.wall[mine], 'ally') + boardSide(bd[foe], S.setup.foe, bd.wall[foe], 'foe');
+  el.hidden = false;
+}
+
 // ------------------------------------------------------------ allied citizens beside you
 // Citizens of your country who fight in this battle crouch behind the near cover at the screen edges,
 // shoot at the enemy line and show their real damage when it reaches the wall.
@@ -139,8 +174,10 @@ function refreshAllies(fill) {
   const cit = S.state.citizens || [];
   const shown = new Set(S.allies.map((a) => a.id));
   const ranked = myFighters().sort((a, b) => b[1] - a[1]).map(([id]) => Number(id)).filter((id) => !shown.has(id));
+  const fought = new Set(myFighters().map(([id]) => Number(id)));
   for (const a of S.allies) {
-    if (a.id !== null && cit[a.id]?.c === S.setup.me) continue;
+    // keep whoever already fights here; someone only waiting in position makes room for a real fighter
+    if (a.id !== null && cit[a.id]?.c === S.setup.me && (fought.has(a.id) || !ranked.length)) continue;
     let id = ranked.shift();
     if (id === undefined && fill) {
       // nobody has fought yet: soldiers of your country are already in position
@@ -203,7 +240,7 @@ function allyShoot(a) {
 
 function updateAllies(dt) {
   S.allyT -= dt;
-  if (S.allyT <= 0) { S.allyT = 0.5; allyBursts(); refreshAllies(false); }
+  if (S.allyT <= 0) { S.allyT = 0.5; allyBursts(); refreshAllies(false); renderBoard(); }
   for (const a of S.allies) {
     a.flash = Math.max(0, a.flash - dt);
     a.recoil = Math.max(0, a.recoil - dt * 8);
@@ -300,6 +337,11 @@ function onHudClick(e) {
   } else if (act === 'baz') {
     if (st.inv.bazooka <= 0) { sfx.error(); flashMsg('No bazookas. Get them in the Market (gold) or watch an ad.'); hooks.onNeedBazooka?.(); }
     else { S.armed = !S.armed; sfx.click(); }
+  } else if (act === 'board') {
+    S.board = !S.board;
+    try { localStorage.setItem('rr-board', S.board ? '1' : '0'); } catch { /* ignore */ }
+    sfx.click();
+    renderBoard();
   } else if (act === 'leave') {
     if (S.phase === 'intro') { closeBattle(); hooks.onExit?.(null); }
     else if (S.phase === 'fight') leaveBattle();

@@ -1016,6 +1016,27 @@ export function roundSetup(s, campId) {
 }
 
 // Adds one hit to a running battle. Returns false when the battle is already over.
+// Who put how much on the wall in this battle, per side, best first. The player's row uses the wall value.
+export function battleBoard(s, c) {
+  const me = s.player.country;
+  const side = playerSide(s, c);
+  const mySide = side || 'att';
+  const cit = s.citizens || [];
+  const rows = { att: [], def: [] };
+  for (const [id, v] of Object.entries(c.fighters || {})) {
+    if (id === 'P') {
+      rows[mySide].push({ id: 'P', name: s.player.name, lvl: s.player.level, c: me, dmg: c.playerWall ?? v * playerBoost(s), you: true });
+      continue;
+    }
+    const b = cit[Number(id)];
+    if (!b) continue;
+    const at = b.c === c.att ? 'att' : b.c === c.def ? 'def' : null;
+    if (at) rows[at].push({ id, name: b.n, lvl: b.lvl, c: b.c, dmg: v });
+  }
+  for (const k of ['att', 'def']) rows[k].sort((a, b) => b.dmg - a.dmg);
+  return { att: rows.att, def: rows.def, wall: battleWall(c) };
+}
+
 export function battleHit(s, campId, dmg) {
   const c = campaignById(s, campId);
   if (!c) return false;
@@ -1025,6 +1046,7 @@ export function battleHit(s, campId, dmg) {
   if (side === 'att') c.dmgAtt = (c.dmgAtt || 0) + counted;
   else c.dmgDef = (c.dmgDef || 0) + counted;
   c.playerDmg += dmg;
+  c.playerWall = (c.playerWall || 0) + counted; // what the wall received (rookie boost included), comparable with citizens
   c.fighters = c.fighters || {};
   c.fighters.P = (c.fighters.P || 0) + dmg;
   return true;

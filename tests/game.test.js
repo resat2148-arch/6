@@ -559,3 +559,23 @@ test('a nation that rules all of Europe is crowned, then a new era starts', () =
   assert.ok(Object.keys(sizes).length >= 36, 'every nation is alive again');
   assert.equal(s.nationStats.FR.titles, 1, 'the title stays in the record');
 });
+
+test('battle board ranks everyone by damage on the wall, the player included', () => {
+  const s = fresh('DE');
+  G.openFirstFront(s, T0);
+  const c = G.activeFronts(s)[0];
+  const side = G.playerSide(s, c);
+  const foe = side === 'att' ? c.def : c.att;
+  for (let i = 1; i <= 6; i++) G.tick(s, T0 + i * CONFIG.aiTickMs);
+  const live = G.campaignById(s, c.id);
+  if (!live) return; // the battle ended early in this world
+  G.battleHit(s, live.id, 500);
+  const bd = G.battleBoard(s, live);
+  const mine = bd[side];
+  const you = mine.find((r) => r.you);
+  assert.ok(you, 'the player is on their side of the board');
+  assert.equal(you.dmg, 500 * G.playerBoost(s), 'the player counts what the wall received');
+  for (const k of ['att', 'def']) for (let i = 1; i < bd[k].length; i++) assert.ok(bd[k][i - 1].dmg >= bd[k][i].dmg, 'best first');
+  assert.ok(bd[side === 'att' ? 'def' : 'att'].every((r) => r.c === foe && !r.you), 'enemies listed on their side');
+  assert.ok(mine.filter((r) => !r.you).every((r) => r.c === s.player.country));
+});
