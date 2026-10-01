@@ -8,7 +8,8 @@ import {
   createWorld, neighborsOf, regionsOf, isAlive, countryPower, borderTargets, resourceBonus, morale,
 } from './world.js';
 import { clamp, pick, randRange, shuffle, dayKey } from './util.js';
-import { createCitizens, seedMarket, citizensStep, topCitizen, feed, populationTarget, fillPopulation, rebalancePopulation, packCitizens, unpackCitizens, POP_SCALE } from './citizens.js';
+import { createCitizens, seedMarket, citizensStep, topCitizen, feed, populationTarget, fillPopulation, rebalancePopulation, packCitizens, unpackCitizens, POP_SCALE, deliverSorties, liveFighters } from './citizens.js';
+export { liveFighters };
 import { articleTitle, addArticle, botPopularity } from './press.js';
 import {
   candidates, vote, estimateChance, congressSeats, electForeignPresidents, seatInitialGovernments, CAMPAIGN_COST,
@@ -865,6 +866,8 @@ export const playerBoost = (s) => (s.player.level < 10 ? 1 + (2 * (10 - s.player
 function resolveDueBattles(s, now) {
   for (const c of s.world.campaigns.slice()) {
     if (!c.endsAt) { c.endsAt = now + CONFIG.battleMs * Math.random(); setBattleBase(s, c); }
+    // sorties land as time passes; when the battle ends, whatever was due by then counts
+    deliverSorties(c, Math.min(now, c.endsAt));
     if (now >= c.endsAt) endCampaign(s, c, now);
   }
 }

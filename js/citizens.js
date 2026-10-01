@@ -231,6 +231,30 @@ export function feed(s, text) {
 
 const flag = (c) => countryById(c)?.name || c;
 
+// ---------------------------------------------------------------- sorties
+const SORTIE_MS = 20000; // one world tick
+
+// Moves every sortie's damage onto the wall in proportion to the time that has passed.
+export function deliverSorties(c, now) {
+  if (!c.live || !c.live.length) return;
+  c.fighters = c.fighters || {};
+  for (const r of c.live) {
+    const k = Math.max(0, Math.min(1, (now - r.a) / Math.max(1, r.b - r.a)));
+    const due = Math.round(r.t * k) - r.d;
+    if (due <= 0) continue;
+    r.d += due;
+    if (r.s) c.dmgAtt = (c.dmgAtt || 0) + due;
+    else c.dmgDef = (c.dmgDef || 0) + due;
+    c.fighters[r.i] = (c.fighters[r.i] || 0) + due;
+  }
+  c.live = c.live.filter((r) => r.d < r.t);
+}
+
+// Citizens hitting this battle right now (their sortie is under way), with what they have dealt so far.
+export function liveFighters(c, now) {
+  return (c.live || []).filter((r) => r.a <= now && now < r.b && r.d < r.t);
+}
+
 // ---------------------------------------------------------------- one world tick
 let moraleOf = new Map();
 
@@ -257,7 +281,7 @@ export function citizensStep(s, now) {
     }
     if (b.co) produce(s, b, news);
     const front = fronts.get(b.c);
-    if (front && b.e >= 15 && Math.random() < P.fight) fight(s, b, pick(front), news);
+    if (front && b.e >= 15 && Math.random() < P.fight) fight(s, b, pick(front), news, now);
     if (b.e >= 10 && Math.random() < P.work) {
       b.e -= 10;
       b.m += 10 + b.lvl * 1.5;
@@ -278,7 +302,9 @@ export function citizensStep(s, now) {
   populationStep(s, { budget: 1, feed: press.feed });
 }
 
-function fight(s, b, { c, side }, news) {
+// A citizen's fight is a sortie: its damage reaches the wall gradually over the next world tick
+// (see deliverSorties), so the battle screen can show exactly who is hitting right now.
+function fight(s, b, { c, side }, news, now) {
   const shots = Math.min(Math.floor(b.e) - 5, 10 + Math.floor(Math.random() * 25));
   if (shots <= 0) return;
   let q = 5;
@@ -289,10 +315,9 @@ function fight(s, b, { c, side }, news) {
   b.e -= shots;
   // Citizens stand in for a whole population, so each one's hits weigh less on the wall than a hero's.
   const wall = Math.round(dmg * CITIZEN_WALL_WEIGHT * (moraleOf.get(b.c) ?? 1));
-  if (side === 'att') c.dmgAtt = (c.dmgAtt || 0) + wall;
-  else c.dmgDef = (c.dmgDef || 0) + wall;
-  c.fighters = c.fighters || {};
-  c.fighters[b.id] = (c.fighters[b.id] || 0) + wall;
+  // start a little staggered so the front never empties all at once
+  const start = now + Math.random() * SORTIE_MS * 0.25;
+  (c.live ||= []).push({ i: b.id, s: side === 'att' ? 1 : 0, t: wall, d: 0, a: Math.round(start), b: Math.round(start + SORTIE_MS * (0.6 + Math.random() * 0.4)) });
   b.dmg += dmg;
   const before = rankIndexOf(b.rp);
   b.rp += dmg / 10;

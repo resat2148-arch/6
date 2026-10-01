@@ -7,7 +7,7 @@ import {
   ui, renderTab, renderTop, liveUpdate, renderStart, toast, openModal, closeModal, modalOpen, banner, helpHtml, zoomMap,
   offersModal, listModal, renderMenu, renderGoodbye, settingsHtml,
 } from './ui.js';
-import { initBattle, openBattle, isOpen as battleOpen, setAdPause, debugTargets } from './battle.js';
+import { initBattle, openBattle, isOpen as battleOpen, setAdPause, debugTargets, debugAllies } from './battle.js';
 import { CONFIG, GAME_TITLE, MEDALS, GOLD_SHOP, RAW_ICON, HOUSES, MARKET, countryById } from './data.js';
 import { fmt, fmtMoney, fmtTime, esc } from './util.js';
 
@@ -583,4 +583,4 @@ async function boot() {
 boot();
 
 // Debug handle for local testing.
-window.__rr = { get state() { return state; }, G, targets: debugTargets, Store };
+window.__rr = { get state() { return state; }, G, targets: debugTargets, allies: debugAllies, Store };

@@ -476,7 +476,7 @@ test('five times the citizens: packed saves round-trip and old saves are filled 
   assert.equal(POP_SCALE, 5);
   const s = fresh();
   assert.ok(s.citizens.length > 900, `about a thousand citizens (${s.citizens.length})`);
-  for (let i = 0; i < 30; i++) { s.lastTick -= 20000; s.world.nextAiTick -= 20000; G.tick(s); }
+  for (let i = 1; i <= 30; i++) G.tick(s, T0 + i * CONFIG.aiTickMs);
   s.citizens[3].c = null; // someone emigrated: the slot is kept
   const packed = JSON.parse(JSON.stringify(G.packSave(s)));
   assert.ok(!packed.citizens && Array.isArray(packed.cz));
@@ -524,9 +524,8 @@ test('conquest pace: losing the capital breaks a nation, big nations fight on se
   t.world.regions.forEach((r) => { if (['UA', 'BY', 'FI', 'EE', 'LV', 'LT', 'PL'].includes(r.owner)) r.owner = 'RU'; });
   t.world.aggr = Object.fromEntries(COUNTRIES.map((c) => [c.id, c.id === 'RU' ? 1.65 : 0.35])); // a hungry Russia
   let most = 0;
-  for (let i = 0; i < 60; i++) {
-    t.lastTick -= CONFIG.aiTickMs; t.world.nextAiTick -= CONFIG.aiTickMs;
-    G.tick(t);
+  for (let i = 1; i <= 60; i++) {
+    G.tick(t, T0 + i * CONFIG.aiTickMs);
     most = Math.max(most, t.world.campaigns.filter((c) => c.att === 'RU').length);
   }
   assert.ok(most >= 3, `Russia ran ${most} attacks at once`);

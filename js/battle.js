@@ -56,7 +56,7 @@ export function openBattle(state, campId, h) {
     aim: null, paused: document.hidden, adPause: false, last: performance.now(), hudT: 0, raf: 0,
     msgT: 0, wallShown: null, visitDone: false,
     recoil: 0, flash: 0, marks: [], rockets: [], inTracers: [], smoke: [], smokeT: 0, skyT: 1.5, sky: [],
-    allies: [], fSnap: { ...(G.campaignById(state, campId)?.fighters || {}) }, allyT: 0,
+    allies: [], allyT: 0, liveCount: 0,
     board: boardPref(),
   };
   flagImage(setup.me);
@@ -124,12 +124,12 @@ function boardPref() {
 }
 
 const BOARD_ROWS = 5;
-function boardSide(rows, cid, total, cls) {
+function boardSide(rows, cid, total, cls, hitting) {
   const shown = rows.slice(0, BOARD_ROWS);
   const youAt = rows.findIndex((r) => r.you);
   const line = (r, i) => `<div class="row ${r.you ? 'you' : ''}"><i>${i + 1}</i><span>${r.you ? '⭐ ' : ''}${esc(r.name)} <small>Lv ${r.lvl}</small></span><b>${fmt(r.dmg)}</b></div>`;
   return `<section class="${cls}">
-    <header>${flagSvg(cid)} ${esc(countryById(cid).name)} <small>· ${rows.length}</small><b>${fmt(total)}</b></header>
+    <header>${flagSvg(cid)} ${esc(countryById(cid).name)} <small title="fought in this battle · hitting right now">· ${rows.length} · 🔥${hitting}</small><b>${fmt(total)}</b></header>
     ${shown.length ? shown.map(line).join('') : '<div class="empty">No hits yet</div>'}
     ${youAt >= BOARD_ROWS ? `<div class="row gap">…</div>${line(rows[youAt], youAt)}` : ''}
   </section>`;
@@ -144,78 +144,67 @@ function renderBoard() {
   const bd = G.battleBoard(S.state, c);
   const mine = S.setup.side === 'def' ? 'def' : 'att';
   const foe = mine === 'att' ? 'def' : 'att';
-  el.innerHTML = boardSide(bd[mine], S.setup.me, bd.wall[mine], 'ally') + boardSide(bd[foe], S.setup.foe, bd.wall[foe], 'foe');
+  const hitting = { att: new Set(), def: new Set() };
+  for (const r of G.liveFighters(c, Date.now())) hitting[r.s ? 'att' : 'def'].add(r.i);
+  el.innerHTML = boardSide(bd[mine], S.setup.me, bd.wall[mine], 'ally', hitting[mine].size) + boardSide(bd[foe], S.setup.foe, bd.wall[foe], 'foe', hitting[foe].size);
   el.hidden = false;
 }
 
 // ------------------------------------------------------------ allied citizens beside you
-// Citizens of your country who fight in this battle crouch behind the near cover at the screen edges,
-// shoot at the enemy line and show their real damage when it reaches the wall.
+// Only citizens of your country whose sortie is under way right now stand beside you (see liveFighters):
+// they rise from the near cover when they start hitting, shoot at the enemy line, and pull back when
+// their sortie ends. Each shot shows the damage that actually reached the wall since their last shot.
 function layoutAllies() {
   const sF = clamp(1.15 * unit, 0.85, 1.7);
   const base = Math.min(H * 0.97, hudTop - 2);
   const xs = W > 760 ? [[0.08, false], [0.27, false], [0.93, true]] : [[0.07, false], [0.93, true]];
   const old = S.allies || [];
   S.allies = xs.map(([fx, mirror], i) => ({
-    ...(old[i] || { id: null, fireT: randRange(0.3, 1.2), flash: 0, recoil: 0, rage: 0, lastBurst: -9 }),
+    ...(old[i] || { id: null, fireT: randRange(0.2, 0.8), flash: 0, recoil: 0, show: 0, leaving: false, lastD: 0 }),
     x: W * fx, base, s: sF, mirror,
   }));
   scene.front = buildCover(W, base, sF * 0.8, dpr);
-  refreshAllies(true);
+  refreshAllies();
 }
 
-const myFighters = () => {
+const mySideFlag = () => (S.setup.side === 'def' ? 0 : 1);
+
+// Live sorties of your side, one entry per citizen: { id, dealt (so far in this sortie), total }.
+function liveAllies() {
   const c = G.campaignById(S.state, S.setup.campId);
+  if (!c) return new Map();
   const cit = S.state.citizens || [];
-  return Object.entries(c?.fighters || {}).filter(([id]) => id !== 'P' && cit[Number(id)]?.c === S.setup.me);
-};
-
-function refreshAllies(fill) {
-  const cit = S.state.citizens || [];
-  const shown = new Set(S.allies.map((a) => a.id));
-  const ranked = myFighters().sort((a, b) => b[1] - a[1]).map(([id]) => Number(id)).filter((id) => !shown.has(id));
-  const fought = new Set(myFighters().map(([id]) => Number(id)));
-  for (const a of S.allies) {
-    // keep whoever already fights here; someone only waiting in position makes room for a real fighter
-    if (a.id !== null && cit[a.id]?.c === S.setup.me && (fought.has(a.id) || !ranked.length)) continue;
-    let id = ranked.shift();
-    if (id === undefined && fill) {
-      // nobody has fought yet: soldiers of your country are already in position
-      const pool = cit.filter((b) => b.c === S.setup.me && !shown.has(b.id));
-      id = pool.length ? pool[Math.floor(Math.random() * pool.length)].id : undefined;
-    }
-    a.id = id ?? null;
-    if (a.id !== null) shown.add(a.id);
+  const out = new Map();
+  for (const r of G.liveFighters(c, Date.now())) {
+    if (r.s !== mySideFlag() || !cit[r.i]) continue;
+    const e = out.get(r.i) || { id: r.i, dealt: 0, total: 0 };
+    e.dealt += r.d;
+    e.total += r.t;
+    out.set(r.i, e);
   }
+  return out;
 }
 
-// Real damage from the world simulation lands on the wall in bursts: show who dealt it.
-function allyBursts() {
-  const now = S.t;
-  for (const [key, dmg] of myFighters()) {
-    const delta = dmg - (S.fSnap[key] || 0);
-    S.fSnap[key] = dmg;
-    if (delta <= 0) continue;
-    const id = Number(key);
-    let a = S.allies.find((x) => x.id === id);
-    if (!a) {
-      a = S.allies.filter((x) => now - x.lastBurst > 2.5).sort((x, y) => x.lastBurst - y.lastBurst)[0];
-      if (!a) continue;
-      a.id = id;
+function refreshAllies() {
+  const live = liveAllies();
+  S.liveCount = live.size;
+  const shown = new Set(S.allies.filter((a) => a.id !== null && !a.leaving).map((a) => a.id));
+  const waiting = [...live.values()].filter((e) => !shown.has(e.id)).sort((a, b) => b.total - a.total);
+  for (const a of S.allies) {
+    if (a.id !== null && !a.leaving && !live.has(a.id)) a.leaving = true; // sortie over: pull back
+    if (a.id === null && waiting.length) {
+      const e = waiting.shift();
+      Object.assign(a, { id: e.id, leaving: false, show: 0, lastD: e.dealt, fireT: randRange(0.15, 0.5) });
     }
-    a.lastBurst = now;
-    a.rage = 3;
-    a.fireT = Math.min(a.fireT, 0.1);
-    const top = a.base - 118 * a.s;
-    S.floats.push({ x: a.x, y: top - 14 * unit, text: `+${fmt(delta)}`, color: '#86efac', size: 20 * Math.max(0.8, unit), life: 1.6, max: 1.6, vy: 30 });
   }
 }
 
 function allyMuzzle(a) {
-  return { x: a.x + (a.mirror ? -1 : 1) * ALLY_MUZZLE.x * a.s, y: a.base + ALLY_MUZZLE.y * a.s };
+  const rise = (1 - a.show) * 120 * a.s;
+  return { x: a.x + (a.mirror ? -1 : 1) * ALLY_MUZZLE.x * a.s, y: a.base + rise + ALLY_MUZZLE.y * a.s };
 }
 
-function allyShoot(a) {
+function allyShoot(a, live) {
   const targets = S.enemies.filter((e) => !e.dead && e.rise >= 1);
   if (!targets.length) return;
   const e = targets[Math.floor(Math.random() * targets.length)];
@@ -236,20 +225,32 @@ function allyShoot(a) {
     e.deadT = 0;
     puff(e.x, e.y - 20 * e.s, 'dust', 12, 0.8, 0.6);
   }
+  // what this citizen put on the wall since their previous shot
+  const dealt = live.get(a.id)?.dealt ?? a.lastD;
+  const delta = dealt - a.lastD;
+  a.lastD = dealt;
+  if (delta > 0) S.floats.push({ x: tx, y: ty - 14 * e.s, text: `+${fmt(delta)}`, color: '#86efac', size: 15 * Math.max(0.8, unit), life: 0.8, max: 0.8, vy: 55 });
 }
 
 function updateAllies(dt) {
   S.allyT -= dt;
-  if (S.allyT <= 0) { S.allyT = 0.5; allyBursts(); refreshAllies(false); renderBoard(); }
+  if (S.allyT <= 0) { S.allyT = 0.25; refreshAllies(); renderBoard(); }
+  const live = S.allies.some((a) => a.id !== null) ? liveAllies() : null;
   for (const a of S.allies) {
     a.flash = Math.max(0, a.flash - dt);
     a.recoil = Math.max(0, a.recoil - dt * 8);
-    a.rage = Math.max(0, a.rage - dt);
-    if (a.id === null || S.phase !== 'fight') continue;
+    if (a.id === null) continue;
+    if (a.leaving) {
+      a.show = Math.max(0, a.show - dt * 2.5);
+      if (a.show === 0) { a.id = null; a.leaving = false; }
+      continue;
+    }
+    a.show = Math.min(1, a.show + dt * 3);
+    if (S.phase !== 'fight' || a.show < 1) continue;
     a.fireT -= dt;
     if (a.fireT <= 0) {
-      allyShoot(a);
-      a.fireT = randRange(0.9, 2.2) * (a.rage > 0 ? 0.4 : 1);
+      allyShoot(a, live);
+      a.fireT = randRange(0.55, 1.3);
     }
   }
 }
@@ -296,7 +297,7 @@ function updateHud() {
   $('b-timebox').classList.toggle('low', timeLeft() < 30 && S.phase !== 'done');
   $('b-dmg').textContent = fmt(S.dmg);
   $('b-kills').textContent = S.kills;
-  $('b-allies').textContent = fmt(myFighters().length);
+  $('b-allies').textContent = fmt(S.liveCount || 0);
   $('b-combo').textContent = S.combo > 1 ? `x${S.combo}` : '-';
   $('b-energy-fill').style.width = clamp((p.energy / mx) * 100, 0, 100) + '%';
   $('b-energy-txt').textContent = `${Math.floor(p.energy)} / ${mx}`;
@@ -994,45 +995,49 @@ function drawTracers() {
 
 function drawAllies() {
   const cit = S.state.citizens || [];
+  const fr = scene.front;
   for (const a of S.allies) {
-    if (a.id === null) continue;
-    const b = cit[a.id];
-    if (!b) continue;
-    const sp = allySprite(S.setup.me, a.s, dpr);
-    const bx = sp.box;
-    const kick = a.recoil * 3 * a.s;
-    ctx.save();
-    ctx.translate(a.x, a.base + kick);
-    if (a.mirror) ctx.scale(-1, 1);
-    ctx.drawImage(sp.img, bx.x * a.s, bx.y * a.s, bx.w * a.s, bx.h * a.s);
-    ctx.restore();
-    if (a.flash > 0) {
-      const m = allyMuzzle(a);
-      const r = 30 * a.s;
+    const b = a.id !== null ? cit[a.id] : null;
+    if (b && a.show > 0) {
+      const sp = allySprite(S.setup.me, a.s, dpr);
+      const bx = sp.box;
+      const kick = a.recoil * 3 * a.s;
+      const rise = (1 - a.show) * 120 * a.s; // rising from (or dropping back behind) the cover
       ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.drawImage(sprites().glow, m.x - r, m.y - r, r * 2, r * 2);
+      ctx.translate(a.x, a.base + kick + rise);
+      if (a.mirror) ctx.scale(-1, 1);
+      ctx.drawImage(sp.img, bx.x * a.s, bx.y * a.s, bx.w * a.s, bx.h * a.s);
       ctx.restore();
+      if (a.flash > 0) {
+        const m = allyMuzzle(a);
+        const r = 30 * a.s;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.drawImage(sprites().glow, m.x - r, m.y - r, r * 2, r * 2);
+        ctx.restore();
+      }
     }
-    // near cover in front of the ally
-    const fr = scene.front;
+    // the near cover stays in place whether someone is behind it or not
     const w = 70 * a.s;
     const sx = Math.max(0, a.x - w);
     const sw = Math.min(W, a.x + w) - sx;
     if (sw > 0) ctx.drawImage(fr.img, sx * dpr, 0, sw * dpr, fr.img.height, sx, fr.top, sw, fr.h);
-    // name tag
-    const top = a.base - 118 * a.s;
+    if (!b || a.show <= 0) continue;
+    // name tag: green while their sortie is under way
+    const hitting = !a.leaving;
+    const top = a.base - 118 * a.s + (1 - a.show) * 120 * a.s;
     const label = `${b.n} · Lv ${b.lvl}`;
+    ctx.globalAlpha = a.show;
     ctx.font = `700 ${Math.max(10, 11 * unit)}px system-ui, sans-serif`;
     const tw = ctx.measureText(label).width;
     const fw = 14 * Math.max(0.8, unit);
     const pw = tw + fw + 16;
     const px = clamp(a.x - pw / 2, 4, W - pw - 4);
     const ph = 18 * Math.max(0.85, unit);
-    ctx.fillStyle = a.rage > 0 ? 'rgba(22,101,52,.85)' : 'rgba(8,12,22,.72)';
+    ctx.fillStyle = hitting ? 'rgba(22,101,52,.85)' : 'rgba(8,12,22,.72)';
     roundRect(px, top - ph, pw, ph, ph / 2);
     ctx.fill();
-    ctx.strokeStyle = a.rage > 0 ? 'rgba(134,239,172,.8)' : 'rgba(255,255,255,.18)';
+    ctx.strokeStyle = hitting ? 'rgba(134,239,172,.8)' : 'rgba(255,255,255,.18)';
     ctx.lineWidth = 1;
     ctx.stroke();
     const f = flagImage(S.setup.me);
@@ -1040,6 +1045,7 @@ function drawAllies() {
     ctx.fillStyle = '#e2e8f0';
     ctx.textAlign = 'left';
     ctx.fillText(label, px + fw + 10, top - ph * 0.3);
+    ctx.globalAlpha = 1;
   }
 }
 
@@ -1242,4 +1248,10 @@ export function debugTargets() {
     const g = enemyGeom(e);
     return { hx: g.hx, hy: g.hy, bx: g.bx + g.bw / 2, by: g.by + 18 * e.s };
   });
+}
+
+// Test hook: citizens standing beside the player right now (not counting those pulling back).
+export function debugAllies() {
+  if (!S) return { ids: [] };
+  return { campId: S.setup.campId, side: mySideFlag(), ids: S.allies.filter((a) => a.id !== null && !a.leaving).map((a) => a.id) };
 }
