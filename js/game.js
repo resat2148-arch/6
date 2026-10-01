@@ -1174,6 +1174,36 @@ export function claimLogin(s, mult = 1) {
 }
 
 // ---------------------------------------------------------------- time
+// ---------------------------------------------------------------- pause while away
+// Nothing moves while the player is not in the game: on return every clock in the save is pushed
+// forward by the time away, so battles, sorties, elections, houses and cooldowns resume exactly where
+// they were. (Daily rewards follow the calendar and are not shifted.)
+export function shiftTime(s, delta) {
+  if (!(delta > 0)) return;
+  const add = (o, k) => { if (o && typeof o[k] === 'number' && o[k] > 0) o[k] += delta; };
+  add(s, 'lastTick');
+  add(s.world, 'nextAiTick');
+  add(s.world.domination, 'at');
+  for (const c of s.world.campaigns) {
+    add(c, 'started');
+    add(c, 'endsAt');
+    for (const r of c.live || []) { add(r, 'a'); add(r, 'b'); }
+  }
+  add(s.politics, 'nextElection');
+  add(s.politics.lastResult, 't');
+  for (const q in s.housing || {}) add(s.housing, q);
+  for (const k in s.timers || {}) add(s.timers, k);
+  for (const f of s.feed || []) add(f, 't');
+  for (const a of s.articles || []) add(a, 't');
+}
+
+// Call when the player comes back (continue, tab visible again): returns how long they were away.
+export function resume(s, now = Date.now()) {
+  const away = now - s.lastTick;
+  if (away > 0) shiftTime(s, away);
+  return Math.max(0, away);
+}
+
 export function tick(s, now = Date.now()) {
   let dt = now - s.lastTick;
   if (dt <= 0) return 0;

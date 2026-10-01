@@ -48,7 +48,7 @@ Start as a simple citizen of one of 37 European countries and rise to lead your 
 
 **Rule your nation.** Join a party, run for Congress or President, set national policies, found a newspaper and publish articles. AI politicians campaign against you and the voters decide.
 
-**Always something to do.** Daily rewards, missions, medals, national rankings and a world that keeps moving while you are away — your companies keep producing when you close the game. Keep up to three separate careers and play the one you like.
+**Always something to do.** Daily rewards, missions, medals, national rankings and a living world that waits for you — close the game and everything continues exactly where you left it. Keep up to three separate careers and play the one you like.
 
 ## Controls
 

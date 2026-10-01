@@ -578,3 +578,33 @@ test('battle board ranks everyone by damage on the wall, the player included', (
   assert.ok(bd[side === 'att' ? 'def' : 'att'].every((r) => r.c === foe && !r.you), 'enemies listed on their side');
   assert.ok(mine.filter((r) => !r.you).every((r) => r.c === s.player.country));
 });
+
+test('nothing moves while the player is away: every clock resumes where it stopped', () => {
+  const s = fresh('DE');
+  let now = T0;
+  for (let i = 0; i < 25; i++) { now += CONFIG.aiTickMs; G.tick(s, now); }
+  s.inv.house[2] = 1;
+  G.moveIn(s, 2, now);
+  s.timers.lastEnergyAd = now - 1000;
+  s.player.energy = 10;
+  const left = (t) => t - s.lastTick;
+  const snap = () => ({
+    owners: s.world.regions.map((r) => r.owner).join(),
+    camps: s.world.campaigns.map((c) => `${c.id}:${left(c.endsAt)}`).join(),
+    sorties: s.world.campaigns.reduce((a, c) => a + (c.live || []).length, 0),
+    nextAi: left(s.world.nextAiTick),
+    election: left(s.politics.nextElection),
+    house: left(s.housing[2]),
+    ad: left(s.timers.lastEnergyAd),
+    energy: Math.round(s.player.energy),
+    pending: s.companies.map((c) => Math.round(c.pending)).join(),
+  });
+  const before = snap();
+  const away = G.resume(s, now + 3 * 3600 * 1000);
+  assert.equal(away, 3 * 3600 * 1000);
+  assert.deepEqual(snap(), before, 'three hours away changed nothing');
+  // and the game goes on normally afterwards
+  G.tick(s, s.lastTick + 500);
+  assert.equal(s.world.regions.map((r) => r.owner).join(), before.owners);
+  assert.ok(s.player.energy >= 10);
+});

@@ -164,7 +164,7 @@ export function renderGoodbye() {
     <div class="start-card menu-card">
       <div class="logo">⭐ ${GAME_TITLE}</div>
       <h2>Your progress is saved</h2>
-      <p class="muted">You can close this tab now. Your companies keep producing while you are away.</p>
+      <p class="muted">You can close this tab now. Europe pauses until you come back.</p>
       <div class="menu-buttons"><button class="btn primary big" data-act="menuBack">Back to menu</button></div>
     </div>`;
   $('menu').hidden = false;
@@ -597,7 +597,7 @@ function economy(s) {
         <div class="row">${btn('Collect all', 'collect', '', 'primary')}
         ${btn(dblWait > 0 ? `📺 2× in <span data-cd="${s.timers.lastDoubleCollect + CONFIG.doubleCollectCooldownMs}"></span>` : '📺 Collect 2×', 'collectDouble', dblWait > 0 ? 'disabled' : '', 'ad')}</div></div>
       ${list || '<p class="muted">You don\'t own any companies yet. Build a Farm to start producing!</p>'}
-      <p class="muted small">Companies keep producing while you are away (storage: ${CONFIG.companyStorageMinutes / 60}h). Factories convert raw materials when you collect.</p>
+      <p class="muted small">Companies produce while you play (storage: ${CONFIG.companyStorageMinutes / 60}h). Factories convert raw materials when you collect.</p>
     </div>
     <div class="card">
       <h3>🏗️ Build</h3>
@@ -944,7 +944,7 @@ function medals(s) {
       ${btn('Sound on/off', 'mute')}
       ${btn('How to play', 'help')}
       <h3 class="sub">💾 Save</h3>
-      <p class="muted small">Progress saves automatically after every action${saveInfo()}. Closing the browser is safe: you continue where you left off, and your companies keep producing while you are away.</p>
+      <p class="muted small">Progress saves automatically after every action${saveInfo()}. Closing the browser is safe: the whole world pauses while you are away, and you continue exactly where you left off.</p>
       <div class="row">${btn('Backup code', 'exportSave', '', 'small')}${btn('Restore from code', 'importSave', '', 'small ghost')}</div>
       ${btn('Delete this career', 'reset', '', 'ghost danger')}
     </div>
@@ -961,7 +961,7 @@ export function helpHtml() {
     <li><b>Citizens 👥</b>: over a thousand AI citizens live the same life: they fight in battles, run companies and post offers on the Market. Buy from them, sell to them, and climb the rankings.</li>
     <li><b>Rank</b> grows with damage and multiplies your damage further.</li>
     <li><b>Houses 🏠</b> raise your max energy and energy regeneration for a few hours. Buy them on the Market or build them with a Construction company.</li>
-    <li><b>Companies</b> produce raw materials, food and weapons — even while you are away. Owning resource regions boosts production.</li>
+    <li><b>Companies</b> produce raw materials, food and weapons while you play. Owning resource regions boosts production.</li>
     <li><b>Politics</b>: join a party, get elected to Congress, then become President to choose wars and national policy.</li>
     <li>Goal: lead your nation to rule the whole map!</li>
   </ul>

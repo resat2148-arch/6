@@ -12,6 +12,7 @@ import { CONFIG, GAME_TITLE, MEDALS, GOLD_SHOP, RAW_ICON, HOUSES, MARKET, countr
 import { fmt, fmtMoney, fmtTime, esc } from './util.js';
 
 const ENERGY_AD_COOLDOWN = 4 * 60 * 1000;
+const AWAY_GAP_MS = 3000; // the main loop runs every 0.5 s; a longer gap means the game was not running
 
 let state = null;
 // Pre-select the player's own country when the browser language reveals it (tr-TR -> Turkey).
@@ -27,7 +28,7 @@ function localCountry() {
   return 'DE';
 }
 let pickedCountry = localCountry();
-let quietLog = null; // collects toasts during offline catch-up
+let quietLog = null; // when set, toasts are collected instead of shown
 let dirty = false;
 let started = false;
 
@@ -36,7 +37,7 @@ const $ = (id) => document.getElementById(id);
 // ------------------------------------------------------------------ persistence
 let saveTimer = 0;
 let legacySave = null; // a v1 save waiting for the player to pick a real country
-let pendingLoad = null; // the save just read from a slot, until its catch-up summary is shown
+let pendingLoad = null; // the save just read from a slot, until the player continues it
 let pendingSlot = 0; // the career slot a new citizen will be saved into
 let slots = []; // title screen summaries of the careers
 let loadingSlot = false;
@@ -492,7 +493,9 @@ function enterGame() {
   loopsStarted = true;
   let lastSave = Date.now();
   setInterval(() => {
-    if (!state || !started) return;
+    if (!state || !started || document.hidden) return; // nothing moves while the game is not on screen
+    // a long gap means the page was frozen (device asleep, timers throttled): that time does not count
+    if (Date.now() - state.lastTick > AWAY_GAP_MS) G.resume(state);
     G.tick(state);
     renderTop(state);
     if (dirty && !battleOpen() && !modalOpen() && !ui.panning && ['home', 'war', 'people'].includes(ui.tab) && document.activeElement?.tagName !== 'INPUT') refresh();
@@ -524,28 +527,16 @@ async function openCountrySelect() {
   renderStart(legacySave?.player.name || uname || `Citizen${Math.floor(1000 + Math.random() * 9000)}`, pickedCountry, !!legacySave);
 }
 
-// Continue a save: catch up on the time away, then show what happened.
+// Continue a save exactly where it was left: the time away is skipped, nothing happened meanwhile.
 function continueGame() {
   const source = pendingLoad?.source;
   const fresh = !!pendingLoad;
   pendingLoad = null;
-  const away = Date.now() - state.lastTick;
-  quietLog = [];
-  const before = G.pendingTotal(state);
-  G.tick(state);
-  const log = quietLog;
-  quietLog = null;
+  const away = G.resume(state);
   enterGame();
   save();
   if (source === 'backup') toast('Your last save was damaged, so we restored the backup from a minute earlier.', 'info');
-  if (fresh && away > 2 * 60 * 1000) {
-    const prod = G.pendingTotal(state) - before;
-    openModal(`<h2>Welcome back, ${esc(state.player.name)}!</h2>
-      <p class="muted">You were away for ${fmtTime(away)}. Your progress was saved${source === 'cloud' ? ' in the cloud' : ' on this device'} and restored.</p>
-      ${prod > 1 ? `<p>🏭 Your companies produced <b>${fmt(prod)}</b> units — collect them in Economy.</p>` : ''}
-      ${log.length ? `<ul class="help">${log.slice(-6).map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
-      <div class="row"><button class="btn primary" data-act="closeModal">Continue</button></div>`);
-  }
+  if (fresh && away > 2 * 60 * 1000) toast(`▶ Welcome back, ${state.player.name}! Europe waited for you: everything continues where you left it.`, 'info');
 }
 
 document.addEventListener('click', (e) => {
@@ -562,7 +553,9 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOpen()) closeModal(); });
 document.addEventListener('visibilitychange', () => {
   if (!started) return;
-  if (document.hidden) { SDK.gameplayStop(); saveAndFlush(); } else SDK.gameplayStart();
+  if (document.hidden) { SDK.gameplayStop(); saveAndFlush(); return; }
+  G.resume(state); // the time spent in another tab or app does not count
+  SDK.gameplayStart();
 });
 window.addEventListener('pagehide', saveAndFlush);
 window.addEventListener('beforeunload', save);

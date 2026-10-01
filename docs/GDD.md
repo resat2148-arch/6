@@ -11,7 +11,7 @@
 | Enerji + “potansiyel enerji” (yiyecek sınırı) | **Enerji** yavaş dolar (+1/6 sn). **Yiyecek rezervi** hızlı dolar (+1/sn); yiyecek yiyerek rezervi enerjiye çevirirsin. |
 | Hasar formülü `10 × (1+S/400) × (1+R/5) × (1+FP/100)` | Birebir kullanıldı. Silahsız ×0.5, Q1–Q5 silahlar +%20…+%100 ateş gücü. |
 | Silah/yiyecek kaliteleri (Q1–Q7) | Q1–Q5 (sadeleştirildi). |
-| Şirketler: ham madde → ürün | Çiftlik/Maden (ham madde), Fırın/Silah fabrikası (Q'ya göre ham madde tüketir). Oyuncu yokken de üretir (idle). |
+| Şirketler: ham madde → ürün | Çiftlik/Maden (ham madde), Fırın/Silah fabrikası (Q'ya göre ham madde tüketir). Oyun açıkken üretir (3 saatlik depo); oyuncu yokken dünya gibi şirketler de durur. |
 | Evler (Q1–Q5), ev şirketleri | Kulübe → Malikâne. İçinde yaşadığın her kalite maksimum enerjiyi (+20…+100) ve enerji yenilenmesini (+%10…+%50) artırır; kaliteler üst üste eklenir, ev 4 saat sonra eskir. Taş ocağı yapı malzemesi üretir, inşaat şirketi ev yapar. |
 | Bölge kaynakları üretim bonusu | Ülkenin sahip olduğu her farklı kaynak +%20 üretim. Fetih = ekonomik güç. |
 | Savaşlar, raundlar, duvar (wall), bölge fethi | Her savaş **tek raund, 5 dakika**, dünya saatine bağlı. Yapay zekâ vatandaşlarının ve oyuncunun hasarı aynı duvara eklenir; süre dolunca duvarı önde olan taraf bölgeyi alır/korur. Oyuncu savaşa istediği an girip çıkabilir, hasarı kalır. Yeni oyunculara 10. seviyeye kadar azalan “Rookie boost” (×3 → ×1). Eğitim savaşı yok; her savaş gerçek. |
@@ -38,7 +38,7 @@ Bu türün klasik oyunları “günde 5 dakika, yıllarca” oynanan yavaş oyun
    - **HUD:** Cam efektli üst panel (bayraklar, parlayan duvar çubuğu, savaş bilgisi), süre/hasar/öldürme/kombo çipleri (son 30 saniyede süre kırmızı yanıp söner) ve yüzen alt panel (enerji, yemek, silah kaliteleri, bazuka, Leave).
 2. **Zaman sıkıştırıldı.** Klasik oyunlardaki bir “gün” burada birkaç dakika: seçimler 10 dk, yapay zekâ savaş raundları 40–75 sn.
 3. **Hiç bekletmeyen döngü.** Oyuncunun ülkesinin her zaman en az bir aktif cephesi vardır; ilk savaş oyunun ilk saniyesinden hazır.
-4. **Idle/geri dönüş katmanı.** Şirketler çevrimdışı 3 saate kadar üretir; dünya sen yokken de değişir (“Welcome back” özeti).
+4. **Dünya seni bekler.** Oyuncu oyunda değilken hiçbir şey ilerlemez (dünya, savaşlar, şirketler, enerji); döndüğünde her şey bıraktığı andan devam eder.
 5. **Gerçek Avrupa haritası.** 37 gerçek Avrupa ülkesi ve 174 gerçek bölge (ör. Türkiye'nin 7 coğrafi bölgesi, Bavyera, Katalonya). Sınırlar Natural Earth 1:50m verisinden üretilir (`scripts/build-map.mjs`); bölgeler, gerçek bölge merkezlerinden hesaplanan Voronoi hücrelerinin ülke sınırına kırpılmasıyla oluşur. Sınırlar uluslararası tanınan hâliyle çizilir (Kırım Ukrayna'da); Kosova, Kıbrıs, Lüksemburg gibi küçük/hassas topraklar oynanamaz tarafsız bölgedir. Görsel dil kansız.
 6. **Kısa hedef zinciri.** Görev → seviye atlama (enerji dolar!) → rütbe → madalya → fetih → dünya hâkimiyeti.
 
@@ -70,7 +70,7 @@ Tarayıcıyı kapatan oyuncu ilerlemesini kaybetmez (`js/storage.js`):
 - **Yedek kodu:** Oyun içinde Medals sekmesi → "Backup code" açık kariyeri sıkıştırılmış bir koda (~20 KB) çevirir. Menüde Settings → "Restore from code" kodu seçilen yuvaya (varsayılan: ilk boş yuva) yükler; oyun içinden geri yükleme açık kariyerin yerine geçer.
 - **Yuva başına katmanlar:** Her kariyerin kendi cihaz anahtarı, yedeği, CrazyGames `data` anahtarı ve önizleme `db` belgesi vardır (kayıt ~80 KB, 3 kariyer toplam ~250 KB).
 - **Sürüm yükseltme:** Eski kurgusal harita kayıtları silinmez; oyuncu yeni bir Avrupa ülkesi seçer, seviye, güç, rütbe, para, envanter, şirketler ve madalyalar korunur.
-- **Yokken geçen zaman:** Dönüşte enerji dolmuş, şirketler (3 saate kadar) üretmiş, dünya savaşları ve seçimler ilerlemiş olur; "Welcome back" penceresi özetler.
+- **Yokken ilerleme yok:** Oyun kapalıyken, menüdeyken, sekme/uygulama arka plandayken veya cihaz uykudayken dünya durur. Dönüşte (`G.resume`) kayıttaki bütün saatler yokluk süresi kadar ileri kaydırılır: savaş bitiş süreleri ve vatandaş hücumları, dünya turu, seçim, ev süreleri, reklam/ödül bekleme süreleri, haber ve makale zamanları, Yeni Çağ geri sayımı. Enerji, rezerv ve şirket üretimi de yalnızca oyun açıkken artar. Ana döngü 3 saniyeden uzun bir boşluk görürse (donmuş sayfa) o süreyi de saymaz. Günlük ödül ve görevler takvim gününe bağlıdır, kaydırılmaz. Dönüşte kısa bir “Welcome back” bildirimi çıkar.
 
 ## 3. Çekirdek döngü
 
