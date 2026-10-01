@@ -398,7 +398,7 @@ function war(s) {
   const ri = G.rankIndex(p.rankPoints);
   return `<section class="grid">
     <div class="card span2">
-      <h3>⚔️ Your country's battles</h3>
+      <div class="row spread"><h3>⚔️ Your country's battles</h3>${s.politics.president ? `<span class="pill ${G.attackingFronts(s) >= G.attackFronts(s) ? 'red' : 'gold'}" title="Wars you can run at the same time grow with your territory">Attack fronts ${G.attackingFronts(s)} / ${G.attackFronts(s)}</span>` : ''}</div>
       ${mine.length ? mine.map((c) => campRow(s, c, true)).join('') : '<p class="muted">No active campaigns. A new front will open soon…</p>'}
       <p class="muted small">Every battle is a single ${CONFIG.battleMs / 60000}-minute round. Your hits and your fellow citizens' damage push the same wall; when time runs out, the side above 50% wins the region. Join, leave and come back as often as you like: your damage stays.${s.player.level < 10 ? ` Rookie boost: your damage counts ×${G.playerBoost(s).toFixed(1)} until level 10.` : ''}</p>
     </div>

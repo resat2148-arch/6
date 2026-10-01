@@ -742,7 +742,9 @@ export function canDeclareWar(s, regionId) {
   if (!reg || reg.owner === me) return fail('Choose an enemy region.');
   if (!neighborsOf(w, regionId).some((n) => w.regions[n].owner === me)) return fail('Region must border your country.');
   if (w.campaigns.some((c) => c.region === regionId)) return fail('A battle is already raging there.');
-  if (w.campaigns.some((c) => c.att === me)) return fail('Your army is already on campaign.');
+  const used = attackingFronts(s);
+  const max = attackFronts(s);
+  if (used >= max) return fail(`Your army already attacks on ${used} front${used > 1 ? 's' : ''} (max ${max} with ${regionsOf(w, me).length} regions). Conquer more regions to open more fronts.`);
   return ok();
 }
 
@@ -873,6 +875,9 @@ function resolveDueBattles(s, now) {
 }
 
 const frontsOf = (regions) => Math.min(CONFIG.maxFronts, 1 + Math.floor(regions / CONFIG.regionsPerFront));
+// A President may attack on as many fronts as an AI nation of the same size.
+export const attackFronts = (s) => frontsOf(regionsOf(s.world, s.player.country).length);
+export const attackingFronts = (s) => s.world.campaigns.filter((c) => c.att === s.player.country && c.type === 'war').length;
 // The player's country fights on more fronts as it grows, but never more than the player can follow.
 export const playerFronts = (s) => Math.min(CONFIG.maxPlayerFronts, frontsOf(regionsOf(s.world, s.player.country).length));
 
@@ -911,7 +916,8 @@ function aiStep(s, now) {
   resolveDueBattles(s, now);
   const me = s.player.country;
   const aiCount = () => w.campaigns.filter((c) => !playerSide(s, c)).length;
-  const mine = () => w.campaigns.filter((c) => playerSide(s, c)).length;
+  // how many attacks the player's country is already fending off (its own wars do not shield it)
+  const defending = () => w.campaigns.filter((c) => c.def === me).length;
   const busy = new Set(w.campaigns.map((c) => c.region));
   const attacking = new Set(w.campaigns.map((c) => c.att));
   const size = {};
@@ -928,7 +934,7 @@ function aiStep(s, now) {
     if ((fronts[country.id] || 0) >= Math.max(1, Math.round(frontsOf(size[country.id]) * ag))) continue;
     if (Math.random() > CONFIG.aiWarChance * ag) continue;
     let targets = borderTargets(w, country.id).filter((r) => !busy.has(r.id));
-    if (mine() >= playerFronts(s)) targets = targets.filter((r) => r.owner !== me);
+    if (defending() >= playerFronts(s)) targets = targets.filter((r) => r.owner !== me);
     if (!targets.length) continue;
     // The strong prey on the weak: small neighbours (and their capitals) are the likeliest targets.
     // Armies also march on enemy capitals within reach: taking one breaks the nation (see capitulate).

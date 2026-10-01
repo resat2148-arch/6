@@ -608,3 +608,30 @@ test('nothing moves while the player is away: every clock resumes where it stopp
   assert.equal(s.world.regions.map((r) => r.owner).join(), before.owners);
   assert.ok(s.player.energy >= 10);
 });
+
+test('a President attacks on as many fronts as an AI nation of the same size', () => {
+  const s = fresh('DE');
+  const w = s.world;
+  s.politics.president = true;
+  w.campaigns = [];
+  // Germany grows to 13 regions: 1 + 13/4 = 4 fronts
+  const extra = w.regions.filter((r) => r.owner === 'PL').slice(0, 2);
+  extra.forEach((r) => { r.owner = 'DE'; });
+  const size = regionsOf(w, 'DE').length;
+  const max = G.attackFronts(s);
+  assert.equal(max, Math.min(CONFIG.maxFronts, 1 + Math.floor(size / CONFIG.regionsPerFront)));
+  assert.ok(max >= 2, 'more than one front');
+  const targets = borderTargets(w, 'DE');
+  let declared = 0;
+  for (const t of targets) {
+    if (declared === max) break;
+    const r = G.declareWar(s, t.id, T0);
+    assert.ok(r.ok, r.msg);
+    declared++;
+  }
+  assert.equal(G.attackingFronts(s), max);
+  const next = targets.find((t) => !w.campaigns.some((c) => c.region === t.id));
+  const r = G.declareWar(s, next.id, T0);
+  assert.equal(r.ok, false, 'no more fronts');
+  assert.match(r.msg, /fronts/);
+});
