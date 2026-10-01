@@ -6,7 +6,7 @@ import { sfx } from './sfx.js';
 import { flagSvg } from './flags.js';
 import { fmt, randRange, clamp, esc } from './util.js';
 import {
-  buildBackground, buildCover, buildVignette, soldierSprite, clearSprites, setFlagListener, flagImage, sprites, drawCarbine, SOLDIER_MUZZLE,
+  buildBackground, buildCover, buildVignette, soldierSprite, clearSprites, setFlagListener, flagImage, sprites, drawWeapon, weaponMuzzle, WEAPONS, SOLDIER_MUZZLE,
   allySprite, clearAllySprites, ALLY_MUZZLE,
 } from './battle-art.js';
 
@@ -22,6 +22,7 @@ let dpr = 1;
 let unit = 1;
 let scene = null;
 let hudTop = 0;
+let gunAt = { x: 0, y: 0 }; // where the weapon is held (pivot below the screen edge)
 
 export const isOpen = () => !!S;
 
@@ -58,7 +59,9 @@ export function openBattle(state, campId, h) {
     recoil: 0, flash: 0, marks: [], rockets: [], inTracers: [], smoke: [], smokeT: 0, skyT: 1.5, sky: [],
     allies: [], allyT: 0, liveCount: 0,
     board: boardPref(),
+    wq: null, swapFrom: null, swapTo: null, swapT: 9, // weapon in hand and the swap animation
   };
+  S.wq = S.swapTo = weaponKind();
   flagImage(setup.me);
   flagImage(setup.foe);
   setupHud(); // fills the bottom panel first: the carbine sits above it
@@ -91,7 +94,13 @@ function resize() {
   unit = clamp(Math.min(H / 560, W / 480), 0.7, 1.7);
   // keep the carbine above the bottom panel (two rows tall on phones)
   const panel = document.querySelector('.b-bottom');
-  hudTop = panel ? panel.getBoundingClientRect().top - r.top : H;
+  const pr = panel ? panel.getBoundingClientRect() : null;
+  hudTop = pr ? pr.top - r.top : H;
+  // the weapon is held in the bottom-right corner: beside a floating panel (desktop), above a full-width one (phone)
+  const panelRight = pr ? pr.right - r.left : W;
+  gunAt = panelRight < W * 0.82
+    ? { x: Math.max(W * 0.86, panelRight + 90 * unit), y: H + 20 * unit }
+    : { x: W * 0.72, y: Math.min(H + 30 * unit, hudTop + 90 * unit) };
 }
 
 const rows = () => [
@@ -157,7 +166,8 @@ function renderBoard() {
 function layoutAllies() {
   const sF = clamp(1.15 * unit, 0.85, 1.7);
   const base = Math.min(H * 0.97, hudTop - 2);
-  const xs = W > 760 ? [[0.08, false], [0.27, false], [0.93, true]] : [[0.07, false], [0.93, true]];
+  // on wide screens the weapon holds the right corner, so allies line up on the left
+  const xs = W > 760 ? [[0.07, false], [0.24, false], [0.41, false]] : [[0.07, false], [0.93, true]];
   const old = S.allies || [];
   S.allies = xs.map(([fx, mirror], i) => ({
     ...(old[i] || { id: null, fireT: randRange(0.2, 0.8), flash: 0, recoil: 0, show: 0, leaving: false, lastD: 0 }),
@@ -281,7 +291,7 @@ function setupHud() {
   $('b-score').textContent = setup.boost > 1 ? `Rookie boost ×${setup.boost.toFixed(1)}` : `D${setup.division}`;
   const weps = $('b-weps');
   weps.innerHTML = [0, 1, 2, 3, 4, 5].map((q) =>
-    `<button class="b-wep" data-bact="wep" data-q="${q}" title="${q ? 'Weapon Q' + q : 'Bare hands (50% damage)'}"><span>${q ? 'Q' + q : '✊'}</span><small id="b-wq${q}"></small></button>`,
+    `<button class="b-wep" data-bact="wep" data-q="${q}" title="${q ? `Q${q} · ${WEAPONS[q].name}` : 'Bare hands (50% damage)'}"><span>${q ? 'Q' + q : '✊'}</span><small id="b-wq${q}"></small></button>`,
   ).join('');
   updateHud();
 }
@@ -458,6 +468,7 @@ function update(dt) {
 }
 
 function effects(dt) {
+  updateWeapon(dt);
   S.shake = Math.max(0, S.shake - dt);
   S.hurt = Math.max(0, S.hurt - dt);
   S.muzzle = Math.max(0, S.muzzle - dt);
@@ -540,22 +551,63 @@ function puff(x, y, spr = 'dust', r = 10, life = 0.6, alpha = 0.8) {
 }
 
 function brass() {
+  const k = WEAPONS[S.wq]?.brass || 0;
+  if (!k) return;
   const m = muzzlePos();
   const ex = m.px + Math.cos(m.a) * m.len * 0.3;
   const ey = m.py + Math.sin(m.a) * m.len * 0.3;
-  S.parts.push({ kind: 'brass', x: ex, y: ey, vx: randRange(140, 260) * unit, vy: -randRange(180, 300) * unit, g: 1300, rot: 0, vr: randRange(-20, 20), life: 0.7 });
+  S.parts.push({ kind: 'brass', k, x: ex, y: ey, vx: randRange(140, 260) * unit, vy: -randRange(180, 300) * unit, g: 1300, rot: 0, vr: randRange(-20, 20), life: 0.7 });
+}
+
+// A shot or a punch leaves the weapon in hand: tracer and flash for guns, a shock ring for fists.
+function fireFx(pt, life) {
+  S.recoil = 1;
+  if (S.wq === 0) {
+    S.parts.push({ x: pt.x, y: pt.y, vx: 0, vy: 0, life: 0.2, max: 0.2, speed: 200, width: 3, ring: true, size: 4, color: '#fff' });
+    return;
+  }
+  const m = muzzlePos();
+  S.tracers.push({ x1: m.x, y1: m.y, x2: pt.x, y2: pt.y, life });
+  S.muzzle = 0.06;
+  brass();
 }
 
 // The player's carbine pivots below the screen and points at the cursor / last tap.
 function muzzlePos() {
   const aim = S.aim || { x: W / 2, y: H * 0.5 };
-  const px = W * 0.72;
-  const py = Math.min(H + 30 * unit, hudTop + 90 * unit);
-  const a = Math.atan2(aim.y - py, aim.x - px);
+  const px = gunAt.x;
+  const py = gunAt.y;
+  const a0 = Math.atan2(aim.y - py, aim.x - px);
   const len = Math.min(H * 0.38, 260 * unit);
-  const back = S.recoil * 22 * unit;
-  const reach = len + 18 * unit - back;
-  return { x: px + Math.cos(a) * reach, y: py + Math.sin(a) * reach, a: a - S.recoil * 0.05 * Math.sign(Math.cos(a) || 1), px, py, len, flip: Math.cos(a) < 0 ? -1 : 1 };
+  const climb = S.wq === 0 ? 0 : S.recoil * 0.05 * (WEAPONS[S.wq]?.kick || 20) / 20; // heavier guns climb more
+  const m = { a: a0 - climb * Math.sign(Math.cos(a0) || 1), px, py, len, flip: Math.cos(a0) < 0 ? -1 : 1 };
+  const mz = weaponMuzzle(m, unit, S.recoil, S.wq);
+  return { ...m, x: mz.x, y: mz.y };
+}
+
+// ------------------------------------------------------------ weapon in hand
+// The hand follows the weapon actually fired: the selected quality, or the best lower one still in
+// stock, or the launcher while the bazooka is armed. A change plays a swap: lower, then raise.
+const SWAP_DOWN = 0.16;
+const SWAP_UP = 0.22;
+function weaponKind() { return S.armed ? 'baz' : effectiveQ(); }
+
+function updateWeapon(dt) {
+  const want = weaponKind();
+  if (want !== S.swapTo) {
+    S.swapFrom = S.swapT < SWAP_DOWN ? S.swapFrom : S.wq;
+    S.swapTo = want;
+    S.swapT = 0;
+    const w = WEAPONS[want];
+    floatText(W * 0.72, Math.min(H * 0.8, hudTop - 30 * unit), want === 'baz' ? `🚀 ${w.name}` : want === 0 ? `✊ ${w.name}` : `Q${want} · ${w.name}`, '#e2e8f0', 15);
+  }
+  S.swapT += dt;
+  S.wq = S.swapT < SWAP_DOWN ? S.swapFrom : S.swapTo;
+}
+
+function weaponRaise() {
+  if (S.swapT < SWAP_DOWN) return 1 - S.swapT / SWAP_DOWN;
+  return Math.min(1, (S.swapT - SWAP_DOWN) / SWAP_UP);
 }
 
 function enemyMuzzle(e) {
@@ -589,10 +641,7 @@ function onPointer(e) {
   const target = hitTest(pt);
   if (!target) {
     S.combo = 0;
-    const m = muzzlePos();
-    S.tracers.push({ x1: m.x, y1: m.y, x2: pt.x, y2: pt.y, life: 0.06 });
-    S.recoil = 1;
-    S.muzzle = 0.05;
+    fireFx(pt, 0.06);
     puff(pt.x, pt.y, 'dust', 6, 0.5, 0.7);
     burst(pt.x, pt.y, '#8c7b62', 5, 90);
     return;
@@ -609,13 +658,9 @@ function onPointer(e) {
   en.hitT = 0.1;
   S.dmg += dmg;
   G.battleHit(S.state, S.setup.campId, dmg);
-  S.muzzle = 0.06;
-  S.recoil = 1;
   en.kick = 1;
-  const m = muzzlePos();
-  S.tracers.push({ x1: m.x, y1: m.y, x2: pt.x, y2: pt.y, life: 0.07 });
-  brass();
-  sfx.shot();
+  fireFx(pt, 0.07);
+  if (S.wq === 0) sfx.hit(); else sfx.shot();
   if (target.head) {
     S.headshots++;
     sfx.head();
@@ -920,17 +965,19 @@ function drawParticles() {
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.rotate(p.rot);
+      const bk = (p.k || 1) * unit;
       ctx.fillStyle = '#d4a63a';
-      ctx.fillRect(-4 * unit, -1.6 * unit, 8 * unit, 3.2 * unit);
+      ctx.fillRect(-4 * bk, -1.6 * bk, 8 * bk, 3.2 * bk);
       ctx.fillStyle = '#f5d27a';
-      ctx.fillRect(-4 * unit, -1.6 * unit, 8 * unit, 1 * unit);
+      ctx.fillRect(-4 * bk, -1.6 * bk, 8 * bk, 1 * bk);
       ctx.restore();
     } else if (p.ring) {
       ctx.globalAlpha = 1;
-      ctx.strokeStyle = `rgba(255,237,213,${p.life / 0.4})`;
-      ctx.lineWidth = 5;
+      const max = p.max || 0.4;
+      ctx.strokeStyle = `rgba(255,237,213,${p.life / max})`;
+      ctx.lineWidth = p.width || 5;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, (0.4 - p.life) * 520 * unit, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, (max - p.life) * (p.speed || 520) * unit, 0, Math.PI * 2);
       ctx.stroke();
     } else if (!p.kind) {
       ctx.fillStyle = p.color;
@@ -1199,7 +1246,7 @@ function draw() {
   const m = muzzlePos();
   ctx.save();
   ctx.translate(ox * 0.5, oy * 0.5);
-  drawCarbine(ctx, m, unit, S.recoil, S.muzzle > 0 ? S.muzzle / 0.06 : 0, S.armed);
+  drawWeapon(ctx, m, unit, S.recoil, S.muzzle > 0 ? S.muzzle / 0.06 : 0, S.wq, weaponRaise());
   ctx.restore();
   drawReticle();
 
