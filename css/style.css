@@ -119,6 +119,7 @@ svg.flag.big { width: 36px; height: 24px; }
 .tb-money { display: flex; gap: 12px; font-size: 14px; }
 .tb-money b { font-variant-numeric: tabular-nums; }
 .icon-btn { background: none; border: 0; font-size: 20px; padding: 4px; }
+.icon-btn.off { opacity: .35; filter: grayscale(1); }
 
 #tabs button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border: 0; border-radius: 12px; background: transparent; color: var(--muted); font-size: 11px; font-weight: 650; }
 #tabs button i { font-size: 22px; }
@@ -418,8 +419,18 @@ textarea.code { width: 100%; min-height: 120px; background: var(--bg2); color: v
   .b-board .row { grid-template-columns: 16px 1fr auto; gap: 4px; font-size: 10.5px; padding: 1px 2px; }
   .b-board .row span small { display: none; }
 }
-@media (max-width: 420px) {
+@media (max-width: 540px) {
   .tb-id .tb-name-wrap { display: none; }
+  #topbar { gap: 5px; }
+  .tb-bars { width: 92px; }
+  #topbar .icon-btn { padding: 2px; font-size: 19px; }
+}
+@media (max-width: 350px) {
+  #topbar { gap: 3px; }
+  .tb-bars { width: 70px; }
+  .tb-energy { padding: 4px 5px; gap: 4px; }
+}
+@media (max-width: 420px) {
   .inv { grid-template-columns: repeat(4, 1fr); }
   .b-wep { min-width: 34px; padding: 2px 3px; }
 }

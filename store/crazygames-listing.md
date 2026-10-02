@@ -64,6 +64,7 @@ Start as a simple citizen of one of 37 European countries and rise to lead your 
 - Companies, raw materials and a living market with offers from other citizens
 - Elections for Congress and President, national policies and newspapers
 - Houses, training grounds, 69 military ranks and medals
+- Original soundtrack: a calm theme on the map and a march at the front
 - Progress is saved automatically — 3 career slots
 - Works on desktop and mobile
 

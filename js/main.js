@@ -2,7 +2,8 @@
 import * as G from './game.js';
 import * as SDK from './sdk.js';
 import * as Store from './storage.js';
-import { sfx, unlock, setMuted } from './sfx.js';
+import { sfx, unlock, setMuted, setHidden } from './sfx.js';
+import { setMusic, setMood, musicOn, debugMusic } from './music.js';
 import {
   ui, renderTab, renderTop, liveUpdate, renderStart, toast, openModal, closeModal, modalOpen, banner, helpHtml, zoomMap,
   offersModal, listModal, renderMenu, renderGoodbye, settingsHtml,
@@ -44,6 +45,10 @@ let loadingSlot = false;
 let replacing = false; // the new citizen overwrites a filled slot
 let loopsStarted = false;
 const MUTE_KEY = 'republic-rising-muted';
+const showMusic = () => {
+  $('tb-music').classList.toggle('off', !musicOn());
+  $('tb-music').title = musicOn() ? 'Music: on' : 'Music: off';
+};
 const menuMuted = () => { try { return localStorage.getItem(MUTE_KEY) === '1'; } catch { return false; } };
 
 function save() {
@@ -172,16 +177,20 @@ function startFight(id) {
   closeModal();
   const okOpen = openBattle(state, id, {
     onExit: async (nextId) => {
+      const next = nextId !== null && nextId !== undefined;
+      if (!next) setMood('calm');
       refresh();
       save();
       await maybeMidgame();
-      if (nextId !== null && nextId !== undefined && G.campaignById(state, nextId)) startFight(nextId);
+      if (next && G.campaignById(state, nextId)) startFight(nextId);
+      else setMood('calm');
     },
     onRoundEnd: () => { saveAndFlush(); },
     onAdRefill: () => energyAd(),
     onNeedBazooka: () => {},
   });
-  if (!okOpen) { toast('That battle is already over.', 'bad'); refresh(); }
+  if (!okOpen) { setMood('calm'); toast('That battle is already over.', 'bad'); refresh(); return; }
+  setMood('battle');
 }
 
 function energyAd() {
@@ -294,6 +303,7 @@ const actions = {
     $('tb-mute').textContent = state.settings.muted ? '🔇' : '🔊';
     save();
   },
+  music: () => { setMusic(!musicOn()); showMusic(); },
   help: () => openModal(helpHtml()),
   closeModal: () => {
     closeModal();
@@ -410,13 +420,14 @@ const actions = {
     toast('Career deleted.', 'info');
     renderMenu(await refreshSlots(), Store.lastPlayedSlot(), showExit());
   },
-  menuSettings: () => openModal(settingsHtml(menuMuted())),
+  menuSettings: () => openModal(settingsHtml(menuMuted(), musicOn())),
+  menuMusic: () => { setMusic(!musicOn()); showMusic(); openModal(settingsHtml(menuMuted(), musicOn())); },
   menuMute: () => {
     const m = !menuMuted();
     try { localStorage.setItem(MUTE_KEY, m ? '1' : '0'); } catch { /* ignore */ }
     setMuted(m || SDK.muteRequested());
     $('tb-mute').textContent = m ? '🔇' : '🔊';
-    openModal(settingsHtml(m));
+    openModal(settingsHtml(m, musicOn()));
   },
   menuExit: () => {
     try { window.close(); } catch { /* browsers only close tabs a script opened */ }
@@ -552,6 +563,7 @@ document.addEventListener('click', (e) => {
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOpen()) closeModal(); });
 document.addEventListener('visibilitychange', () => {
+  setHidden(document.hidden);
   if (!started) return;
   if (document.hidden) { SDK.gameplayStop(); saveAndFlush(); return; }
   G.resume(state); // the time spent in another tab or app does not count
@@ -568,6 +580,7 @@ async function boot() {
   await Store.migrateSingleSave(); // a save from before careers becomes career 1
   await refreshSlots();
   setMuted(menuMuted() || SDK.muteRequested());
+  showMusic();
   SDK.loadingStop();
   $('loading').hidden = true;
   renderMenu(slots, Store.lastPlayedSlot(), showExit());
@@ -576,4 +589,4 @@ async function boot() {
 boot();
 
 // Debug handle for local testing.
-window.__rr = { get state() { return state; }, G, targets: debugTargets, allies: debugAllies, Store };
+window.__rr = { get state() { return state; }, G, targets: debugTargets, allies: debugAllies, Store, music: debugMusic };

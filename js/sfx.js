@@ -18,9 +18,22 @@ function ensure() {
   return ctx;
 }
 
+let onUnlock = null;
 export function unlock() {
   const c = ensure();
-  if (c && c.state === 'suspended') c.resume().catch(() => {});
+  if (c && c.state === 'suspended' && !document.hidden) c.resume().catch(() => {});
+  onUnlock?.();
+}
+
+// The background music shares the context and master volume; it starts on the first tap.
+export function onAudioUnlock(cb) { onUnlock = cb; }
+export const audioCtx = () => (ctx ? { ctx, master } : null);
+
+// Nothing plays while the game is in a background tab or app.
+export function setHidden(h) {
+  if (!ctx) return;
+  if (h) ctx.suspend().catch(() => {});
+  else ctx.resume().catch(() => {});
 }
 
 export function setMuted(m) {

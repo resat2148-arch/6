@@ -57,4 +57,5 @@ Zip dosyasını CrazyGames Developer Portal → *Submit game* → *HTML5* olarak
 | `js/storage.js` | 3 kariyer yuvası; her yuva için katmanlı kayıt: cihaz + yedek + bulut (CrazyGames data / önizleme db), yedek kodu |
 | `js/sdk.js` | CrazyGames SDK sarmalayıcısı (SDK yoksa güvenli geri dönüş) |
 | `js/sfx.js` | WebAudio ile üretilen ses efektleri |
+| `js/music.js` | WebAudio ile çalınan arka plan müziği (harita teması, savaş marşı) |
 | `js/main.js` | Açılış, kayıt/yükleme, eylem yönlendirme, reklam akışı |

@@ -170,9 +170,10 @@ export function renderGoodbye() {
   $('menu').hidden = false;
 }
 
-export function settingsHtml(muted) {
+export function settingsHtml(muted, music) {
   return `<h2>⚙ Settings</h2>
     <div class="kv"><span>🔊 Sound</span>${btn(muted ? 'Off' : 'On', 'menuMute', '', `small ${muted ? 'ghost' : 'primary'}`)}</div>
+    <div class="kv"><span>🎵 Music</span>${btn(music ? 'On' : 'Off', 'menuMusic', '', `small ${music ? 'primary' : 'ghost'}`)}</div>
     <div class="kv"><span>❓ How to play</span>${btn('Open', 'help', '', 'small')}</div>
     <h3 class="sub">💾 Save</h3>
     <p class="muted small">Each of your 3 careers saves automatically after every action. Get a career's backup code in game (Medals → Backup code) and restore it here into any slot, on this or another device.</p>
