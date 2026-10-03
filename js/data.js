@@ -173,12 +173,13 @@ export const MEDALS = {
 export const MEDIA_MILESTONES = [100, 500, 1000, 2500, 5000, 10000];
 export const PATRIOT_STEP = 20000;
 
-// Tutorial chain of starter missions.
+// Tutorial chain of starter missions. A new player lands in a battle, so the first one is fought there;
+// the first ONBOARDING_STEPS are guided step by step on screen (coach.js).
 export const TUTORIAL = [
-  { text: 'Work at your job to earn money', ev: 'work', n: 1, reward: { money: 20 } },
-  { text: 'Train to increase your strength', ev: 'train', n: 1, reward: { gold: 1 } },
-  { text: 'Open the War tab and defeat 10 enemies', ev: 'kill', n: 10, reward: { weapon1: 100 }, tab: 'war' },
-  { text: 'Eat food to refill energy from your reserve', ev: 'eat', n: 1, reward: { food2: 10 } },
+  { text: 'Defeat 10 enemies in battle', ev: 'kill', n: 10, reward: { weapon1: 100 }, tab: 'war' },
+  { text: 'Work at the factory to earn money', ev: 'work', n: 1, reward: { money: 20 } },
+  { text: 'Train at the camp to grow stronger', ev: 'train', n: 1, reward: { gold: 1 } },
+  { text: 'Eat food to refill your energy', ev: 'eat', n: 1, reward: { food2: 10 } },
   { text: 'Buy food or weapons on the Market', ev: 'buy', n: 1, reward: { weapon2: 50 }, tab: 'market' },
   { text: 'Meet your fellow citizens in the Citizens tab rankings', ev: 'rankView', n: 1, reward: { money: 30 }, tab: 'people' },
   { text: 'Fight in a battle your country wins', ev: 'roundWin', n: 1, reward: { gold: 2 }, tab: 'war' },
@@ -192,6 +193,11 @@ export const TUTORIAL = [
   { text: 'Found a newspaper and publish an article', ev: 'article', n: 1, reward: { gold: 3 }, tab: 'politics' },
   { text: 'Help your country conquer a region', ev: 'conquest', n: 1, reward: { gold: 5, bazooka: 2 }, tab: 'war' },
 ];
+
+export const ONBOARDING_STEPS = 4; // daily reward pop-ups and war alerts wait until these missions are done
+
+// Tabs open as the citizen grows (or when a mission needs them), so a new player sees only the basics.
+export const TAB_UNLOCK = { market: 2, medals: 3, people: 3, politics: 4 };
 
 export const DAILY_POOL = [
   { id: 'work', text: 'Work 5 times', ev: 'work', n: 5 },

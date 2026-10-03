@@ -3,6 +3,7 @@ import {
   CONFIG, COUNTRIES, RANKS, rankThreshold, MEDALS, COMPANY_TYPES, MARKET, GOLD_SHOP, FOOD_ENERGY, WEAPON_FP,
   FACILITIES, FACILITY_MAX_Q, FACILITY_QUALITY_MULT, superSoldierThreshold, POLICIES, TUTORIAL, DAILY_POOL, DAILY_COUNT, DAILY_REWARD_GOLD, DAILY_BONUS, LOGIN_REWARDS,
   MEDIA_MILESTONES, PATRIOT_STEP, PRESIDENT_NAMES, SAVE_VERSION, HOUSES, countryById, rankIndexOf, xpToNextLevel,
+  ONBOARDING_STEPS, TAB_UNLOCK,
 } from './data.js';
 import {
   createWorld, neighborsOf, regionsOf, isAlive, countryPower, borderTargets, resourceBonus, morale,
@@ -169,9 +170,12 @@ export function canChangeCitizenship(s, cid, now = Date.now()) {
   if (!regionsOf(s.world, cid).length) return fail('That nation has no regions left.');
   const wait = (s.timers.lastMove || 0) + CONFIG.citizenshipCooldownMs - now;
   if (wait > 0) return fail(`You can move again in ${Math.ceil(wait / 60000)} min.`);
-  if (s.player.gold < CONFIG.citizenshipGold) return fail(`Moving costs 🪙${CONFIG.citizenshipGold} gold.`);
+  if (s.player.gold < citizenshipCost(s)) return fail(`Moving costs 🪙${citizenshipCost(s)} gold.`);
   return ok();
 }
+
+// The first move is free: a new player starts in the country of their language and may prefer another one.
+export const citizenshipCost = (s) => (s.counters.move ? CONFIG.citizenshipGold : 0);
 
 // The player settles in another nation under a local name: seats, party and campaign are left behind.
 export function changeCitizenship(s, cid, name, female = null, now = Date.now()) {
@@ -187,7 +191,7 @@ export function changeCitizenship(s, cid, name, female = null, now = Date.now())
     if (next) { next.pres = true; next.cong = false; s.presidents[from] = next.id; }
   }
   const was = s.player.name;
-  s.player.gold -= CONFIG.citizenshipGold;
+  s.player.gold -= citizenshipCost(s);
   s.player.country = cid;
   s.player.name = clean;
   if (female !== null) s.player.fem = !!female;
@@ -1166,6 +1170,16 @@ export function tutorialProgress(s) {
   if (st.cond) return { cur: st.cond(s) ? 1 : 0, n: 1 };
   const cur = Math.min(st.n, (s.counters[st.ev] || 0) - s.tutorial.base);
   return { cur, n: st.n };
+}
+
+// The first missions are guided on screen; pop-ups and alerts wait until they are done (or skipped).
+export const onboarding = (s) => s.tutorial.step < ONBOARDING_STEPS && !s.tutorial.skip;
+
+// Home, War and Economy are always open; the others open with level, or earlier when a mission needs them.
+export function tabUnlocked(s, tab) {
+  const lvl = TAB_UNLOCK[tab];
+  if (!lvl || s.player.level >= lvl || s.tutorial.skip) return true;
+  return TUTORIAL.slice(0, s.tutorial.step + 1).some((m) => m.tab === tab);
 }
 
 export function claimTutorial(s) {

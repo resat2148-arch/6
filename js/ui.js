@@ -2,7 +2,7 @@
 import * as G from './game.js';
 import {
   CONFIG, COUNTRIES, RESOURCES, RANKS, rankThreshold, MEDALS, COMPANY_TYPES, MARKET, GOLD_SHOP,
-  FACILITIES, POLICIES, FOOD_ENERGY, WEAPON_FP, countryById, GAME_TITLE, DAILY_BONUS, HOUSES, RAW_ICON,
+  FACILITIES, POLICIES, FOOD_ENERGY, WEAPON_FP, countryById, GAME_TITLE, DAILY_BONUS, HOUSES, RAW_ICON, TAB_UNLOCK,
 } from './data.js';
 import { flagSvg } from './flags.js';
 import { fmt, fmtMoney, fmtTime, esc } from './util.js';
@@ -93,8 +93,12 @@ export function renderTop(s) {
   const tut = G.tutorialStep(s);
   const pr = G.tutorialProgress(s);
   document.querySelectorAll('#tabs [data-tab]').forEach((b) => {
-    b.classList.toggle('on', b.dataset.tab === ui.tab);
-    b.classList.toggle('hint', !!(tut && tut.tab === b.dataset.tab && b.dataset.tab !== ui.tab && pr.cur < pr.n));
+    const t = b.dataset.tab;
+    const locked = !G.tabUnlocked(s, t);
+    b.classList.toggle('on', t === ui.tab);
+    b.classList.toggle('locked', locked);
+    if (locked) b.dataset.lock = `🔒Lv${TAB_UNLOCK[t]}`;
+    b.classList.toggle('hint', !locked && t !== ui.tab && (ui.fresh?.has(t) || !!(tut && tut.tab === t && pr.cur < pr.n)));
   });
   const eb = $('badge-eco');
   const full = s.companies.some((c) => c.pending >= G.companyCap(s, c) * 0.5);
@@ -193,7 +197,7 @@ export function citizenshipHtml(s) {
   const roles = [s.politics.president && 'presidency', s.politics.congress && 'Congress seat', s.politics.party && 'party membership'].filter(Boolean);
   return `<h2>🧳 Change citizenship</h2>
     <p class="small">Settle in another nation and fight for it. You take a local name and keep your level, strength, rank, money, items, companies and newspaper${roles.length ? `; your ${roles.join(', ')} stay${roles.length > 1 ? '' : 's'} behind` : ''}.</p>
-    <p class="small">Cost: <b>🪙${CONFIG.citizenshipGold}</b> (you have 🪙${fmt(s.player.gold)}) · once every ${CONFIG.citizenshipCooldownMs / 60000} min${wait > 0 ? ` · <b class="red">next move in ${fmtTime(wait)}</b>` : ''}</p>
+    <p class="small">Cost: <b>${G.citizenshipCost(s) ? `🪙${G.citizenshipCost(s)}` : 'free (first move)'}</b> (you have 🪙${fmt(s.player.gold)}) · once every ${CONFIG.citizenshipCooldownMs / 60000} min${wait > 0 ? ` · <b class="red">next move in ${fmtTime(wait)}</b>` : ''}</p>
     <div class="country-grid">${cards}</div>
     <div class="row"><button class="btn" data-act="closeModal">Cancel</button></div>`;
 }
@@ -205,7 +209,7 @@ export function moveNameHtml(s, mv) {
     <div class="row seg">${btn('♂ Male', 'moveGender', 'data-f="0"', `small ${mv.fem ? 'ghost' : 'primary'}`)}${btn('♀ Female', 'moveGender', 'data-f="1"', `small ${mv.fem ? 'primary' : 'ghost'}`)}${btn('🎲 Other names', 'moveReroll', '', 'small ghost')}</div>
     <div class="name-picks">${mv.names.map((n) => btn(esc(n), 'moveName', `data-n="${esc(n)}"`, `small ${n === mv.name ? 'primary' : ''}`)).join('')}</div>
     <label class="field"><span>Name</span><input id="move-name" maxlength="18" value="${esc(mv.name)}" autocomplete="off"></label>
-    <div class="row"><button class="btn primary" data-act="moveConfirm">🧳 Move for 🪙${CONFIG.citizenshipGold}</button><button class="btn ghost" data-act="citizenship">← Back</button></div>`;
+    <div class="row"><button class="btn primary" data-act="moveConfirm">🧳 ${G.citizenshipCost(s) ? `Move for 🪙${G.citizenshipCost(s)}` : 'Move (free)'}</button><button class="btn ghost" data-act="citizenship">← Back</button></div>`;
 }
 
 export function renderStart(defaultName, picked, legacy = false) {
@@ -296,6 +300,7 @@ function home(s) {
       <p class="muted small">Drag to move, pinch or scroll to zoom, tap a region. ★ capital · colored dot = occupied (original owner) · ⚔️ battle · icons = resources (+20% production each)</p>
     </div>
     <div class="side">
+    ${tutHtml}
     <div class="card citizen" style="--cc:${c.color}">
       <div class="row">${avatarSvg(c.color)}
         <div class="grow"><h2>${esc(p.name)}</h2>
@@ -318,7 +323,6 @@ function home(s) {
           <small>${urgent ? esc(s.world.regions[urgent.region].name) : 'Choose a battle'}</small></button>
       </div>
     </div>
-    ${tutHtml}
     <div class="card home-region" id="region-panel">${regionPanel(s, ui.sel)}</div>
     </div>
   </div>

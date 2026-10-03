@@ -37,14 +37,11 @@ async function record(browser, f) {
 
   const ctx = await browser.newContext({ viewport: f.viewport, deviceScaleFactor: f.scale, hasTouch: f.mobile, isMobile: f.mobile, locale: 'en-US' });
   const p = await ctx.newPage();
-  await p.goto(BASE + 'index.html');
-  await p.evaluate(() => localStorage.clear());
-  await p.reload();
-  await p.waitForSelector('#menu:not([hidden])');
-  await p.click('[data-act="slotNew"][data-slot="1"]');
-  await p.fill('#start-name', 'Commander');
-  await p.click('.country-card[data-id="DE"]');
-  await p.click('[data-act="startGame"]');
+  await p.goto(BASE + 'index.html'); // a fresh profile: the first visit lands in a battle
+  await p.waitForSelector('#battle:not([hidden])');
+  await p.click('#b-leave');
+  await p.waitForTimeout(400);
+  if (await p.isVisible('#battle [data-bact="exit"]')) await p.click('#battle [data-bact="exit"]');
   const dismiss = async () => {
     for (let i = 0; i < 4; i++) {
       await p.waitForTimeout(400);
@@ -58,7 +55,8 @@ async function record(browser, f) {
   // A citizen a few days into their career.
   await p.evaluate(() => {
     const { state: s, G } = window.__rr;
-    Object.assign(s.player, { level: 14, strength: 3400, rankPoints: 9000, money: 6000, gold: 45 });
+    s.tutorial.skip = true; // no coach rings in the videos, every tab open
+    Object.assign(s.player, { name: 'Commander', level: 14, strength: 3400, rankPoints: 9000, money: 6000, gold: 45 });
     for (const t of ['farm', 'bakery', 'mine', 'armory']) G.build(s, t);
     s.companies.forEach((c) => { c.pending = G.companyCap(s, c) * 0.8; });
     s.inv.food = [0, 200, 80, 40, 20, 10];

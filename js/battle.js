@@ -58,7 +58,8 @@ export function openBattle(state, campId, h) {
     msgT: 0, wallShown: null, visitDone: false,
     recoil: 0, flash: 0, marks: [], rockets: [], inTracers: [], smoke: [], smokeT: 0, skyT: 1.5, sky: [],
     allies: [], allyT: 0, liveCount: 0,
-    board: boardPref(),
+    coach: !!hooks.coach, coachDone: false, // a new player's first battle shows where to tap
+    board: h?.coach ? false : boardPref(), // a first battle keeps the screen clear
     wq: null, swapFrom: null, swapTo: null, swapT: 9, // weapon in hand and the swap animation
   };
   S.wq = S.swapTo = weaponKind();
@@ -75,6 +76,7 @@ export function openBattle(state, campId, h) {
 
 export function closeBattle() {
   if (!S) return;
+  $('b-leave').classList.remove('pulse');
   cancelAnimationFrame(S.raf);
   S = null;
   $('battle').hidden = true;
@@ -447,6 +449,7 @@ function update(dt) {
   }
   if (S.phase !== 'fight') { effects(dt); return; }
   S.t += dt;
+  if (S.coach) coachStep();
   const alive = S.enemies.filter((e) => !e.dead).length;
   const maxAlive = W > 760 ? 5 : W > 480 ? 4 : 3;
   S.spawnT -= dt;
@@ -465,6 +468,36 @@ function update(dt) {
   S.enemies = S.enemies.filter((e) => !e.dead || e.deadT < 0.9);
   updateAllies(dt);
   effects(dt);
+}
+
+// First battle: a hint until the player gets the idea, then a pointer to the mission reward.
+function coachStep() {
+  if (S.kills < 3 && S.msgT <= 0.2) flashMsg('👆 Tap the enemies to shoot. Headshots hit twice as hard!');
+  if (S.kills >= 10 && !S.coachDone) {
+    S.coachDone = true;
+    flashMsg('🎯 Mission done! Keep fighting, or ⟵ Leave to claim your reward');
+    S.msgT = 4;
+    $('b-leave').classList.add('pulse');
+  }
+}
+
+function drawCoach() {
+  if (!S.coach || S.kills >= 3 || S.phase !== 'fight') return;
+  const e = S.enemies.find((x) => !x.dead && x.rise >= 1);
+  if (!e) return;
+  const g = enemyGeom(e);
+  const k = 0.5 + 0.5 * Math.sin(S.t * 7);
+  const r = (26 + 8 * k) * Math.max(0.8, e.s);
+  ctx.strokeStyle = `rgba(250,204,21,${0.6 + 0.4 * k})`;
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(g.hx, g.hy + 14 * e.s, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.font = `900 ${Math.round(16 * Math.max(0.9, unit))}px system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = 'rgba(0,0,0,.7)';
+  ctx.strokeText('TAP!', g.hx, g.hy - r - 2);
+  ctx.fillStyle = '#fde68a';
+  ctx.fillText('TAP!', g.hx, g.hy - r - 2);
 }
 
 function effects(dt) {
@@ -1249,6 +1282,7 @@ function draw() {
   drawWeapon(ctx, m, unit, S.recoil, S.muzzle > 0 ? S.muzzle / 0.06 : 0, S.wq, weaponRaise());
   ctx.restore();
   drawReticle();
+  drawCoach();
 
   ctx.drawImage(scene.vignette, 0, 0, W, H);
   if (S.flash > 0) {

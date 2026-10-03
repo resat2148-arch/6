@@ -5,12 +5,13 @@ import * as Store from './storage.js';
 import { sfx, unlock, setMuted, setHidden } from './sfx.js';
 import { setMusic, setMood, musicOn, debugMusic } from './music.js';
 import {
-  ui, renderTab, renderTop, liveUpdate, renderStart, toast, openModal, closeModal, modalOpen, banner, helpHtml, zoomMap,
+  ui, TABS, activeCampaigns, renderTab, renderTop, liveUpdate, renderStart, toast, openModal, closeModal, modalOpen, banner, helpHtml, zoomMap,
   offersModal, listModal, renderMenu, renderGoodbye, settingsHtml, citizenshipHtml, moveNameHtml,
 } from './ui.js';
 import { initBattle, openBattle, isOpen as battleOpen, setAdPause, debugTargets, debugAllies } from './battle.js';
 import { initRoutine, openRoutine, closeRoutine, isOpen as routineOpen, debugRoutine } from './routine.js';
-import { CONFIG, GAME_TITLE, MEDALS, GOLD_SHOP, RAW_ICON, HOUSES, MARKET, countryById } from './data.js';
+import { updateCoach } from './coach.js';
+import { CONFIG, GAME_TITLE, MEDALS, GOLD_SHOP, RAW_ICON, HOUSES, MARKET, TAB_UNLOCK, countryById } from './data.js';
 import { fmt, fmtMoney, fmtTime, esc } from './util.js';
 
 const ENERGY_AD_COOLDOWN = 4 * 60 * 1000;
@@ -95,7 +96,10 @@ async function refreshSlots() {
 const slotInfo = (n) => slots.find((c) => c.slot === n);
 
 // ------------------------------------------------------------------ events from the rules engine
+// While the first missions are guided, war alerts stay in the news feed instead of popping up.
+const guided = () => !!state && G.onboarding(state);
 G.bus.on('toast', ({ text, kind }) => {
+  if (kind === 'war' && guided()) { dirty = true; return; }
   if (quietLog) quietLog.push(text);
   else toast(text, kind);
   dirty = true;
@@ -121,7 +125,7 @@ G.bus.on('election', ({ won, office }) => {
   dirty = true;
 });
 G.bus.on('campaign', (c) => {
-  if (!quietLog && G.playerSide(state, c) === 'def') sfx.alarm();
+  if (!quietLog && !guided() && G.playerSide(state, c) === 'def') sfx.alarm();
   dirty = true;
 });
 G.bus.on('campaignEnd', ({ won, region, c }) => {
@@ -130,7 +134,7 @@ G.bus.on('campaignEnd', ({ won, region, c }) => {
   if (side === 'att') msg = won ? `🏳️ ${region.name} conquered!` : `❌ Attack on ${region.name} failed.`;
   else msg = won ? `🛡️ ${region.name} defended!` : `💔 ${region.name} was lost.`;
   if (quietLog) quietLog.push(msg);
-  else {
+  else if (won || !guided()) {
     toast(msg, won ? 'gold' : 'bad');
     if (won) SDK.happytime();
   }
@@ -190,7 +194,9 @@ function startFight(id) {
     onRoundEnd: () => { saveAndFlush(); },
     onAdRefill: () => energyAd(),
     onNeedBazooka: () => {},
+    coach: guided() && G.tutorialStep(state)?.ev === 'kill',
   });
+  coach();
   if (!okOpen) { setMood('calm'); toast('That battle is already over.', 'bad'); refresh(); return; }
   setMood('battle');
 }
@@ -210,6 +216,8 @@ function energyAd() {
 function openRoutineScreen(mode) {
   closeModal();
   openRoutine(state, mode, {
+    coach: guided(),
+    missionReady: () => { const p = guided() && G.tutorialProgress(state); return !!p && p.cur >= p.n; },
     onChange: () => { dirty = true; requestSave(); },
     onExit: () => { refresh(); save(); },
     onAdRefill: () => energyAd(),
@@ -228,16 +236,63 @@ function refresh() {
   if (!state || !started) return;
   renderTab(state);
   dirty = false;
+  coach();
+}
+
+// The coach rings the next thing to tap; hidden over the battle, the routine screens and pop-ups.
+function coach() {
+  updateCoach(started ? state : null, ui, !started || battleOpen() || routineOpen() || modalOpen() || !$('menu').hidden);
+}
+
+// Tabs open with level: announce each one the moment it opens and make it glow until visited.
+ui.fresh = new Set();
+let openTabs = null;
+function checkUnlocks() {
+  if (!state || !started) return;
+  const now = TABS.filter((t) => G.tabUnlocked(state, t.id)).map((t) => t.id);
+  if (openTabs) {
+    for (const t of now) {
+      if (openTabs.has(t)) continue;
+      ui.fresh.add(t);
+      toast(`🔓 ${TABS.find((x) => x.id === t).label} unlocked!`, 'gold');
+    }
+  }
+  openTabs = new Set(now);
 }
 
 const actions = {
-  tab: (d) => { ui.tab = d.tab; if (d.tab === 'people') G.count(state, 'rankView'); sfx.click(); $('view').scrollTop = 0; refresh(); },
+  tab: (d) => {
+    if (!G.tabUnlocked(state, d.tab)) {
+      sfx.error();
+      toast(`🔒 ${TABS.find((t) => t.id === d.tab)?.label || 'This tab'} opens at level ${TAB_UNLOCK[d.tab]}. Fight, work and train to level up!`, 'bad');
+      return;
+    }
+    ui.fresh.delete(d.tab);
+    ui.tab = d.tab;
+    if (d.tab === 'people') G.count(state, 'rankView');
+    sfx.click();
+    $('view').scrollTop = 0;
+    refresh();
+  },
   rankSet: (d) => { ui[d.k] = d.k === 'nationAll' ? d.v === '1' : d.v; sfx.click(); refresh(); },
   work: () => result(G.work(state), (r) => { sfx.work(); toast(`🛠️ Worked: +💰${fmtMoney(r.money)}`, 'good'); }),
   train: () => result(G.train(state), (r) => { sfx.work(); toast(`🏋️ Trained: +${r.gain} strength`, 'good'); }),
   eat: () => result(G.eat(state), (r) => { sfx.eat(); closeModal(); toast(`🍞 +${Math.round(r.gained)} energy`, 'good'); }),
   fight: (d) => startFight(Number(d.id)),
-  claimTutorial: () => result(G.claimTutorial(state), (r) => { sfx.coin(); toast(`🎯 Mission complete: ${G.rewardText(r.reward)}`, 'gold'); }),
+  claimTutorial: () => result(G.claimTutorial(state), (r) => {
+    sfx.coin();
+    toast(`🎯 Mission complete: ${G.rewardText(r.reward)}`, 'gold');
+    checkUnlocks();
+    // the guided missions are done: the daily reward that waited can show now
+    if (!G.onboarding(state) && state.daily.loginPending) setTimeout(() => { if (!modalOpen()) showLoginReward(); }, 900); // after the reward toast
+  }),
+  coachSkip: () => {
+    state.tutorial.skip = true;
+    sfx.click();
+    checkUnlocks();
+    toast('Tutorial skipped. Your missions stay on Home.', 'info');
+    refresh();
+  },
   claimDaily: (d) => result(G.claimDaily(state, d.id), () => sfx.coin()),
   claimDailyBonus: () => result(G.claimDailyBonus(state), () => { sfx.win(); SDK.happytime(); toast('📅 Daily bonus claimed!', 'gold'); }),
   build: (d) => result(G.build(state, d.type), () => { sfx.coin(); toast('🏗️ Company built!', 'good'); }),
@@ -320,7 +375,8 @@ const actions = {
   help: () => openModal(helpHtml()),
   closeModal: () => {
     closeModal();
-    if (state?.daily.loginPending) setTimeout(showLoginReward, 250);
+    if (state?.daily.loginPending && !guided()) setTimeout(showLoginReward, 250);
+    else setTimeout(coach, 50);
   },
   claimLogin: () => { const r = G.claimLogin(state); closeModal(); if (r.ok) { sfx.coin(); toast(`🎁 ${G.rewardText(r.reward)}`, 'gold'); } refresh(); },
   claimLoginDouble: () => { closeModal(); rewarded(() => { const r = G.claimLogin(state, 2); if (r.ok) toast(`🎁 2× ${G.rewardText(r.reward)}`, 'gold'); }); },
@@ -486,8 +542,8 @@ const actions = {
     G.tick(state);
     pendingLoad = null;
     enterGame();
-    openModal(helpHtml());
     saveAndFlush();
+    firstBattle();
   },
 };
 
@@ -517,8 +573,8 @@ function openEnergyMenu() {
 }
 
 function showLoginReward() {
-  const r = state.daily.loginPending;
-  if (!r) return;
+  const r = state?.daily.loginPending; // the career may have been closed while this waited
+  if (!r || !started) return;
   openModal(`<h2>🎁 Daily reward — day ${state.daily.streak}</h2>
     <p>Come back every day for bigger rewards!</p>
     <p class="big-reward">${G.rewardText(r)}</p>
@@ -536,9 +592,12 @@ function enterGame() {
   state.settings.muted = state.settings.muted || menuMuted();
   $('tb-mute').textContent = state.settings.muted ? '🔇' : '🔊';
   setMuted(state.settings.muted || SDK.muteRequested());
+  openTabs = null;
+  ui.fresh.clear();
+  checkUnlocks();
   refresh();
   SDK.gameplayStart();
-  if (state.daily.loginPending) setTimeout(() => { if (!modalOpen()) showLoginReward(); }, 400);
+  if (state.daily.loginPending && !guided()) setTimeout(() => { if (!modalOpen()) showLoginReward(); }, 400);
   if (loopsStarted) return;
   loopsStarted = true;
   let lastSave = Date.now();
@@ -548,6 +607,8 @@ function enterGame() {
     if (Date.now() - state.lastTick > AWAY_GAP_MS) G.resume(state);
     G.tick(state);
     renderTop(state);
+    checkUnlocks();
+    coach();
     if (dirty && !battleOpen() && !routineOpen() && !modalOpen() && !ui.panning && ['home', 'war', 'people'].includes(ui.tab) && document.activeElement?.tagName !== 'INPUT') refresh();
     if (Date.now() - lastSave > 5000) { save(); lastSave = Date.now(); }
   }, 500);
@@ -625,6 +686,8 @@ document.addEventListener('click', (e) => {
   }
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOpen()) closeModal(); });
+$('view').addEventListener('scroll', () => coach(), { passive: true });
+window.addEventListener('resize', () => coach());
 document.addEventListener('visibilitychange', () => {
   setHidden(document.hidden);
   if (!started) return;
@@ -647,7 +710,31 @@ async function boot() {
   showMusic();
   SDK.loadingStop();
   $('loading').hidden = true;
+  if (!slots.some((c) => c.save)) { await quickStart(); return; }
   renderMenu(slots, Store.lastPlayedSlot(), showExit());
+}
+
+// A first visit lands straight in a battle: a citizen of the player's language country with a local name
+// (or their CrazyGames username). The country can be changed later for free (Politics → Citizenship).
+async function quickStart() {
+  pendingSlot = 1;
+  Store.setSlot(1);
+  const uname = await SDK.getUsername();
+  const fem = Math.random() < 0.5;
+  const name = (uname || G.nameSuggestions(null, pickedCountry, fem, 1)[0]).slice(0, 18);
+  state = G.newGame({ name, country: pickedCountry });
+  if (!uname) state.player.fem = fem;
+  G.openFirstFront(state);
+  G.tick(state);
+  enterGame();
+  saveAndFlush();
+  firstBattle();
+}
+
+// A brand-new citizen goes straight to the front line of their country's most urgent battle.
+function firstBattle() {
+  const c = activeCampaigns(state)[0];
+  if (c) startFight(c.id);
 }
 
 boot();

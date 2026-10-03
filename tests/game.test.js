@@ -208,11 +208,32 @@ test('world simulation keeps running and never breaks invariants', () => {
 test('tutorial progresses and pays rewards', () => {
   const s = fresh();
   assert.equal(G.claimTutorial(s).ok, false);
+  G.count(s, 'kill', 10); // the first mission is fought in the opening battle
+  assert.ok(G.claimTutorial(s).ok);
+  assert.equal(s.tutorial.step, 1);
   G.work(s);
   const m = s.player.money;
   assert.ok(G.claimTutorial(s).ok);
   assert.equal(s.player.money, m + 20);
-  assert.equal(s.tutorial.step, 1);
+  assert.equal(s.tutorial.step, 2);
+});
+
+test('a new player sees the basic tabs; the others open with level or when a mission needs them', () => {
+  const s = fresh();
+  assert.ok(G.onboarding(s));
+  for (const t of ['home', 'war', 'economy']) assert.ok(G.tabUnlocked(s, t), t);
+  for (const t of ['market', 'politics', 'people', 'medals']) assert.equal(G.tabUnlocked(s, t), false, t);
+  s.player.level = 2;
+  assert.ok(G.tabUnlocked(s, 'market'));
+  assert.equal(G.tabUnlocked(s, 'politics'), false);
+  s.player.level = 1;
+  s.tutorial.step = 5; // the mission that sends the player to the Citizens rankings
+  assert.ok(G.tabUnlocked(s, 'people'), 'a mission opens its tab early');
+  assert.equal(G.onboarding(s), false, 'pop-ups are back once the guided missions are done');
+  const k = fresh();
+  k.tutorial.skip = true;
+  assert.equal(G.onboarding(k), false);
+  assert.ok(G.tabUnlocked(k, 'politics'), 'skipping the tutorial opens everything');
 });
 
 test('daily missions reset per day and login streak grows', () => {
@@ -528,7 +549,8 @@ test('the player can move to another nation under a local name', async () => {
   assert.equal(s.player.country, 'FR');
   assert.equal(s.player.name, names[0]);
   assert.equal(s.player.fem, true);
-  assert.equal(s.player.gold, 30 - CONFIG.citizenshipGold);
+  assert.equal(s.player.gold, 30, 'the first move is free');
+  assert.equal(G.citizenshipCost(s), CONFIG.citizenshipGold);
   assert.ok(!s.politics.president && !s.politics.congress && !s.politics.party, 'seats and party are left behind');
   assert.ok(s.citizens[s.presidents.DE]?.c === 'DE' && s.citizens[s.presidents.DE].pres, 'Germany gets a new President');
   assert.ok(s.feed.some((f) => f.text.includes('moved from Germany to France and is now called')));

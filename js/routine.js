@@ -56,6 +56,7 @@ export function openRoutine(state, mode, h) {
   flagImage(state.player.country);
   $('routine').hidden = false;
   setMode(mode);
+  if (hooks.coach && mode !== 'eat') coachGauge();
   R.raf = requestAnimationFrame(loop);
 }
 
@@ -64,6 +65,7 @@ export function closeRoutine() {
   cancelAnimationFrame(R.raf);
   R = null;
   bg = null;
+  $('r-leave').classList.remove('pulse');
   $('routine').hidden = true;
 }
 
@@ -170,13 +172,18 @@ function onClick(e) {
   hud(true);
 }
 
+// A new player is shown the gold zone once per visit.
+function coachGauge() {
+  flashMsg(`👆 Tap when the marker is in the gold zone: +${(R.mode === 'work' ? CONFIG.perfectWorkBonus : CONFIG.perfectTrainBonus) * 100}%`, 4500);
+}
+
 let msgTimer = 0;
-function flashMsg(text) {
+function flashMsg(text, ms = 2200) {
   const el = $('r-msg');
   el.textContent = text;
   el.hidden = false;
   clearTimeout(msgTimer);
-  msgTimer = setTimeout(() => { el.hidden = true; }, 2200);
+  msgTimer = setTimeout(() => { el.hidden = true; }, ms);
 }
 
 // ------------------------------------------------------------ actions
@@ -225,6 +232,14 @@ function record(n, sum, perfect) {
   R.streak = perfect ? R.streak + 1 : 0;
   hooks.onChange?.();
   hud(true);
+  missionCheck();
+}
+
+// A guided mission done here: point back to HQ, where the reward is claimed.
+function missionCheck() {
+  if (!hooks.missionReady?.()) return;
+  $('r-leave').classList.add('pulse');
+  setTimeout(() => { if (R) flashMsg('🎯 Mission complete! ⟵ HQ to claim your reward', 3500); }, 700);
 }
 
 function start(value, n, perfect) {
@@ -253,6 +268,7 @@ function eatNow() {
   R.anim = { t: 0, dur: MODES.eat.dur * Math.min(3, r.eaten), bites: Math.min(3, r.eaten), value: r.gained, n: r.eaten, hit: false };
   hooks.onChange?.();
   hud(true);
+  missionCheck();
 }
 
 // The reward appears when the hammer lands, the bar locks out or the spoon reaches the mouth.
