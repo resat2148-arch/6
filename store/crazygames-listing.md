@@ -38,23 +38,23 @@ Work, train and fight for your nation on a real map of Europe — build companie
 
 ## Description
 
-Start as a simple citizen of one of 37 European countries and rise to lead your nation. Every region on the map of Europe can be won or lost, and a living world of 1,000+ AI citizens works, trades, votes and fights beside you — and against you.
+Start as a citizen of one of 37 European countries and rise to lead your nation. Every region on the real map of Europe can be won or lost, and a living world of 1,000+ AI citizens works, trades, votes and fights beside you — and against you.
 
-**Fight for your country.** Battles are fast 5-minute clashes: tap the enemies popping out of the trenches, land headshots, chain combos and push the battle wall. Every hit counts for your whole nation — win the battle and your country takes the region. Bigger countries have more citizens and more firepower, so every conquest makes your nation stronger.
+**Fight for your country.** Battles are fast 5-minute clashes: tap the enemies popping out of the trenches, land headshots, chain combos and push the battle wall. Fellow citizens fight right beside you, and every hit counts for your whole nation — win the battle and your country takes the region.
 
-**Build your strength.** Hammer out shifts at the factory for a salary, lift at the training camp to grow stronger and refuel in the mess hall — hit the gold zone for a perfect bonus. Upgrade your training grounds for bigger gains. Climb through dozens of military ranks — each rank makes every shot hit harder.
+**Build your strength.** Hammer out shifts at the factory, lift at the training camp and refuel in the mess hall — hit the gold zone for a perfect bonus. Climb through 69 military ranks; every rank makes each shot hit harder.
 
-**Run an economy.** Build farms, mines, bakeries, armories, quarries and construction companies. Produce food, weapons and houses, then sell them on a real player-driven market where AI citizens post offers and buy yours. Move into a better house for more energy.
+**Run an economy.** Build farms, mines, bakeries, armories and construction companies. Produce food, weapons and houses and trade them on a living market where AI citizens buy and sell. Move into a better house for more energy.
 
-**Rule your nation.** Join a party, run for Congress or President, set national policies, found a newspaper and publish articles. AI politicians campaign against you and the voters decide.
+**Rule your nation.** Join a party, run for Congress or President, set national policies and publish your own newspaper. As President, declare wars and lead your country on several fronts — or move to another nation and start over under a new name.
 
-**Always something to do.** Daily rewards, missions, medals, national rankings and a living world that waits for you — close the game and everything continues exactly where you left it. Keep up to three separate careers and play the one you like.
+**Always something to do.** Missions, daily rewards, medals and national rankings. Your progress is saved automatically, and the world waits for you while you are away. Keep up to three separate careers.
 
 ## Controls
 
-- **Mouse / touch:** tap buttons to work, train, build and trade.
+- **Mouse / touch:** tap the buttons to work, train, eat, build and trade.
+- **Battle:** click or tap enemies to shoot. Headshots deal double damage. Switch weapons with the Q1–Q5 buttons; tap the rocket button, then the battlefield, to fire a bazooka.
 - **Factory / training camp:** tap (or press Space) when the marker is in the gold zone for a perfect bonus.
-- **Battle:** click or tap enemies to shoot them. Headshots deal double damage. Use the Bazooka button to hit every enemy on screen.
 - **Map:** drag to move, scroll or pinch to zoom, tap a region for details.
 
 ## Features (portal "Features" alanı varsa)
