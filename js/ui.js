@@ -8,7 +8,7 @@ import { flagSvg } from './flags.js';
 import { fmt, fmtMoney, fmtTime, esc } from './util.js';
 import { MAP_W, MAP_H, EU_REGIONS, EU_PATHS, EU_NEUTRAL, EU_BORDERS } from './europe.js';
 import { tabBackground } from './backgrounds.js';
-import { ico } from './icons.js';
+import { ico, iconize } from './icons.js';
 import { PERSONAS, botRank, citizensOf, sellerName, activeCitizens, populationTarget } from './citizens.js';
 import { neighborsOf, regionsOf, isAlive, countryPower, distinctResources, resourceBonus } from './world.js';
 
@@ -30,7 +30,7 @@ export function toast(text, kind = 'info') {
   const box = $('toasts');
   const el = document.createElement('div');
   el.className = 'toast ' + kind;
-  el.textContent = text;
+  el.innerHTML = iconize(esc(text)); // message emoji drawn as icons
   box.appendChild(el);
   while (box.children.length > 4) box.firstChild.remove();
   setTimeout(() => el.classList.add('out'), 2600);
@@ -50,7 +50,7 @@ export const modalOpen = () => !$('modal').hidden;
 
 export function banner(title, sub) {
   const el = $('banner');
-  el.innerHTML = `<div class="banner-in"><b>${title}</b><span>${sub || ''}</span></div>`;
+  el.innerHTML = `<div class="banner-in"><b>${iconize(title)}</b><span>${iconize(sub || '')}</span></div>`;
   el.hidden = false;
   el.classList.remove('show');
   void el.offsetWidth;
@@ -218,7 +218,8 @@ export function moveNameHtml(s, mv) {
     <div class="row"><button class="btn primary" data-act="moveConfirm">🧳 ${G.citizenshipCost(s) ? `Move for 🪙${G.citizenshipCost(s)}` : 'Move (free)'}</button><button class="btn ghost" data-act="citizenship">← Back</button></div>`;
 }
 
-export function renderStart(defaultName, picked, legacy = false) {
+// first: the very first visit (no careers): a welcome line and no way back to an empty menu.
+export function renderStart(defaultName, picked, legacy = false, first = false) {
   const count = (id) => EU_REGIONS.filter((r) => r.c === id).length;
   const cards = [...COUNTRIES].sort((a, b) => a.name.localeCompare(b.name)).map((c) => `
     <button class="country-card ${c.id === picked ? 'sel' : ''}" data-act="pickCountry" data-id="${c.id}" style="--cc:${c.color}">
@@ -231,9 +232,9 @@ export function renderStart(defaultName, picked, legacy = false) {
       <p class="tag">Work. Train. Fight. Build an empire and rule a nation.</p>
       ${legacy ? '<p class="legacy">🗺️ The world is now a real map of Europe. Your citizen keeps level, strength, rank, money, items, companies and medals. Pick your new country.</p>' : ''}
       <label class="field"><span>Citizen name</span><span class="name-row"><input id="start-name" maxlength="18" value="${esc(defaultName)}" autocomplete="off">${btn('🎲 ♂', 'startNameDice', 'data-f="0"', 'small ghost')}${btn('🎲 ♀', 'startNameDice', 'data-f="1"', 'small ghost')}</span></label>
-      <p class="muted small">Choose your citizenship — big nations are safer, small ones are a challenge</p>
+      <p class="muted small">${first ? 'Pick your name and country — you can change both later.' : 'Choose your citizenship — big nations are safer, small ones are a challenge'}</p>
       <div class="country-grid">${cards}</div>
-      <div class="row menu-row"><button class="btn big ghost" data-act="menuBack">← Back</button><button class="btn primary big" data-act="startGame">Become a citizen</button></div>
+      <div class="row menu-row">${first ? '' : `<button class="btn big ghost" data-act="menuBack">${ico('back')} Back</button>`}<button class="btn primary big" data-act="startGame">${ico('play')} Become a citizen</button></div>
     </div>`;
   $('start').hidden = false;
   const grid = document.querySelector('.country-grid');
@@ -334,7 +335,7 @@ function home(s) {
   <section class="grid">
     ${housingCard(s)}
     ${s.feed.length ? `<div class="card"><div class="row spread"><h3>${ico('news')} Europe news</h3>${G.tabUnlocked(s, 'people') ? btn('More', 'tab', 'data-tab="people"', 'small ghost') : ''}</div>
-      ${s.feed.slice(0, 3).map((f) => `<div class="news">${esc(f.text)}</div>`).join('')}</div>` : ''}
+      ${s.feed.slice(0, 3).map((f) => `<div class="news">${iconize(esc(f.text))}</div>`).join('')}</div>` : ''}
     ${dailyHtml}
     ${s.world.domination ? `<div class="card">${eraBanner(s)}</div>` : ''}
   </section>
@@ -932,7 +933,7 @@ function people(s) {
     </div>
     <div class="card">
       <h3>📰 Europe news</h3>
-      ${s.feed.length ? s.feed.slice(0, 14).map((f) => `<div class="news"><small class="muted">${ago(Date.now() - f.t)}</small> ${esc(f.text)}</div>`).join('') : '<p class="muted">News will appear as citizens act.</p>'}
+      ${s.feed.length ? s.feed.slice(0, 14).map((f) => `<div class="news"><small class="muted">${ago(Date.now() - f.t)}</small> ${iconize(esc(f.text))}</div>`).join('') : '<p class="muted">News will appear as citizens act.</p>'}
     </div>
     <div class="card">
       <h3>👥 Society</h3>

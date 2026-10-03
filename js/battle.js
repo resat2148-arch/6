@@ -4,7 +4,7 @@ import { countryById, CONFIG, FOOD_ENERGY } from './data.js';
 import * as G from './game.js';
 import { sfx } from './sfx.js';
 import { flagSvg } from './flags.js';
-import { ico } from './icons.js';
+import { ico, iconize } from './icons.js';
 import { fmt, randRange, clamp, esc } from './util.js';
 import {
   buildBackground, buildCover, buildVignette, soldierSprite, clearSprites, setFlagListener, flagImage, sprites, drawWeapon, weaponMuzzle, WEAPONS, SOLDIER_MUZZLE,
@@ -378,7 +378,7 @@ function onHudClick(e) {
 
 function flashMsg(text) {
   const el = $('b-msg');
-  el.textContent = text;
+  el.innerHTML = iconize(esc(text));
   el.hidden = false;
   S.msgT = 2.2;
 }

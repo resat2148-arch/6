@@ -8,8 +8,8 @@ import { flagImage } from './battle-art.js';
 import {
   buildRoutineBg, conveyorY, drawPerson, drawHammer, drawBench, drawCrate, drawBarbell, drawFlag, drawTable, drawTray, drawSpoon,
 } from './routine-art.js';
-import { fmt, fmtMoney, clamp } from './util.js';
-import { ico } from './icons.js';
+import { fmt, fmtMoney, clamp, esc } from './util.js';
+import { ico, iconize } from './icons.js';
 
 const $ = (id) => document.getElementById(id);
 const MODES = {
@@ -181,7 +181,7 @@ function coachGauge() {
 let msgTimer = 0;
 function flashMsg(text, ms = 2200) {
   const el = $('r-msg');
-  el.textContent = text;
+  el.innerHTML = iconize(esc(text));
   el.hidden = false;
   clearTimeout(msgTimer);
   msgTimer = setTimeout(() => { el.hidden = true; }, ms);

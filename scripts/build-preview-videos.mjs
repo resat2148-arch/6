@@ -37,11 +37,11 @@ async function record(browser, f) {
 
   const ctx = await browser.newContext({ viewport: f.viewport, deviceScaleFactor: f.scale, hasTouch: f.mobile, isMobile: f.mobile, locale: 'en-US' });
   const p = await ctx.newPage();
-  await p.goto(BASE + 'index.html'); // a fresh profile: the first visit lands in a battle
-  await p.waitForSelector('#battle:not([hidden])');
-  await p.click('#b-leave');
-  await p.waitForTimeout(400);
-  if (await p.isVisible('#battle [data-bact="exit"]')) await p.click('#battle [data-bact="exit"]');
+  await p.goto(BASE + 'index.html'); // a fresh profile: the first visit opens the citizen screen
+  await p.waitForSelector('#start:not([hidden])');
+  await p.fill('#start-name', 'Commander');
+  await p.click('.country-card[data-id="DE"]');
+  await p.click('[data-act="startGame"]');
   const dismiss = async () => {
     for (let i = 0; i < 4; i++) {
       await p.waitForTimeout(400);

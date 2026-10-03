@@ -640,12 +640,12 @@ async function showMenu() {
   renderMenu(await refreshSlots(), Store.lastPlayedSlot(), showExit());
 }
 
-async function openCountrySelect() {
+async function openCountrySelect(first = false) {
   $('menu').hidden = true;
   const uname = await SDK.getUsername();
   const own = legacySave?.player.name || uname;
   autoName = null;
-  renderStart(own || '', pickedCountry, !!legacySave);
+  renderStart(own || '', pickedCountry, !!legacySave, first);
   if (!own) suggestStartName(Math.random() < 0.5); // no name of their own yet: a local one for the country picked
 }
 
@@ -716,31 +716,17 @@ async function boot() {
   showMusic();
   SDK.loadingStop();
   $('loading').hidden = true;
-  if (!slots.some((c) => c.save)) { await quickStart(); return; }
+  if (!slots.some((c) => c.save)) { firstVisit(); return; }
   renderMenu(slots, Store.lastPlayedSlot(), showExit());
 }
 
-// A first visit lands straight in a battle: a citizen of the player's language country with a local name
-// (or their CrazyGames username). The country can be changed later for free (Politics → Citizenship).
-async function quickStart() {
+// A first visit (no careers yet) opens the citizen screen straight away, already filled in with the
+// player's language country and a local name: one tap on "Become a citizen" starts career 1.
+function firstVisit() {
   pendingSlot = 1;
-  Store.setSlot(1);
-  const uname = await SDK.getUsername();
-  const fem = Math.random() < 0.5;
-  const name = (uname || G.nameSuggestions(null, pickedCountry, fem, 1)[0]).slice(0, 18);
-  state = G.newGame({ name, country: pickedCountry });
-  if (!uname) state.player.fem = fem;
-  G.openFirstFront(state);
-  G.tick(state);
-  enterGame();
-  saveAndFlush();
-  firstBattle();
-}
-
-// A brand-new citizen goes straight to the front line of their country's most urgent battle.
-function firstBattle() {
-  const c = activeCampaigns(state)[0];
-  if (c) startFight(c.id);
+  replacing = false;
+  legacySave = null;
+  openCountrySelect(true);
 }
 
 boot();
