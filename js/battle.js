@@ -829,6 +829,7 @@ function fighterName(id) {
 const MEDAL_NAMES = { battleHero: 'Battle Hero', truePatriot: 'True Patriot', campaignHero: 'Campaign Hero', resistanceHero: 'Resistance Hero' };
 
 function showCard({ cls, title, sub, res, extra = '', medals, buttons }) {
+  const hq = S.coach && S.coachDone; // first battle, mission done: the way to the reward is the main button
   const list = medals || res?.medals || [];
   const medalHtml = list.map((m) => `<span class="pill gold">🎖️ ${MEDAL_NAMES[m] || m}</span>`).join(' ');
   const el = $('b-result');
@@ -844,7 +845,7 @@ function showCard({ cls, title, sub, res, extra = '', medals, buttons }) {
       ${res ? `<p class="rewards">💰 +${res.money.toFixed(2)} &nbsp; ✨ +${res.xp} XP &nbsp; 🎖️ +${fmt(res.rp)} rank pts</p>` : ''}
       ${medalHtml ? `<p>${medalHtml}</p>` : ''}
       ${extra}
-      <div class="row">${buttons}<button class="btn" data-bact="exit">Back to HQ</button></div>
+      <div class="row">${hq ? buttons.replace('btn primary', 'btn') : buttons}<button class="btn ${hq ? 'primary' : ''}" data-bact="exit">Back to HQ</button></div>
     </div>`;
   el.hidden = false;
   hooks.onCoach?.();
