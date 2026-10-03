@@ -46,12 +46,14 @@ function feminine(c, last) {
   if (c === 'GR' && last.endsWith('os')) return last.slice(0, -2) + 'ou';
   if (c === 'GR' && last.endsWith('is')) return last.slice(0, -1);
   if (c === 'CZ' && last.endsWith('ý')) return last.slice(0, -1) + 'á';
+  if (c === 'CZ' && last.endsWith('a')) return last.slice(0, -1) + 'ová';
   if (c === 'CZ' && /[kr]$/.test(last)) return last.replace(/á(?=[kr]$)/, 'á') + 'ová';
   return last;
 }
 
 // taken: names already used in that country. The least used surnames come first and a full name is never repeated.
-export function citizenName(c, rnd, taken = []) {
+// keep: the gender to keep (true = female) for someone taking a local name in a new country; null = random.
+export function citizenName(c, rnd, taken = [], keep = null) {
   const [f, l] = (P[c] || P.GB).map((x) => x.split(','));
   const used = new Set(taken);
   const count = (last) => taken.filter((n) => n.endsWith(' ' + last) || n.endsWith(' ' + feminine(c, last))).length;
@@ -60,11 +62,17 @@ export function citizenName(c, rnd, taken = []) {
   let name = '';
   let female = false;
   for (let tries = 0; tries < 12; tries++) {
-    const i = Math.floor(rnd() * f.length);
+    const i = keep === null ? Math.floor(rnd() * f.length) : (keep ? 5 : 0) + Math.floor(rnd() * 5); // 5 male, then 5 female
     female = i >= 5;
     const last = pool[Math.floor(rnd() * pool.length)];
     name = `${f[i]} ${female ? feminine(c, last) : last}`;
     if (!used.has(name)) break;
   }
   return { name, female };
+}
+
+// Is this a name people of that country carry (first name and surname from its pool)?
+export function nameFits(c, name) {
+  const [f, l] = (P[c] || P.GB).map((x) => x.split(','));
+  return f.some((first) => name.startsWith(first + ' ') && l.some((last) => name === `${first} ${last}` || name === `${first} ${feminine(c, last)}`));
 }

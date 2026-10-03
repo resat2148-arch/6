@@ -483,6 +483,36 @@ test('population follows territory: winners grow, losers shrink, migrants move b
   assert.ok(s.citizens.some((b) => b.c === 'TR' && b.fem !== undefined));
 });
 
+test('citizens who move to another country take a local name of the same gender', async () => {
+  const { populationStep, populationOf, populationTarget } = await import('../js/citizens.js');
+  const { nameFits } = await import('../js/names.js');
+  const s = fresh();
+  s.world.regions.filter((r) => r.owner === 'GR').forEach((r) => { r.owner = 'TR'; });
+  const greeks = new Map(s.citizens.filter((b) => b.c === 'GR' && !b.pres).map((b) => [b, { n: b.n, fem: b.fem }])); // newcomers may reuse an id
+  const feed = [];
+  const news = { budget: 999, feed: (t) => feed.push(t) };
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < 80 && populationOf(s, 'TR') < populationTarget(s.world.regions.filter((r) => r.owner === 'TR').length); i++) populationStep(s, news, rnd);
+  const moved = s.citizens.filter((b) => greeks.has(b) && b.c === 'TR');
+  assert.ok(moved.length > 3, 'Greeks moved to Turkey');
+  for (const b of moved) {
+    assert.ok(nameFits('TR', b.n), `${b.n} is a Turkish name`);
+    assert.notEqual(b.n, greeks.get(b).n);
+    assert.equal(b.fem, greeks.get(b).fem, 'gender is kept');
+  }
+  assert.ok(feed.some((t) => /moved from Greece to Turkey and is now called/.test(t)), 'the news tells the new name');
+  // An older save with a migrant still carrying a foreign name gets it localized on load.
+  const t = fresh();
+  const b = t.citizens.find((x) => x.c === 'DE' && !x.pres);
+  b.c = 'FR';
+  const old = G.packSave(t);
+  delete old.localNames;
+  const back = G.migrate(JSON.parse(JSON.stringify(old)), T0);
+  assert.ok(nameFits('FR', back.citizens[b.id].n), back.citizens[b.id].n);
+  assert.equal(back.citizens[b.id].fem, b.fem);
+});
+
 test('five times the citizens: packed saves round-trip and old saves are filled up', async () => {
   const { POP_SCALE, populationTarget, populationOf } = await import('../js/citizens.js');
   assert.equal(POP_SCALE, 5);

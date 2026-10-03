@@ -8,7 +8,7 @@ import {
   createWorld, neighborsOf, regionsOf, isAlive, countryPower, borderTargets, resourceBonus, morale,
 } from './world.js';
 import { clamp, pick, randRange, shuffle, dayKey } from './util.js';
-import { createCitizens, seedMarket, citizensStep, topCitizen, feed, populationTarget, fillPopulation, rebalancePopulation, packCitizens, unpackCitizens, POP_SCALE, deliverSorties, liveFighters } from './citizens.js';
+import { createCitizens, seedMarket, citizensStep, topCitizen, feed, populationTarget, fillPopulation, rebalancePopulation, packCitizens, unpackCitizens, POP_SCALE, deliverSorties, liveFighters, localizeNames } from './citizens.js';
 export { liveFighters };
 import { articleTitle, addArticle, botPopularity } from './press.js';
 import {
@@ -54,6 +54,7 @@ export function newGame({ name, country, now = Date.now(), seed = Math.floor(Mat
     market: { prices, offers: [], nextOfferId: 1, sold: {} },
     citizens: createCitizens(seed),
     popScale: POP_SCALE,
+    localNames: true, // citizens who moved carry a name of their new country (see localizeNames)
     feed: [],
     articles: [],
     nextArticleId: 1,
@@ -113,6 +114,8 @@ export function migrate(saved, now = Date.now()) {
   // Saves from before the 5x population: newcomers fill every nation up to its new size.
   if ((saved.popScale || 1) !== POP_SCALE && s.citizens) fillPopulation(s);
   s.popScale = POP_SCALE;
+  if (!saved.localNames && s.citizens) localizeNames(s);
+  s.localNames = true;
   s.v = SAVE_VERSION;
   return s;
 }

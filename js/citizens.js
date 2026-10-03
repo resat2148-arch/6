@@ -5,7 +5,7 @@ import {
 } from './data.js';
 import { EU_REGIONS } from './europe.js';
 import { morale } from './world.js';
-import { citizenName } from './names.js';
+import { citizenName, nameFits } from './names.js';
 import { takeOffers, listOffer, offersFor, pruneOffers } from './market.js';
 import { mulberry32, pick, clamp } from './util.js';
 import { pressStep, newspaperName } from './press.js';
@@ -85,6 +85,30 @@ export function fillPopulation(s, rnd = Math.random) {
   return added;
 }
 
+// Someone who settles in another nation takes a local name of the same gender (and renames their newspaper).
+// Returns the name they had before.
+export function naturalize(s, b, cid, rnd = Math.random) {
+  const old = b.n;
+  b.c = cid;
+  b.cong = false;
+  if (nameFits(cid, b.n)) return old;
+  const taken = s.citizens.filter((x) => x.c === cid && x !== b).map((x) => x.n);
+  b.n = citizenName(cid, rnd, taken, !!b.fem).name;
+  if (b.np) b.np.name = newspaperName(b, rnd);
+  return old;
+}
+
+// Saves from before naturalization: citizens who already moved get a name of their new country.
+export function localizeNames(s, rnd = Math.random) {
+  let n = 0;
+  for (const b of s.citizens || []) {
+    if (!b.c || b.pres || nameFits(b.c, b.n)) continue;
+    naturalize(s, b, b.c, rnd);
+    n++;
+  }
+  return n;
+}
+
 // A new era: people move back so every reborn nation has its full population (veterans keep their stats).
 export function rebalancePopulation(s, rnd = Math.random) {
   const regions = {};
@@ -102,8 +126,7 @@ export function rebalancePopulation(s, rnd = Math.random) {
       const b = surplus.pop();
       if (!b) break;
       s.market.offers = s.market.offers.filter((o) => o.seller !== b.id);
-      b.c = c.id;
-      b.cong = false;
+      naturalize(s, b, c.id, rnd);
     }
   }
   return fillPopulation(s, rnd);
@@ -179,9 +202,8 @@ export function populationStep(s, news, rnd = Math.random) {
     for (let k = step(gap[c.id]); k > 0; k--) {
       const from = leaving.shift();
       if (from) {
-        moves.push({ b: from, from: from.c, to: c.id });
-        from.c = c.id;
-        from.cong = false;
+        const fromC = from.c;
+        moves.push({ b: from, from: fromC, to: c.id, was: naturalize(s, from, c.id, rnd) });
       } else {
         const b = newcomer(s, c.id, rnd);
         if (c.id === player && news.budget > 0) { news.budget--; news.feed(`👶 ${b.n} became a new citizen of ${countryById(c.id).name}`); }
@@ -199,7 +221,8 @@ export function populationStep(s, news, rnd = Math.random) {
     if (news.budget <= 0) break;
     if (m.from === player || m.to === player || rnd() < 0.3) {
       news.budget--;
-      news.feed(`🧳 ${m.b.n} moved from ${countryById(m.from).name} to ${countryById(m.to).name}`);
+      const renamed = m.was !== m.b.n ? ` and is now called ${m.b.n}` : '';
+      news.feed(`🧳 ${m.was} moved from ${countryById(m.from).name} to ${countryById(m.to).name}${renamed}`);
     }
   }
   return { moves: moves.length, left: leaving.length };
