@@ -93,7 +93,7 @@ function resize() {
   canvas.style.height = H + 'px';
   unit = clamp(Math.min(H / 560, W / 480), 0.7, 1.7);
   // keep the carbine above the bottom panel (two rows tall on phones)
-  const panel = document.querySelector('.b-bottom');
+  const panel = $('battle').querySelector('.b-bottom'); // the routine screens use the same panel style
   const pr = panel ? panel.getBoundingClientRect() : null;
   hudTop = pr ? pr.top - r.top : H;
   // the weapon is held in the bottom-right corner: beside a floating panel (desktop), above a full-width one (phone)
@@ -146,7 +146,7 @@ function boardSide(rows, cid, total, cls, hitting) {
 
 function renderBoard() {
   const el = $('b-board');
-  document.querySelector('.b-boardbtn')?.classList.toggle('on', !!S?.board);
+  $('battle').querySelector('.b-boardbtn')?.classList.toggle('on', !!S?.board);
   if (!S || !S.board) { el.hidden = true; return; }
   const c = G.campaignById(S.state, S.setup.campId);
   if (!c) return; // keep the last ranking on screen when the battle ends
@@ -1300,5 +1300,5 @@ export function debugTargets() {
 // Test hook: citizens standing beside the player right now (not counting those pulling back).
 export function debugAllies() {
   if (!S) return { ids: [] };
-  return { campId: S.setup.campId, side: mySideFlag(), ids: S.allies.filter((a) => a.id !== null && !a.leaving).map((a) => a.id) };
+  return { campId: S.setup.campId, side: mySideFlag(), ids: S.allies.filter((a) => a.id !== null && !a.leaving).map((a) => a.id), slots: S.allies.map((a) => ({ x: Math.round(a.x), base: Math.round(a.base) })), H, hudTop: Math.round(hudTop) };
 }
