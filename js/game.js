@@ -8,6 +8,7 @@ import {
   createWorld, neighborsOf, regionsOf, isAlive, countryPower, borderTargets, resourceBonus, morale,
 } from './world.js';
 import { clamp, pick, randRange, shuffle, dayKey } from './util.js';
+import { citizenName } from './names.js';
 import { createCitizens, seedMarket, citizensStep, topCitizen, feed, populationTarget, fillPopulation, rebalancePopulation, packCitizens, unpackCitizens, POP_SCALE, deliverSorties, liveFighters, localizeNames } from './citizens.js';
 export { liveFighters };
 import { articleTitle, addArticle, botPopularity } from './press.js';
@@ -148,6 +149,54 @@ export function upgradeLegacy(saved, country, now = Date.now()) {
     s.politics.news = saved.politics.news || null;
   }
   return s;
+}
+
+// ---------------------------------------------------------------- citizenship
+// Local names for the player in a country: n different suggestions of one gender (true = female).
+export function nameSuggestions(s, cid, female, n = 3, rnd = Math.random) {
+  const taken = (s?.citizens || []).filter((b) => b.c === cid).map((b) => b.n);
+  const out = [];
+  for (let k = 0; k < n * 4 && out.length < n; k++) {
+    const { name } = citizenName(cid, rnd, [...taken, ...out], female);
+    if (!out.includes(name)) out.push(name);
+  }
+  return out;
+}
+
+export function canChangeCitizenship(s, cid, now = Date.now()) {
+  if (!countryById(cid)) return fail('Unknown country.');
+  if (cid === s.player.country) return fail('You are already a citizen there.');
+  if (!regionsOf(s.world, cid).length) return fail('That nation has no regions left.');
+  const wait = (s.timers.lastMove || 0) + CONFIG.citizenshipCooldownMs - now;
+  if (wait > 0) return fail(`You can move again in ${Math.ceil(wait / 60000)} min.`);
+  if (s.player.gold < CONFIG.citizenshipGold) return fail(`Moving costs 🪙${CONFIG.citizenshipGold} gold.`);
+  return ok();
+}
+
+// The player settles in another nation under a local name: seats, party and campaign are left behind.
+export function changeCitizenship(s, cid, name, female = null, now = Date.now()) {
+  const chk = canChangeCitizenship(s, cid, now);
+  if (!chk.ok) return chk;
+  const clean = String(name || '').trim().slice(0, 18);
+  if (!clean) return fail('Choose a name.');
+  const from = s.player.country;
+  const pol = s.politics;
+  // The old nation needs a President if the player was one.
+  if (pol.president) {
+    const next = s.citizens.filter((b) => b.c === from).sort((a, b) => (b.lvl + b.amb * 10) - (a.lvl + a.amb * 10))[0];
+    if (next) { next.pres = true; next.cong = false; s.presidents[from] = next.id; }
+  }
+  const was = s.player.name;
+  s.player.gold -= CONFIG.citizenshipGold;
+  s.player.country = cid;
+  s.player.name = clean;
+  if (female !== null) s.player.fem = !!female;
+  s.timers.lastMove = now;
+  Object.assign(pol, { party: false, congress: false, president: false, candidate: null, policy: null, lastResult: null, voted: [] });
+  pol.presidentName = s.citizens[s.presidents?.[cid]]?.n || pick(PRESIDENT_NAMES);
+  count(s, 'move');
+  feed(s, `🧳 ${was} moved from ${countryById(from).name} to ${countryById(cid).name} and is now called ${clean}`);
+  return ok({ from, was });
 }
 
 // ---------------------------------------------------------------- derived stats

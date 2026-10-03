@@ -181,6 +181,33 @@ export function settingsHtml(muted, music) {
     <div class="row"><button class="btn" data-act="closeModal">Close</button></div>`;
 }
 
+// Moving to another nation: pick the country, then a local name.
+export function citizenshipHtml(s) {
+  const now = Date.now();
+  const wait = (s.timers.lastMove || 0) + CONFIG.citizenshipCooldownMs - now;
+  const cards = [...COUNTRIES].filter((c) => c.id !== s.player.country).sort((a, b) => a.name.localeCompare(b.name)).map((c) => {
+    const n = regionsOf(s.world, c.id).length;
+    return `<button class="country-card" data-act="citizenshipPick" data-id="${c.id}" style="--cc:${c.color}" ${n ? '' : 'disabled'}>
+      ${flagSvg(c.id, 'flag big')}<b>${c.name}</b><small>${n ? `${n} region${n > 1 ? 's' : ''}` : 'wiped out'}</small></button>`;
+  }).join('');
+  const roles = [s.politics.president && 'presidency', s.politics.congress && 'Congress seat', s.politics.party && 'party membership'].filter(Boolean);
+  return `<h2>🧳 Change citizenship</h2>
+    <p class="small">Settle in another nation and fight for it. You take a local name and keep your level, strength, rank, money, items, companies and newspaper${roles.length ? `; your ${roles.join(', ')} stay${roles.length > 1 ? '' : 's'} behind` : ''}.</p>
+    <p class="small">Cost: <b>🪙${CONFIG.citizenshipGold}</b> (you have 🪙${fmt(s.player.gold)}) · once every ${CONFIG.citizenshipCooldownMs / 60000} min${wait > 0 ? ` · <b class="red">next move in ${fmtTime(wait)}</b>` : ''}</p>
+    <div class="country-grid">${cards}</div>
+    <div class="row"><button class="btn" data-act="closeModal">Cancel</button></div>`;
+}
+
+export function moveNameHtml(s, mv) {
+  const c = countryById(mv.cid);
+  return `<h2>${flagSvg(c.id, 'flag big')} Citizen of ${c.name}</h2>
+    <p class="small">Choose your new name — people there will know you by it.</p>
+    <div class="row seg">${btn('♂ Male', 'moveGender', 'data-f="0"', `small ${mv.fem ? 'ghost' : 'primary'}`)}${btn('♀ Female', 'moveGender', 'data-f="1"', `small ${mv.fem ? 'primary' : 'ghost'}`)}${btn('🎲 Other names', 'moveReroll', '', 'small ghost')}</div>
+    <div class="name-picks">${mv.names.map((n) => btn(esc(n), 'moveName', `data-n="${esc(n)}"`, `small ${n === mv.name ? 'primary' : ''}`)).join('')}</div>
+    <label class="field"><span>Name</span><input id="move-name" maxlength="18" value="${esc(mv.name)}" autocomplete="off"></label>
+    <div class="row"><button class="btn primary" data-act="moveConfirm">🧳 Move for 🪙${CONFIG.citizenshipGold}</button><button class="btn ghost" data-act="citizenship">← Back</button></div>`;
+}
+
 export function renderStart(defaultName, picked, legacy = false) {
   const count = (id) => EU_REGIONS.filter((r) => r.c === id).length;
   const cards = [...COUNTRIES].sort((a, b) => a.name.localeCompare(b.name)).map((c) => `
@@ -193,7 +220,7 @@ export function renderStart(defaultName, picked, legacy = false) {
       <div class="logo">⭐ ${GAME_TITLE}</div>
       <p class="tag">Work. Train. Fight. Build an empire and rule a nation.</p>
       ${legacy ? '<p class="legacy">🗺️ The world is now a real map of Europe. Your citizen keeps level, strength, rank, money, items, companies and medals. Pick your new country.</p>' : ''}
-      <label class="field"><span>Citizen name</span><input id="start-name" maxlength="18" value="${esc(defaultName)}" autocomplete="off"></label>
+      <label class="field"><span>Citizen name</span><span class="name-row"><input id="start-name" maxlength="18" value="${esc(defaultName)}" autocomplete="off">${btn('🎲 ♂', 'startNameDice', 'data-f="0"', 'small ghost')}${btn('🎲 ♀', 'startNameDice', 'data-f="1"', 'small ghost')}</span></label>
       <p class="muted small">Choose your citizenship — big nations are safer, small ones are a challenge</p>
       <div class="country-grid">${cards}</div>
       <div class="row menu-row"><button class="btn big ghost" data-act="menuBack">← Back</button><button class="btn primary big" data-act="startGame">Become a citizen</button></div>
@@ -792,6 +819,7 @@ function politics(s) {
       <div class="kv"><span>Citizens · Regions</span><b>${citizensOf(s, c.id).length + 1} · ${regionsOf(s.world, c.id).length}</b></div>
       ${popTrend(s, c.id)}
       <div class="kv"><span>Rank in Europe</span><b>#${G.nationRank(s, 'regions')} by regions · #${G.nationRank(s, 'dmg')} military</b></div>
+      <div class="kv"><span>🧳 Citizenship <small class="muted">move to another nation under a local name</small></span>${btn('Move', 'citizenship', '', 'small')}</div>
       <h3 class="sub">🏛️ Congress (${seats} seats)</h3>
       <div class="members">${pol.congress ? `<div class="kv"><span>${candName(s, 'P')}</span><b>🏛️</b></div>` : ''}
       ${congress.map((b) => `<div class="kv"><span>${candName(s, b.id)}${b.pres ? ' 👑' : ''}</span><small class="muted">popularity ${fmt(G.botPopularity(b))}</small></div>`).join('')}</div>

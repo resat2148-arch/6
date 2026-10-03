@@ -513,6 +513,33 @@ test('citizens who move to another country take a local name of the same gender'
   assert.equal(back.citizens[b.id].fem, b.fem);
 });
 
+test('the player can move to another nation under a local name', async () => {
+  const { nameFits } = await import('../js/names.js');
+  const s = fresh('DE');
+  Object.assign(s.politics, { president: true, congress: true, party: true });
+  s.player.gold = 30;
+  const names = G.nameSuggestions(s, 'FR', true);
+  assert.equal(names.length, 3);
+  assert.equal(new Set(names).size, 3);
+  names.forEach((n) => assert.ok(nameFits('FR', n), n));
+  assert.equal(G.changeCitizenship(s, 'DE', names[0], true, T0).ok, false, 'not to the same country');
+  const r = G.changeCitizenship(s, 'FR', names[0], true, T0);
+  assert.ok(r.ok);
+  assert.equal(s.player.country, 'FR');
+  assert.equal(s.player.name, names[0]);
+  assert.equal(s.player.fem, true);
+  assert.equal(s.player.gold, 30 - CONFIG.citizenshipGold);
+  assert.ok(!s.politics.president && !s.politics.congress && !s.politics.party, 'seats and party are left behind');
+  assert.ok(s.citizens[s.presidents.DE]?.c === 'DE' && s.citizens[s.presidents.DE].pres, 'Germany gets a new President');
+  assert.ok(s.feed.some((f) => f.text.includes('moved from Germany to France and is now called')));
+  assert.match(G.changeCitizenship(s, 'IT', 'Marco Rossi', false, T0 + 60000).msg, /again in/, 'cooldown');
+  s.player.gold = 0;
+  assert.match(G.changeCitizenship(s, 'IT', 'Marco Rossi', false, T0 + CONFIG.citizenshipCooldownMs + 1).msg, /gold/);
+  s.world.regions.filter((x) => x.owner === 'IT').forEach((x) => { x.owner = 'FR'; });
+  s.player.gold = 30;
+  assert.match(G.changeCitizenship(s, 'IT', 'Marco Rossi', false, T0 + CONFIG.citizenshipCooldownMs + 1).msg, /no regions/);
+});
+
 test('five times the citizens: packed saves round-trip and old saves are filled up', async () => {
   const { POP_SCALE, populationTarget, populationOf } = await import('../js/citizens.js');
   assert.equal(POP_SCALE, 5);

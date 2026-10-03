@@ -40,6 +40,8 @@ export const CONFIG = {
   companyStorageMinutes: 180,
   midgameCooldownMs: 3 * 60 * 1000,
   doubleCollectCooldownMs: 5 * 60 * 1000,
+  citizenshipGold: 10, // moving to another nation costs gold…
+  citizenshipCooldownMs: 30 * 60 * 1000, // …and can be done once every 30 minutes
   freeGoldCooldownMs: 10 * 60 * 1000,
   houseDurationMs: 4 * 3600 * 1000, // a house lasts 4 hours of real time
 };

@@ -6,7 +6,7 @@ import { sfx, unlock, setMuted, setHidden } from './sfx.js';
 import { setMusic, setMood, musicOn, debugMusic } from './music.js';
 import {
   ui, renderTab, renderTop, liveUpdate, renderStart, toast, openModal, closeModal, modalOpen, banner, helpHtml, zoomMap,
-  offersModal, listModal, renderMenu, renderGoodbye, settingsHtml,
+  offersModal, listModal, renderMenu, renderGoodbye, settingsHtml, citizenshipHtml, moveNameHtml,
 } from './ui.js';
 import { initBattle, openBattle, isOpen as battleOpen, setAdPause, debugTargets, debugAllies } from './battle.js';
 import { initRoutine, openRoutine, closeRoutine, isOpen as routineOpen, debugRoutine } from './routine.js';
@@ -384,7 +384,32 @@ const actions = {
   pickCountry: (d, el) => {
     pickedCountry = d.id;
     document.querySelectorAll('.country-card').forEach((b) => b.classList.toggle('sel', b === el));
+    if (startNameIsAuto()) suggestStartName();
     sfx.click();
+  },
+  startNameDice: (d) => { suggestStartName(d.f === '1'); sfx.click(); },
+  citizenship: () => openModal(citizenshipHtml(state)),
+  citizenshipPick: (d) => {
+    const chk = G.canChangeCitizenship(state, d.id);
+    if (!chk.ok) { sfx.error(); toast(chk.msg, 'bad'); return; }
+    sfx.click();
+    move = { cid: d.id };
+    showMoveName(state.player.fem ?? false);
+  },
+  moveGender: (d) => showMoveName(d.f === '1'),
+  moveReroll: () => showMoveName(),
+  moveName: (d) => { move.name = d.n; showMoveName(move.fem, true); },
+  moveConfirm: () => {
+    const name = $('move-name').value;
+    result(G.changeCitizenship(state, move.cid, name, move.fem), (r) => {
+      closeModal();
+      sfx.win();
+      Object.assign(ui, { sel: null, vb: null });
+      toast(`🧳 Welcome to ${G.pc(state).name}, ${state.player.name}! (formerly ${r.was})`, 'gold');
+      move = null;
+      refresh();
+      save();
+    });
   },
   slotPlay: async (d) => {
     if (loadingSlot) return;
@@ -454,6 +479,7 @@ const actions = {
     Store.setSlot(pendingSlot || 1);
     const name = ($('start-name').value || '').trim().slice(0, 18) || 'Citizen';
     state = legacySave ? G.upgradeLegacy(legacySave, pickedCountry) : G.newGame({ name, country: pickedCountry });
+    if (!legacySave && name === autoName) state.player.fem = autoFem; // the gender of the proposed name, for later moves
     if (legacySave) toast('Your citizen moved to the new map of Europe with all progress kept.', 'gold');
     legacySave = null;
     G.openFirstFront(state);
@@ -549,7 +575,30 @@ async function showMenu() {
 async function openCountrySelect() {
   $('menu').hidden = true;
   const uname = await SDK.getUsername();
-  renderStart(legacySave?.player.name || uname || `Citizen${Math.floor(1000 + Math.random() * 9000)}`, pickedCountry, !!legacySave);
+  const own = legacySave?.player.name || uname;
+  autoName = null;
+  renderStart(own || '', pickedCountry, !!legacySave);
+  if (!own) suggestStartName(Math.random() < 0.5); // no name of their own yet: a local one for the country picked
+}
+
+// The start screen proposes a name of the picked country; a name the player typed is never replaced.
+let autoName = null; // the name we proposed (and its gender) while the player has not typed their own
+let autoFem = null;
+function suggestStartName(female = autoFem ?? Math.random() < 0.5) {
+  const input = $('start-name');
+  if (!input) return;
+  autoFem = female;
+  autoName = G.nameSuggestions(null, pickedCountry, female, 1)[0];
+  input.value = autoName;
+}
+const startNameIsAuto = () => { const v = ($('start-name')?.value || '').trim(); return !v || v === autoName; };
+
+// Moving to another nation (Politics → Citizenship): the country, then a local name.
+let move = null;
+function showMoveName(fem = move.fem, keepNames = false) {
+  move.fem = fem;
+  if (!keepNames) { move.names = G.nameSuggestions(state, move.cid, fem); move.name = move.names[0]; }
+  openModal(moveNameHtml(state, move));
 }
 
 // Continue a save exactly where it was left: the time away is skipped, nothing happened meanwhile.

@@ -65,6 +65,12 @@ i { font-style: normal; }
 .country-card:hover { transform: translateY(-2px); }
 .country-card.sel { border-color: var(--cc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cc) 30%, transparent); }
 .country-card small { color: var(--muted); font-size: 11px; }
+.country-card:disabled { opacity: .4; }
+.name-row { display: flex; gap: 6px; align-items: center; }
+.name-row input { flex: 1; min-width: 0; }
+.name-row .btn { flex: none; white-space: nowrap; }
+.name-picks { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 2px; }
+.modal-card .country-grid { max-height: 42dvh; }
 
 /* ---------- buttons & bars ---------- */
 .btn { background: #293756; border: 1px solid #34456a; border-radius: 10px; padding: 8px 12px; font-weight: 650; transition: filter .12s, transform .06s; white-space: nowrap; }
