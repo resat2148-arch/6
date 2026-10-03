@@ -9,12 +9,13 @@ import {
   buildRoutineBg, conveyorY, drawPerson, drawHammer, drawBench, drawCrate, drawBarbell, drawFlag, drawTable, drawTray, drawSpoon,
 } from './routine-art.js';
 import { fmt, fmtMoney, clamp } from './util.js';
+import { ico } from './icons.js';
 
 const $ = (id) => document.getElementById(id);
 const MODES = {
-  work: { icon: '🛠️', name: 'Work', place: '🏭 Factory', dur: 0.5, hit: 0.62 },
-  train: { icon: '🏋️', name: 'Train', place: '🎖️ Training camp', dur: 0.8, hit: 0.55 },
-  eat: { icon: '🍞', name: 'Eat', place: '🍽️ Mess hall', dur: 0.95, hit: 0.42 },
+  work: { name: 'Work', place: 'Factory', ic: 'factory', dur: 0.5, hit: 0.62 },
+  train: { name: 'Train', place: 'Training camp', ic: 'camp', dur: 0.8, hit: 0.55 },
+  eat: { name: 'Eat', place: 'Mess hall', ic: 'hall', dur: 0.95, hit: 0.42 },
 };
 const PERFECT = 0.09; // half width of the gold zone (gauge 0..1)
 const SWEEP = 0.95; // seconds for the marker to cross the gauge
@@ -119,25 +120,25 @@ function hud(full) {
   const left = Math.floor(p.energy / cost);
   if (!full && R.hudN === `${Math.floor(p.energy)}|${Math.floor(p.reserve)}|${foodN}|${sess.n}|${Math.round(p.money)}`) return;
   R.hudN = `${Math.floor(p.energy)}|${Math.floor(p.reserve)}|${foodN}|${sess.n}|${Math.round(p.money)}`;
-  $('r-title').textContent = m.place;
+  $('r-title').innerHTML = `${ico(m.ic, 'amber')} ${m.place}`;
   let sub;
   let chips;
   let main;
   if (R.mode === 'work') {
     sub = `Salary 💰${fmtMoney(G.salary(st))} per shift · gold zone +${CONFIG.perfectWorkBonus * 100}%`;
     chips = [`🛠️ Shifts <b>${sess.n}</b>`, `💰 <b>+${fmtMoney(sess.sum)}</b>`, `⭐ Perfect <b>${sess.perfect}</b>`];
-    main = `<i>🛠️</i><b>Work</b><small>−${cost}⚡ · +💰${fmtMoney(G.salary(st))}</small>`;
+    main = `<b>Work</b><small>−${cost}⚡ · +💰${fmtMoney(G.salary(st))}</small>`;
   } else if (R.mode === 'train') {
     const fac = FACILITIES.map((f) => { const q = G.facilityQ(st, f.id); return `<span class="${q ? '' : 'dim'}" title="${f.name}">${f.icon}${q ? `Q${q}` : '–'}</span>`; }).join(' ');
     sub = `+${G.trainGain(st)} 💪 per session · gold zone +${CONFIG.perfectTrainBonus * 100}% · ${fac}`;
     chips = [`🏋️ Sessions <b>${sess.n}</b>`, `💪 <b>+${fmt(Math.round(sess.sum * 10) / 10)}</b>`, `⭐ Perfect <b>${sess.perfect}</b>`, `Strength <b>${fmt(p.strength)}</b>`];
-    main = `<i>🏋️</i><b>Train</b><small>−${cost}⚡ · +${G.trainGain(st)} 💪</small>`;
+    main = `<b>Train</b><small>−${cost}⚡ · +${G.trainGain(st)} 💪</small>`;
   } else {
     sub = 'Food turns your 🥫 reserve into ⚡ energy. Better food, more energy per meal.';
     chips = [1, 2, 3, 4, 5].filter((q) => st.inv.food[q] > 0).map((q) => `🍞Q${q} <b>${fmt(st.inv.food[q])}</b>`);
     if (!chips.length) chips = ['<span class="red">No food</span>'];
     chips.push(`⚡ <b>+${fmt(Math.round(sess.sum))}</b> eaten`);
-    main = `<i>🍽️</i><b>Eat</b><small>${p.energy >= mx - 0.5 ? 'Energy full' : `up to +${Math.round(Math.min(mx - p.energy, p.reserve))}⚡`}</small>`;
+    main = `<b>Eat</b><small>${p.energy >= mx - 0.5 ? 'Energy full' : `up to +${Math.round(Math.min(mx - p.energy, p.reserve))}⚡`}</small>`;
   }
   $('r-sub').innerHTML = sub;
   $('r-chips').innerHTML = chips.map((c) => `<div class="b-chip">${c}</div>`).join('');

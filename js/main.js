@@ -11,6 +11,7 @@ import {
 import { initBattle, openBattle, isOpen as battleOpen, setAdPause, debugTargets, debugAllies } from './battle.js';
 import { initRoutine, openRoutine, closeRoutine, isOpen as routineOpen, debugRoutine } from './routine.js';
 import { updateCoach } from './coach.js';
+import { ico, drawIcons } from './icons.js';
 import { CONFIG, GAME_TITLE, MEDALS, GOLD_SHOP, RAW_ICON, HOUSES, MARKET, TAB_UNLOCK, countryById } from './data.js';
 import { fmt, fmtMoney, fmtTime, esc } from './util.js';
 
@@ -47,6 +48,8 @@ let loadingSlot = false;
 let replacing = false; // the new citizen overwrites a filled slot
 let loopsStarted = false;
 const MUTE_KEY = 'republic-rising-muted';
+const showMute = (m) => { $('tb-mute').innerHTML = ico(m ? 'mute' : 'sound'); };
+drawIcons(); // the icons of the static page (top bar, tabs, battle and routine buttons)
 const showMusic = () => {
   $('tb-music').classList.toggle('off', !musicOn());
   $('tb-music').title = musicOn() ? 'Music: on' : 'Music: off';
@@ -247,10 +250,10 @@ function coach() {
 // Tabs open with level: announce each one the moment it opens and make it glow until visited.
 ui.fresh = new Set();
 let openTabs = null;
-function checkUnlocks() {
+function checkUnlocks(silent = false) {
   if (!state || !started) return;
   const now = TABS.filter((t) => G.tabUnlocked(state, t.id)).map((t) => t.id);
-  if (openTabs) {
+  if (openTabs && !silent) {
     for (const t of now) {
       if (openTabs.has(t)) continue;
       ui.fresh.add(t);
@@ -289,7 +292,7 @@ const actions = {
   coachSkip: () => {
     state.tutorial.skip = true;
     sfx.click();
-    checkUnlocks();
+    checkUnlocks(true); // every tab opens at once: no pile of unlock messages
     toast('Tutorial skipped. Your missions stay on Home.', 'info');
     refresh();
   },
@@ -367,7 +370,7 @@ const actions = {
     state.settings.muted = !state.settings.muted;
     try { localStorage.setItem(MUTE_KEY, state.settings.muted ? '1' : '0'); } catch { /* ignore */ }
     setMuted(state.settings.muted || SDK.muteRequested());
-    $('tb-mute').textContent = state.settings.muted ? '🔇' : '🔊';
+    showMute(state.settings.muted);
     save();
   },
   music: () => { setMusic(!musicOn()); showMusic(); },
@@ -391,13 +394,16 @@ const actions = {
     SDK.gameplayStop();
     showMenu();
   },
-  exportSave: async () => {
-    save();
-    const code = await Store.exportCode(G.packSave(state));
-    openModal(`<h2>💾 Backup code</h2>
-      <p class="muted small">This code holds career ${Store.currentSlot()} (${esc(state.player.name)}). Keep it somewhere safe and paste it on another device (Main menu → Settings → Restore from code) to continue there.</p>
+  // Main menu → Settings: the backup code of one career, read from its saved slot.
+  exportSlot: async (d) => {
+    const n = Number(d.slot);
+    const raw = (await Store.slotSummaries()).find((c) => c.slot === n)?.save;
+    if (!raw) { sfx.error(); toast('That career is empty.', 'bad'); return; }
+    const code = await Store.exportCode(raw);
+    openModal(`<h2>${ico('save')} Backup code</h2>
+      <p class="muted small">This code holds career ${n} (${esc(raw.player?.name || 'Citizen')}). Keep it somewhere safe and paste it on another device (Main menu → Settings → Restore from code) to continue there.</p>
       <textarea id="save-code" class="code" readonly>${code}</textarea>
-      <div class="row"><button class="btn primary" data-act="copyCode">Copy</button><button class="btn" data-act="closeModal">Close</button></div>`);
+      <div class="row"><button class="btn primary" data-act="copyCode">${ico('copy')} Copy</button><button class="btn" data-act="menuSettings">Back</button></div>`);
   },
   copyCode: () => {
     const el = $('save-code');
@@ -514,14 +520,14 @@ const actions = {
     toast('Career deleted.', 'info');
     renderMenu(await refreshSlots(), Store.lastPlayedSlot(), showExit());
   },
-  menuSettings: () => openModal(settingsHtml(menuMuted(), musicOn())),
-  menuMusic: () => { setMusic(!musicOn()); showMusic(); openModal(settingsHtml(menuMuted(), musicOn())); },
+  menuSettings: () => openModal(settingsHtml(menuMuted(), musicOn(), slots)),
+  menuMusic: () => { setMusic(!musicOn()); showMusic(); openModal(settingsHtml(menuMuted(), musicOn(), slots)); },
   menuMute: () => {
     const m = !menuMuted();
     try { localStorage.setItem(MUTE_KEY, m ? '1' : '0'); } catch { /* ignore */ }
     setMuted(m || SDK.muteRequested());
-    $('tb-mute').textContent = m ? '🔇' : '🔊';
-    openModal(settingsHtml(m, musicOn()));
+    showMute(m);
+    openModal(settingsHtml(m, musicOn(), slots));
   },
   menuExit: () => {
     try { window.close(); } catch { /* browsers only close tabs a script opened */ }
@@ -590,7 +596,7 @@ function enterGame() {
   $('start').hidden = true;
   $('app').hidden = false;
   state.settings.muted = state.settings.muted || menuMuted();
-  $('tb-mute').textContent = state.settings.muted ? '🔇' : '🔊';
+  showMute(state.settings.muted);
   setMuted(state.settings.muted || SDK.muteRequested());
   openTabs = null;
   ui.fresh.clear();
@@ -685,7 +691,6 @@ document.addEventListener('click', (e) => {
     if (started) requestSave();
   }
 });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOpen()) closeModal(); });
 $('view').addEventListener('scroll', () => coach(), { passive: true });
 window.addEventListener('resize', () => coach());
 document.addEventListener('visibilitychange', () => {

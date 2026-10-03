@@ -124,16 +124,30 @@ svg.flag.big { width: 36px; height: 24px; }
 .tb-bars .bar.reserve { height: 5px; }
 .tb-money { display: flex; gap: 12px; font-size: 14px; }
 .tb-money b { font-variant-numeric: tabular-nums; }
+/* drawn icon set (js/icons.js) */
+.ic { width: 1.25em; height: 1.25em; display: inline-block; vertical-align: -.26em; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; overflow: visible; }
+.ic .f { fill: currentColor; fill-opacity: .22; stroke: none; }
+.ic-gold { color: #f5b83d; }
+.ic-money { color: #4ade80; }
+.ic-energy { color: #facc15; }
+.ic-red { color: #f87171; }
+.ic-violet { color: #c4b5fd; }
+.ic-amber { color: #fbbf24; }
+.ic-sky { color: #7dd3fc; }
 .icon-btn { background: none; border: 0; font-size: 20px; padding: 4px; }
 .icon-btn.off { opacity: .35; filter: grayscale(1); }
+.icon-btn .ic { width: 1.1em; height: 1.1em; display: block; }
+.btn .ic { width: 1.15em; height: 1.15em; }
 
 #tabs button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border: 0; border-radius: 12px; background: transparent; color: var(--muted); font-size: 11px; font-weight: 650; }
 #tabs button i { font-size: 22px; }
+#tabs button i .ic { width: 1em; height: 1em; display: block; }
 #tabs button:hover { background: #172237; color: var(--text); }
 #tabs button.on { background: #1f2c47; color: #fff; box-shadow: inset 3px 0 0 var(--gold); }
 #tabs button.hint { animation: hint 1.1s ease-in-out infinite; color: #ffe39b; }
 #tabs button.locked { opacity: .38; }
-#tabs button.locked::after { content: attr(data-lock); position: absolute; top: 2px; right: 4px; font-size: 9px; font-weight: 800; color: #cbd5e1; }
+#tabs .lock-badge { position: absolute; top: 1px; right: 2px; display: flex; align-items: center; gap: 1px; font-style: normal; font-size: 9px; font-weight: 800; color: #cbd5e1; }
+#tabs .lock-badge .ic { width: 10px; height: 10px; stroke-width: 2.4; }
 .coach { position: fixed; inset: 0; z-index: 70; pointer-events: none; }
 .coach-ring { position: fixed; border-radius: 16px; border: 3px solid #f5b83d; box-shadow: 0 0 0 4000px rgba(3, 6, 12, .38), 0 0 24px rgba(245, 184, 61, .8); animation: coachPulse 1.2s ease-in-out infinite; transition: left .2s, top .2s, width .2s, height .2s; }
 @keyframes coachPulse { 50% { border-color: #fde68a; box-shadow: 0 0 0 4000px rgba(3, 6, 12, .38), 0 0 40px 6px rgba(245, 184, 61, .9); } }
@@ -168,6 +182,7 @@ svg.flag.big { width: 36px; height: 24px; }
 .act:hover { filter: brightness(1.15); }
 .act:active { transform: scale(.97); }
 .act i { font-size: 30px; }
+.act > .ic { width: 32px; height: 32px; }
 .act b { font-size: 16px; }
 .act small { color: #b8c3d8; font-size: 11px; text-align: center; }
 .act.work { background: linear-gradient(180deg, #25406b, #1d2f52); }
@@ -371,6 +386,9 @@ textarea.code { width: 100%; min-height: 120px; background: var(--bg2); color: v
 .b-energy small { font-size: 10px; color: #fcd34d; }
 .b-btn, .b-wep { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 46px; height: 46px; padding: 2px 6px; background: linear-gradient(180deg, rgba(40, 52, 76, .9), rgba(18, 24, 38, .9)); border: 1px solid rgba(255, 255, 255, .12); border-radius: 11px; font-size: 18px; font-weight: 800; transition: transform .08s, border-color .15s; }
 .b-btn:active, .b-wep:active { transform: scale(.94); }
+.b-btn .ic, .b-wep .ic { width: 22px; height: 22px; display: block; }
+.b-btn.leave .ic, .b-chip .ic { width: 15px; height: 15px; display: inline-block; }
+.r-tabs button .ic { width: 18px; height: 18px; }
 .b-btn small, .b-wep small { font-size: 10px; font-weight: 700; color: #cbd5e1; }
 .b-wep span { font-size: 13px; letter-spacing: .3px; }
 .b-weps { display: flex; gap: 4px; }

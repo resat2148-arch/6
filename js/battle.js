@@ -4,6 +4,7 @@ import { countryById, CONFIG, FOOD_ENERGY } from './data.js';
 import * as G from './game.js';
 import { sfx } from './sfx.js';
 import { flagSvg } from './flags.js';
+import { ico } from './icons.js';
 import { fmt, randRange, clamp, esc } from './util.js';
 import {
   buildBackground, buildCover, buildVignette, soldierSprite, clearSprites, setFlagListener, flagImage, sprites, drawWeapon, weaponMuzzle, WEAPONS, SOLDIER_MUZZLE,
@@ -293,7 +294,7 @@ function setupHud() {
   $('b-score').textContent = setup.boost > 1 ? `Rookie boost ×${setup.boost.toFixed(1)}` : `D${setup.division}`;
   const weps = $('b-weps');
   weps.innerHTML = [0, 1, 2, 3, 4, 5].map((q) =>
-    `<button class="b-wep" data-bact="wep" data-q="${q}" title="${q ? `Q${q} · ${WEAPONS[q].name}` : 'Bare hands (50% damage)'}"><span>${q ? 'Q' + q : '✊'}</span><small id="b-wq${q}"></small></button>`,
+    `<button class="b-wep" data-bact="wep" data-q="${q}" title="${q ? `Q${q} · ${WEAPONS[q].name}` : 'Bare hands (50% damage)'}"><span>${q ? 'Q' + q : ico('fist')}</span><small id="b-wq${q}"></small></button>`,
   ).join('');
   updateHud();
 }

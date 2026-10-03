@@ -2,6 +2,7 @@
 // No text walls: each guided mission is a single tap target. "Skip" ends the guidance.
 import * as G from './game.js';
 import { ONBOARDING_STEPS } from './data.js';
+import { ico } from './icons.js';
 
 const $ = (id) => document.getElementById(id);
 const q = (sel) => document.querySelector(sel);
@@ -13,20 +14,20 @@ function target(s, ui) {
   if (!st || s.tutorial.skip || s.tutorial.step >= ONBOARDING_STEPS + 2) return null;
   const pr = G.tutorialProgress(s);
   const onHome = ui.tab === 'home';
-  const home = { el: q('#tabs [data-tab="home"]'), text: '🏠 Back to Home' };
-  if (pr.cur >= pr.n) return { el: q('#view [data-act="claimTutorial"]'), text: '🎁 Mission complete! Claim your reward' };
+  const home = { el: q('#tabs [data-tab="home"]'), ic: 'home', text: 'Back to Home' };
+  if (pr.cur >= pr.n) return { el: q('#view [data-act="claimTutorial"]'), ic: 'gift', text: 'Mission complete! Claim your reward' };
   switch (st.ev) {
     case 'kill':
-      if (onHome) return { el: q('#view .act.fight'), text: '⚔️ Fight for your country' };
-      if (ui.tab === 'war') return { el: q('#view [data-act="fight"]'), text: '⚔️ Join the battle' };
-      return { el: q('#tabs [data-tab="war"]'), text: '⚔️ Go to War' };
-    case 'work': return onHome ? { el: q('#view .act.work'), text: '🛠️ Work to earn money' } : home;
-    case 'train': return onHome ? { el: q('#view .act.train'), text: '🏋️ Train to get stronger' } : home;
-    case 'eat': return onHome ? { el: q('#view .act.eat'), text: '🍞 Eat to refill energy' } : home;
+      if (onHome) return { el: q('#view .act.fight'), ic: 'war', text: 'Fight for your country' };
+      if (ui.tab === 'war') return { el: q('#view [data-act="fight"]'), ic: 'war', text: 'Join the battle' };
+      return { el: q('#tabs [data-tab="war"]'), ic: 'war', text: 'Go to War' };
+    case 'work': return onHome ? { el: q('#view .act.work'), ic: 'work', text: 'Work to earn money' } : home;
+    case 'train': return onHome ? { el: q('#view .act.train'), ic: 'train', text: 'Train to get stronger' } : home;
+    case 'eat': return onHome ? { el: q('#view .act.eat'), ic: 'eat', text: 'Eat to refill energy' } : home;
     case 'buy':
-      if (ui.tab === 'market') return { el: q('#view [data-act="buy"]'), text: '🛒 Buy something you need' };
-      return { el: q('#tabs [data-tab="market"]'), text: '🛒 Open the Market' };
-    case 'rankView': return { el: q('#tabs [data-tab="people"]'), text: '👥 See who fights best' };
+      if (ui.tab === 'market') return { el: q('#view [data-act="buy"]'), ic: 'market', text: 'Buy something you need' };
+      return { el: q('#tabs [data-tab="market"]'), ic: 'market', text: 'Open the Market' };
+    case 'rankView': return { el: q('#tabs [data-tab="people"]'), ic: 'people', text: 'See who fights best' };
     default: return null;
   }
 }
@@ -47,7 +48,7 @@ export function updateCoach(s, ui, blocked) {
   const pad = 6;
   Object.assign(ring.style, { left: `${r.left - pad}px`, top: `${r.top - pad}px`, width: `${r.width + pad * 2}px`, height: `${r.height + pad * 2}px` });
   const bub = box.querySelector('.coach-bubble');
-  bub.querySelector('b').textContent = t.text;
+  bub.querySelector('b').innerHTML = `${ico(t.ic, 'amber')} ${t.text}`;
   const bw = bub.offsetWidth;
   const bh = bub.offsetHeight;
   const below = r.bottom + pad + 12 + bh < innerHeight;

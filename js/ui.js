@@ -8,6 +8,7 @@ import { flagSvg } from './flags.js';
 import { fmt, fmtMoney, fmtTime, esc } from './util.js';
 import { MAP_W, MAP_H, EU_REGIONS, EU_PATHS, EU_NEUTRAL, EU_BORDERS } from './europe.js';
 import { tabBackground } from './backgrounds.js';
+import { ico } from './icons.js';
 import { PERSONAS, botRank, citizensOf, sellerName, activeCitizens, populationTarget } from './citizens.js';
 import { neighborsOf, regionsOf, isAlive, countryPower, distinctResources, resourceBonus } from './world.js';
 
@@ -97,7 +98,9 @@ export function renderTop(s) {
     const locked = !G.tabUnlocked(s, t);
     b.classList.toggle('on', t === ui.tab);
     b.classList.toggle('locked', locked);
-    if (locked) b.dataset.lock = `🔒Lv${TAB_UNLOCK[t]}`;
+    const badge = b.querySelector('.lock-badge');
+    if (locked && !badge) b.insertAdjacentHTML('beforeend', `<em class="lock-badge">${ico('lock')}${TAB_UNLOCK[t]}</em>`);
+    if (!locked && badge) badge.remove();
     b.classList.toggle('hint', !locked && t !== ui.tab && (ui.fresh?.has(t) || !!(tut && tut.tab === t && pr.cur < pr.n)));
   });
   const eb = $('badge-eco');
@@ -131,7 +134,7 @@ export function renderMenu(slots, lastSlot, showExit = true) {
       return `<div class="save-card empty">
         <div class="slot-n">${c.slot}</div>
         <div class="grow"><b>Empty career slot</b><small class="muted">Start a new citizen here</small></div>
-        <button class="btn primary small" data-act="slotNew" data-slot="${c.slot}">✚ New game</button>
+        <button class="btn primary small" data-act="slotNew" data-slot="${c.slot}">${ico('plus')} New game</button>
       </div>`;
     }
     const last = c.slot === lastSlot;
@@ -141,10 +144,10 @@ export function renderMenu(slots, lastSlot, showExit = true) {
           <small class="muted">${c.legacy ? 'Saved on the old map · pick a new country' : `Level ${c.level} · ${esc(countryById(c.country)?.name || '')} · ${c.rank}`}</small>
           <small class="muted">Career ${c.slot} · last played ${ago(Date.now() - c.lastPlayed)}</small></div>
         <div class="slot-acts">
-          <button class="btn ${last ? 'primary' : ''} small" data-act="slotPlay" data-slot="${c.slot}">▶ Continue</button>
+          <button class="btn ${last ? 'primary' : ''} small" data-act="slotPlay" data-slot="${c.slot}">${ico('play')} Continue</button>
           <div class="slot-sub">
-            <button class="btn ghost small" data-act="slotNew" data-slot="${c.slot}" title="Start a new game in this slot">✚ New</button>
-            <button class="btn ghost small danger" data-act="slotDelete" data-slot="${c.slot}" title="Delete career">🗑</button>
+            <button class="btn ghost small" data-act="slotNew" data-slot="${c.slot}" title="Start a new game in this slot">${ico('plus')} New</button>
+            <button class="btn ghost small danger" data-act="slotDelete" data-slot="${c.slot}" title="Delete career">${ico('trash')}</button>
           </div>
         </div>
       </div>`;
@@ -156,8 +159,8 @@ export function renderMenu(slots, lastSlot, showExit = true) {
       <h3 class="sub">Your careers</h3>
       <div class="slots">${cards}</div>
       <div class="menu-buttons">
-        <button class="btn big" data-act="menuSettings">⚙ Settings</button>
-        ${showExit ? '<button class="btn big ghost" data-act="menuExit">🚪 Exit</button>' : ''}
+        <button class="btn big" data-act="menuSettings">${ico('gear')} Settings</button>
+        ${showExit ? `<button class="btn big ghost" data-act="menuExit">${ico('exit')} Exit</button>` : ''}
       </div>
     </div>`;
   $('menu').hidden = false;
@@ -174,14 +177,17 @@ export function renderGoodbye() {
   $('menu').hidden = false;
 }
 
-export function settingsHtml(muted, music) {
-  return `<h2>⚙ Settings</h2>
-    <div class="kv"><span>🔊 Sound</span>${btn(muted ? 'Off' : 'On', 'menuMute', '', `small ${muted ? 'ghost' : 'primary'}`)}</div>
-    <div class="kv"><span>🎵 Music</span>${btn(music ? 'On' : 'Off', 'menuMusic', '', `small ${music ? 'primary' : 'ghost'}`)}</div>
-    <div class="kv"><span>❓ How to play</span>${btn('Open', 'help', '', 'small')}</div>
-    <h3 class="sub">💾 Save</h3>
-    <p class="muted small">Each of your 3 careers saves automatically after every action. Get a career's backup code in game (Medals → Backup code) and restore it here into any slot, on this or another device.</p>
-    <div class="row">${btn('Restore from code', 'importSave', '', 'small ghost')}</div>
+// slots: the career summaries of the title screen (a backup code for each filled one).
+export function settingsHtml(muted, music, slots = []) {
+  const filled = slots.filter((c) => c.save);
+  return `<h2>${ico('gear')} Settings</h2>
+    <div class="kv"><span>${ico(muted ? 'mute' : 'sound')} Sound</span>${btn(muted ? 'Off' : 'On', 'menuMute', '', `small ${muted ? 'ghost' : 'primary'}`)}</div>
+    <div class="kv"><span>${ico('music')} Music</span>${btn(music ? 'On' : 'Off', 'menuMusic', '', `small ${music ? 'primary' : 'ghost'}`)}</div>
+    <div class="kv"><span>${ico('help')} How to play</span>${btn('Open', 'help', '', 'small')}</div>
+    <h3 class="sub">${ico('save')} Save</h3>
+    <p class="muted small">Each of your 3 careers saves automatically after every action. A backup code moves a career to another device: restore it there into any slot.</p>
+    ${filled.map((c) => `<div class="kv"><span>${c.country ? flagSvg(c.country) : ''} Career ${c.slot} · ${esc(c.name)}</span>${btn(`${ico('copy')} Backup code`, 'exportSlot', `data-slot="${c.slot}"`, 'small')}</div>`).join('')}
+    <div class="row">${btn(`${ico('restore')} Restore from code`, 'importSave', '', 'small ghost')}</div>
     <div class="row"><button class="btn" data-act="closeModal">Close</button></div>`;
 }
 
@@ -270,7 +276,7 @@ function home(s) {
   const pr = G.tutorialProgress(s);
   const tutHtml = tut
     ? `<div class="card mission ${pr.cur >= pr.n ? 'ready' : ''}">
-        <h3>🎯 Mission ${s.tutorial.step + 1}</h3>
+        <h3>${ico('target', 'amber')} Mission ${s.tutorial.step + 1}</h3>
         <p>${tut.text}</p>
         ${bar((pr.cur / pr.n) * 100)}
         <div class="row spread"><small class="muted">Reward: ${G.rewardText(tut.reward)}</small>
@@ -281,7 +287,7 @@ function home(s) {
   const dm = G.dailyMissions(s);
   const allClaimed = dm.length && dm.every((m) => m.claimed);
   const dailyHtml = `<div class="card">
-      <h3>📅 Daily orders</h3>
+      <h3>${ico('calendar')} Daily orders</h3>
       ${dm.map((m) => `<div class="daily ${m.claimed ? 'claimed' : ''}">
         <span>${m.text}</span>${bar((m.cur / m.n) * 100, 'thin')}
         ${m.claimed ? '<small>✔</small>' : m.done ? btn('+1 🪙', 'claimDaily', `data-id="${m.id}"`, 'primary small') : `<small>${m.cur}/${m.n}</small>`}
@@ -295,9 +301,8 @@ function home(s) {
   return `<section class="home">
   <div class="home-top">
     <div class="card map-card home-map">
-      <div class="row spread"><h3>🗺️ Europe</h3><small class="muted">${flagSvg(c.id)} ${c.name} controls <b>${mine}</b>/${total} regions (${Math.round((mine / total) * 100)}%)</small></div>
-      <div id="map-holder">${mapSvg(s, ui.sel)}</div>
-      <p class="muted small">Drag to move, pinch or scroll to zoom, tap a region. ★ capital · colored dot = occupied (original owner) · ⚔️ battle · icons = resources (+20% production each)</p>
+      <div class="row spread"><h3>${ico('map')} Europe</h3><small class="muted">${flagSvg(c.id)} ${c.name} controls <b>${mine}</b>/${total} regions (${Math.round((mine / total) * 100)}%)</small></div>
+      <div id="map-holder" title="Drag to move, pinch or scroll to zoom, tap a region. ★ capital · coloured dot = occupied (original owner) · ⚔️ battle · icons = resources (+20% production each)">${mapSvg(s, ui.sel)}</div>
     </div>
     <div class="side">
     ${tutHtml}
@@ -316,46 +321,39 @@ function home(s) {
     <div class="card actions">
       <h3>Daily routine</h3>
       <div class="act-grid">
-        <button class="act work" data-act="routine" data-mode="work"><i>🛠️</i><b>Work</b><small>Factory · +💰${fmtMoney(G.salary(s))}/shift</small></button>
-        <button class="act train" data-act="routine" data-mode="train"><i>🏋️</i><b>Train</b><small>Camp · +${G.trainGain(s)} 💪/session</small></button>
-        <button class="act eat" data-act="routine" data-mode="eat"><i>🍞</i><b>Eat</b><small>Mess hall · ${food} food</small></button>
-        <button class="act fight" data-act="${urgent ? 'fight' : 'tab'}" ${urgent ? `data-id="${urgent.id}"` : 'data-tab="war"'}><i>⚔️</i><b>Fight</b>
+        <button class="act work" data-act="routine" data-mode="work">${ico('work', 'sky')}<b>Work</b><small>Factory · +💰${fmtMoney(G.salary(s))}/shift</small></button>
+        <button class="act train" data-act="routine" data-mode="train">${ico('train', 'violet')}<b>Train</b><small>Camp · +${G.trainGain(s)} 💪/session</small></button>
+        <button class="act eat" data-act="routine" data-mode="eat">${ico('eat', 'amber')}<b>Eat</b><small>Mess hall · ${food} food</small></button>
+        <button class="act fight" data-act="${urgent ? 'fight' : 'tab'}" ${urgent ? `data-id="${urgent.id}"` : 'data-tab="war"'}>${ico('war', 'red')}<b>Fight</b>
           <small>${urgent ? esc(s.world.regions[urgent.region].name) : 'Choose a battle'}</small></button>
       </div>
     </div>
-    <div class="card home-region" id="region-panel">${regionPanel(s, ui.sel)}</div>
+    <div class="card home-region" id="region-panel" ${ui.sel === null || ui.sel === undefined ? 'hidden' : ''}>${regionPanel(s, ui.sel)}</div>
     </div>
   </div>
   <section class="grid">
     ${housingCard(s)}
-    ${s.feed.length ? `<div class="card"><div class="row spread"><h3>📰 Europe news</h3>${btn('More', 'tab', 'data-tab="people"', 'small ghost')}</div>
-      ${s.feed.slice(0, 4).map((f) => `<div class="news">${esc(f.text)}</div>`).join('')}</div>` : ''}
+    ${s.feed.length ? `<div class="card"><div class="row spread"><h3>${ico('news')} Europe news</h3>${G.tabUnlocked(s, 'people') ? btn('More', 'tab', 'data-tab="people"', 'small ghost') : ''}</div>
+      ${s.feed.slice(0, 3).map((f) => `<div class="news">${esc(f.text)}</div>`).join('')}</div>` : ''}
     ${dailyHtml}
-    <div class="card">
-      <h3>🎒 Inventory</h3>
-      <div class="inv">
-        ${[1, 2, 3, 4, 5].map((q) => `<div title="Food Q${q} (+${FOOD_ENERGY[q]} energy)">🍞<b>${fmt(s.inv.food[q])}</b><small>Q${q}</small></div>`).join('')}
-        ${[1, 2, 3, 4, 5].map((q) => `<div title="Weapon Q${q} (+${WEAPON_FP[q]}% firepower)">🔫<b>${fmt(s.inv.weapon[q])}</b><small>Q${q}</small></div>`).join('')}
-        ${[1, 2, 3, 4, 5].map((q) => `<div title="${HOUSES[q].name} (Q${q})">${HOUSES[q].icon}<b>${fmt(s.inv.house[q])}</b><small>Q${q}</small></div>`).join('')}
-        <div title="Food raw">🌾<b>${fmt(s.inv.foodRaw)}</b><small>raw</small></div>
-        <div title="Weapon raw">⛓️<b>${fmt(s.inv.weaponRaw)}</b><small>raw</small></div>
-        <div title="Building materials">🧱<b>${fmt(s.inv.houseRaw)}</b><small>raw</small></div>
-        <div title="Bazooka">🚀<b>${s.inv.bazooka}</b><small>bazooka</small></div>
-      </div>
-    </div>
-    ${homeNations(s)}
+    ${s.world.domination ? `<div class="card">${eraBanner(s)}</div>` : ''}
   </section>
   </section>`;
 }
 
-function homeNations(s) {
-  const counts = COUNTRIES.map((c) => ({ c, n: regionsOf(s.world, c.id).length })).sort((a, b) => b.n - a.n);
-  const titles = (id) => (s.nationStats?.[id]?.titles ? ` <span class="pill gold">👑×${s.nationStats[id].titles}</span>` : '');
-  return `<div class="card">
-    <div class="row spread"><h3>🏆 Nations</h3>${btn('Rankings', 'tab', 'data-tab="people"', 'small ghost')}</div>
-    ${eraBanner(s)}
-    <div class="nations">${counts.map(({ c, n }) => `<div class="kv ${c.id === s.player.country ? 'me' : ''}"><span>${flagSvg(c.id)} ${c.name}${titles(c.id)}</span><b>${n ? `${n} regions` : '<span class="red">wiped</span>'}</b></div>`).join('')}</div>
-  </div>`;
+// What the citizen owns (only items they have), shown on the Economy tab.
+function inventoryCard(s) {
+  const tiles = [
+    ...[1, 2, 3, 4, 5].map((q) => [s.inv.food[q], '🍞', `Q${q}`, `Food Q${q} (+${FOOD_ENERGY[q]} energy)`]),
+    ...[1, 2, 3, 4, 5].map((q) => [s.inv.weapon[q], '🔫', `Q${q}`, `Weapon Q${q} (+${WEAPON_FP[q]}% firepower)`]),
+    ...[1, 2, 3, 4, 5].map((q) => [s.inv.house[q], HOUSES[q].icon, `Q${q}`, `${HOUSES[q].name} (Q${q})`]),
+    [s.inv.foodRaw, '🌾', 'raw', 'Food raw'], [s.inv.weaponRaw, '⛓️', 'raw', 'Weapon raw'], [s.inv.houseRaw, '🧱', 'raw', 'Building materials'],
+    [s.inv.bazooka, '🚀', 'bazooka', 'Bazooka'],
+  ].filter(([n]) => n > 0);
+  return `<div class="card span2">
+      <h3>${ico('bag')} Inventory</h3>
+      ${tiles.length ? `<div class="inv">${tiles.map(([n, icon, sub, title]) => `<div title="${title}">${icon}<b>${fmt(n)}</b><small>${sub}</small></div>`).join('')}</div>` : '<p class="muted small">Nothing yet.</p>'}
+    </div>`;
 }
 
 // One nation rules Europe: who, and when the new era begins. Otherwise the leader's share of the map.
@@ -378,7 +376,7 @@ function housingCard(s) {
   const bonusE = G.housingEnergy(s);
   const bonusR = Math.round((G.housingRegen(s) - 1) * 100);
   return `<div class="card housing">
-    <h3>🏠 Housing</h3>
+    <h3>${ico('house')} Housing</h3>
     <div class="row">
       <div class="house-pic ${best ? '' : 'none'}">${best ? best.icon : '⛺'}</div>
       <div class="grow">
@@ -624,6 +622,7 @@ function economy(s) {
     </div>`;
   }).join('');
   return `<section class="grid">
+    ${inventoryCard(s)}
     <div class="card span2">
       <div class="row spread"><h3>🏭 Your companies (${s.companies.length}/${G.companyLimit(s)})</h3>
         <div class="row">${btn('Collect all', 'collect', '', 'primary')}
@@ -978,7 +977,7 @@ function medals(s) {
       ${btn('How to play', 'help')}
       <h3 class="sub">💾 Save</h3>
       <p class="muted small">Progress saves automatically after every action${saveInfo()}. Closing the browser is safe: the whole world pauses while you are away, and you continue exactly where you left off.</p>
-      <div class="row">${btn('Backup code', 'exportSave', '', 'small')}${btn('Restore from code', 'importSave', '', 'small ghost')}</div>
+      <p class="muted small">Backup codes and restoring a career: Main menu (☰) → Settings.</p>
       ${btn('Delete this career', 'reset', '', 'ghost danger')}
     </div>
   </section>`;

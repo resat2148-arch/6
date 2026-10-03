@@ -23,7 +23,7 @@
         </div>
       </div>
       <button class="tb-energy" data-act="energyMenu" title="Energy (tap for options)">
-        <span class="bolt">⚡</span>
+        <i class="bolt" data-ic="bolt" data-tint="energy"></i>
         <span class="tb-bars">
           <span class="bar energy"><span id="tb-energyfill"></span><em id="tb-energytxt"></em></span>
           <span class="bar reserve"><span id="tb-reservefill"></span></span>
@@ -31,22 +31,22 @@
         <span class="plus">+</span>
       </button>
       <div class="tb-money">
-        <span title="Money">💰 <b id="tb-money">0</b></span>
-        <span title="Gold">🪙 <b id="tb-gold">0</b></span>
+        <span title="Money"><i data-ic="money" data-tint="money"></i> <b id="tb-money">0</b></span>
+        <span title="Gold"><i data-ic="gold" data-tint="gold"></i> <b id="tb-gold">0</b></span>
       </div>
-      <button id="tb-music" class="icon-btn" data-act="music" title="Music: on">🎵</button>
-      <button id="tb-mute" class="icon-btn" data-act="mute" title="Sound">🔊</button>
-      <button id="tb-menu" class="icon-btn" data-act="openMenu" title="Main menu">☰</button>
+      <button id="tb-music" class="icon-btn" data-act="music" title="Music: on"><i data-ic="music"></i></button>
+      <button id="tb-mute" class="icon-btn" data-act="mute" title="Sound"><i data-ic="sound"></i></button>
+      <button id="tb-menu" class="icon-btn" data-act="openMenu" title="Main menu"><i data-ic="menu"></i></button>
     </header>
 
     <nav id="tabs">
-      <button data-act="tab" data-tab="home"><i>🏠</i><span>Home</span></button>
-      <button data-act="tab" data-tab="war"><i>⚔️</i><span>War</span><em id="badge-war" class="badge" hidden></em></button>
-      <button data-act="tab" data-tab="economy"><i>🏭</i><span>Economy</span><em id="badge-eco" class="badge dot" hidden></em></button>
-      <button data-act="tab" data-tab="market"><i>🛒</i><span>Market</span></button>
-      <button data-act="tab" data-tab="politics"><i>🏛️</i><span>Politics</span></button>
-      <button data-act="tab" data-tab="people"><i>👥</i><span>Citizens</span></button>
-      <button data-act="tab" data-tab="medals"><i>🎖️</i><span>Medals</span></button>
+      <button data-act="tab" data-tab="home"><i data-ic="home"></i><span>Home</span></button>
+      <button data-act="tab" data-tab="war"><i data-ic="war"></i><span>War</span><em id="badge-war" class="badge" hidden></em></button>
+      <button data-act="tab" data-tab="economy"><i data-ic="economy"></i><span>Economy</span><em id="badge-eco" class="badge dot" hidden></em></button>
+      <button data-act="tab" data-tab="market"><i data-ic="market"></i><span>Market</span></button>
+      <button data-act="tab" data-tab="politics"><i data-ic="politics"></i><span>Politics</span></button>
+      <button data-act="tab" data-tab="people"><i data-ic="people"></i><span>Citizens</span></button>
+      <button data-act="tab" data-tab="medals"><i data-ic="medals"></i><span>Medals</span></button>
     </nav>
 
     <div id="tab-bg" aria-hidden="true"></div>
@@ -57,9 +57,9 @@
     <canvas id="rcv"></canvas>
     <div class="r-top">
       <div class="r-tabs">
-        <button data-ract="mode" data-mode="work"><i>🛠️</i><span>Work</span></button>
-        <button data-ract="mode" data-mode="train"><i>🏋️</i><span>Train</span></button>
-        <button data-ract="mode" data-mode="eat"><i>🍞</i><span>Eat</span></button>
+        <button data-ract="mode" data-mode="work"><i data-ic="work"></i><span>Work</span></button>
+        <button data-ract="mode" data-mode="train"><i data-ic="train"></i><span>Train</span></button>
+        <button data-ract="mode" data-mode="eat"><i data-ic="eat"></i><span>Eat</span></button>
       </div>
       <div class="r-head"><b id="r-title"></b><small id="r-sub"></small></div>
       <div id="r-chips" class="b-chips"></div>
@@ -72,11 +72,11 @@
         <small id="r-reserve"></small>
       </div>
       <button id="r-main" class="r-main" data-ract="do"></button>
-      <button id="r-all" class="b-btn" data-ract="all" title="Spend all your energy at once (no gold zone bonus)">⏩<small id="r-all-n"></small></button>
-      <button id="r-eat" class="b-btn" data-ract="eat" title="Go to the mess hall">🍞<small id="r-eat-n">0</small></button>
-      <button id="r-buy" class="b-btn wide" data-ract="buy" title="Buy 20 food on the market">🛒<small>+20🍞 💰<span id="r-foodprice"></span></small></button>
-      <button id="r-ad" class="b-btn ad" data-ract="ad" title="Watch an ad: full energy and reserve">📺<small>Supply</small></button>
-      <button id="r-leave" class="b-btn leave" data-ract="leave">⟵ HQ</button>
+      <button id="r-all" class="b-btn" data-ract="all" title="Spend all your energy at once (no gold zone bonus)"><i data-ic="forward"></i><small id="r-all-n"></small></button>
+      <button id="r-eat" class="b-btn" data-ract="eat" title="Go to the mess hall"><i data-ic="eat" data-tint="amber"></i><small id="r-eat-n">0</small></button>
+      <button id="r-buy" class="b-btn wide" data-ract="buy" title="Buy 20 food on the market"><i data-ic="market"></i><small>+20 · 💰<span id="r-foodprice"></span></small></button>
+      <button id="r-ad" class="b-btn ad" data-ract="ad" title="Watch an ad: full energy and reserve"><i data-ic="ad" data-tint="sky"></i><small>Supply</small></button>
+      <button id="r-leave" class="b-btn leave" data-ract="leave"><i data-ic="back"></i> HQ</button>
     </div>
   </div>
 
@@ -92,30 +92,30 @@
         <div class="b-side foe"><span id="b-flag-foe"></span><small id="b-name-foe"></small></div>
       </div>
       <div class="b-chips">
-        <div class="b-chip b-time" id="b-timebox">⏱ <b id="b-timer"></b></div>
-        <div class="b-chip">💥 <b id="b-dmg">0</b></div>
-        <div class="b-chip">☠️ <b id="b-kills">0</b></div>
-        <div class="b-chip ally" title="Citizens of your country hitting this battle right now">🤝 <b id="b-allies">0</b></div>
-        <div class="b-chip">🔥 <b id="b-combo">-</b></div>
+        <div class="b-chip b-time" id="b-timebox"><i data-ic="clock"></i> <b id="b-timer"></b></div>
+        <div class="b-chip"><i data-ic="burst" data-tint="amber"></i> <b id="b-dmg">0</b></div>
+        <div class="b-chip"><i data-ic="skull"></i> <b id="b-kills">0</b></div>
+        <div class="b-chip ally" title="Citizens of your country hitting this battle right now"><i data-ic="people" data-tint="money"></i> <b id="b-allies">0</b></div>
+        <div class="b-chip"><i data-ic="flame" data-tint="amber"></i> <b id="b-combo">-</b></div>
         <div class="b-chip dim">per hit <b id="b-dmgper"></b></div>
-        <button class="b-chip b-boardbtn" data-bact="board" title="Damage ranking of this battle">📊</button>
+        <button class="b-chip b-boardbtn" data-bact="board" title="Damage ranking of this battle"><i data-ic="board"></i></button>
       </div>
     </div>
     <div id="b-board" class="b-board" hidden></div>
     <div id="b-msg" class="b-msg" hidden></div>
     <div id="b-noen" class="b-noen" hidden>
       <b>Out of energy!</b>
-      <div class="row"><button class="btn primary" data-bact="eat">🍞 Eat</button><button class="btn" data-bact="buyfood">🛒 +20 🍞 (💰<span id="b-foodprice"></span>)</button><button class="btn ad" data-bact="adfill">📺 Supply drop</button></div>
+      <div class="row"><button class="btn primary" data-bact="eat"><i data-ic="eat"></i> Eat</button><button class="btn" data-bact="buyfood"><i data-ic="market"></i> +20 food (💰<span id="b-foodprice"></span>)</button><button class="btn ad" data-bact="adfill"><i data-ic="ad"></i> Supply drop</button></div>
     </div>
     <div class="b-bottom">
       <div class="b-energy">
         <div class="bar energy"><div id="b-energy-fill"></div><em id="b-energy-txt"></em></div>
         <small id="b-reserve"></small>
       </div>
-      <button class="b-btn" data-bact="eat" title="Eat food">🍞<small id="b-eat-n">0</small></button>
+      <button class="b-btn" data-bact="eat" title="Eat food"><i data-ic="eat" data-tint="amber"></i><small id="b-eat-n">0</small></button>
       <div id="b-weps" class="b-weps"></div>
-      <button id="b-baz" class="b-btn" data-bact="baz" title="Bazooka: tap, then tap the battlefield">🚀<small id="b-baz-n">0</small></button>
-      <button id="b-leave" class="b-btn leave" data-bact="leave">⟵ Leave</button>
+      <button id="b-baz" class="b-btn" data-bact="baz" title="Bazooka: tap, then tap the battlefield"><i data-ic="rocket" data-tint="red"></i><small id="b-baz-n">0</small></button>
+      <button id="b-leave" class="b-btn leave" data-bact="leave"><i data-ic="back"></i> Leave</button>
     </div>
     <div id="b-result" class="b-result" hidden></div>
   </div>
