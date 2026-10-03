@@ -547,9 +547,8 @@ const actions = {
     G.openFirstFront(state);
     G.tick(state);
     pendingLoad = null;
-    enterGame();
+    enterGame(); // Home: the coach points to the first mission (a career chosen in the menu does not open a battle)
     saveAndFlush();
-    firstBattle();
   },
 };
 
