@@ -145,15 +145,24 @@ async function record(browser, f) {
     await wait(1700);
   });
 
-  // 4) Home: train into a level up.
+  // 4) Training camp: perfect lifts into a level up.
   await p.click('#tabs [data-tab="home"]');
   await p.waitForTimeout(300);
+  await p.click('.act.train');
+  await p.waitForTimeout(700);
   await p.evaluate(() => { const s = window.__rr.state; s.player.xp = 30 + s.player.level * 20 - 1; });
   await shoot(async () => {
-    await wait(500);
-    await p.click('[data-act="train"]');
-    await wait(2200);
+    await wait(300);
+    for (let i = 0; i < 2; i++) {
+      await p.waitForFunction(() => Math.abs(window.__rr.routine().gauge - 0.5) < 0.04, null, { polling: 5 });
+      await p.click('#r-main');
+      await wait(450);
+      if (f.shots && i === 1) await p.screenshot({ path: SHOTS + '7-training-camp.png' });
+      await wait(500);
+    }
+    await wait(800);
   });
+  await p.click('[data-ract="leave"]');
 
   await cdp.send('Page.stopScreencast');
 

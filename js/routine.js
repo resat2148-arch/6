@@ -14,7 +14,7 @@ import { ico } from './icons.js';
 const $ = (id) => document.getElementById(id);
 const MODES = {
   work: { name: 'Work', place: 'Factory', ic: 'factory', dur: 0.5, hit: 0.62 },
-  train: { name: 'Train', place: 'Training camp', ic: 'camp', dur: 0.8, hit: 0.55 },
+  train: { name: 'Train', place: 'Training camp', ic: 'train', dur: 0.8, hit: 0.55 },
   eat: { name: 'Eat', place: 'Mess hall', ic: 'hall', dur: 0.95, hit: 0.42 },
 };
 const PERFECT = 0.09; // half width of the gold zone (gauge 0..1)
@@ -490,11 +490,13 @@ function drawFloats(g) {
     g.globalAlpha = Math.min(1, (1 - k) * 2);
     const sz = f.size * L.s * (f.t < 0.12 ? 0.7 + f.t * 2.5 : 1);
     g.font = `900 ${Math.round(Math.max(14, sz))}px system-ui, sans-serif`;
+    const half = g.measureText(f.text).width / 2 + 8;
+    const x = Math.max(half, Math.min(W - half, f.x)); // a long word stays on narrow screens
     g.lineWidth = 4;
     g.strokeStyle = 'rgba(0,0,0,.65)';
-    g.strokeText(f.text, f.x, f.y - k * 60 * L.s);
+    g.strokeText(f.text, x, f.y - k * 60 * L.s);
     g.fillStyle = f.color;
-    g.fillText(f.text, f.x, f.y - k * 60 * L.s);
+    g.fillText(f.text, x, f.y - k * 60 * L.s);
   }
   g.globalAlpha = 1;
 }
