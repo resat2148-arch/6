@@ -476,10 +476,20 @@ function coachStep() {
   if (S.kills < 3 && S.msgT <= 0.2) flashMsg('👆 Tap the enemies to shoot. Headshots hit twice as hard!');
   if (S.kills >= 10 && !S.coachDone) {
     S.coachDone = true;
-    flashMsg('🎯 Mission done! Keep fighting, or ⟵ Leave to claim your reward');
-    S.msgT = 4;
+    flashMsg('🎯 Mission done!');
     $('b-leave').classList.add('pulse');
+    hooks.onCoach?.(); // the coach now rings the way back to HQ
   }
+}
+
+// After the first battle's mission: the button that leads back to HQ, where the reward is claimed
+// (Leave while fighting, then "Back to HQ" on the summary card). Drawn by coach.js.
+export function battleCoachTarget() {
+  if (!S?.coach || !S.coachDone) return null;
+  const card = $('b-result');
+  const exit = !card.hidden && card.querySelector('[data-bact="exit"]');
+  if (exit) return { el: exit, ic: 'gift', text: 'Back to HQ to claim your reward' };
+  return { el: $('b-leave'), ic: 'gift', text: 'Mission complete! Leave the battle' };
 }
 
 function drawCoach() {
@@ -837,6 +847,7 @@ function showCard({ cls, title, sub, res, extra = '', medals, buttons }) {
       <div class="row">${buttons}<button class="btn" data-bact="exit">Back to HQ</button></div>
     </div>`;
   el.hidden = false;
+  hooks.onCoach?.();
 }
 
 // ------------------------------------------------------------ rendering

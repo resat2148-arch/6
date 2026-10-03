@@ -32,13 +32,14 @@ function target(s, ui) {
   }
 }
 
-export function updateCoach(s, ui, blocked) {
+// override: a target given by a full-screen view (the first battle's way back to HQ).
+export function updateCoach(s, ui, blocked, override = null) {
   const box = $('coach');
-  const t = s && !blocked ? target(s, ui) : null;
+  const t = override || (s && !blocked ? target(s, ui) : null);
   const r = t?.el?.getBoundingClientRect();
   if (!t || !t.el || !r.width || !r.height) { box.hidden = true; return; }
   // bring the target into view once per step
-  const key = `${s.tutorial.step}|${ui.tab}|${t.text}`;
+  const key = `${s?.tutorial.step}|${ui.tab}|${t.text}`;
   if (key !== lastKey) {
     lastKey = key;
     if (t.el.closest('#view') && (r.bottom > innerHeight - 10 || r.top < 60)) t.el.scrollIntoView({ block: 'center', behavior: 'smooth' });

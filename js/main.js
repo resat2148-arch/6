@@ -8,7 +8,7 @@ import {
   ui, TABS, activeCampaigns, renderTab, renderTop, liveUpdate, renderStart, toast, openModal, closeModal, modalOpen, banner, helpHtml, zoomMap,
   offersModal, listModal, renderMenu, renderGoodbye, settingsHtml, citizenshipHtml, moveNameHtml,
 } from './ui.js';
-import { initBattle, openBattle, isOpen as battleOpen, setAdPause, debugTargets, debugAllies } from './battle.js';
+import { initBattle, openBattle, isOpen as battleOpen, setAdPause, debugTargets, debugAllies, battleCoachTarget } from './battle.js';
 import { initRoutine, openRoutine, closeRoutine, isOpen as routineOpen, debugRoutine } from './routine.js';
 import { updateCoach } from './coach.js';
 import { ico, drawIcons } from './icons.js';
@@ -198,6 +198,7 @@ function startFight(id) {
     onAdRefill: () => energyAd(),
     onNeedBazooka: () => {},
     coach: guided() && G.tutorialStep(state)?.ev === 'kill',
+    onCoach: () => coach(),
   });
   coach();
   if (!okOpen) { setMood('calm'); toast('That battle is already over.', 'bad'); refresh(); return; }
@@ -244,7 +245,8 @@ function refresh() {
 
 // The coach rings the next thing to tap; hidden over the battle, the routine screens and pop-ups.
 function coach() {
-  updateCoach(started ? state : null, ui, !started || battleOpen() || routineOpen() || modalOpen() || !$('menu').hidden);
+  const inBattle = battleOpen() && guided() && !modalOpen() ? battleCoachTarget() : null;
+  updateCoach(started ? state : null, ui, !started || battleOpen() || routineOpen() || modalOpen() || !$('menu').hidden, inBattle);
 }
 
 // Tabs open with level: announce each one the moment it opens and make it glow until visited.
