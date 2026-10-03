@@ -52,6 +52,18 @@ test('work / train consume energy and reward the player', () => {
   assert.equal(G.train(s).ok, false);
 });
 
+test('a perfectly timed shift or training session pays a bonus', () => {
+  const s = fresh();
+  const pay = G.salary(s);
+  const m0 = s.player.money;
+  assert.ok(G.work(s, true).perfect);
+  assert.equal(Math.round((s.player.money - m0) * 100), Math.round(pay * (1 + CONFIG.perfectWorkBonus) * 100));
+  const st0 = s.player.strength;
+  G.train(s, true);
+  assert.ok(Math.abs(s.player.strength - st0 - G.trainGain(s) * (1 + CONFIG.perfectTrainBonus)) < 0.06);
+  assert.equal(s.player.energy, 80, 'the bonus costs no extra energy');
+});
+
 test('eat converts reserve into energy using food', () => {
   const s = fresh();
   s.player.energy = 40;

@@ -7,7 +7,7 @@
 | Türün klasik mekaniği | Republic Rising uyarlaması |
 |---|---|
 | Vatandaş: seviye (XP), güç (strength), askeri rütbe | Aynen var. XP ile seviye, antrenmanla güç, verilen hasarla rütbe (Recruit → Titan, 69 rütbe). |
-| Günlük döngü: **Work – Train – Fight** | Ana sayfadaki üç büyük buton. Her biri enerji harcar. |
+| Günlük döngü: **Work – Train – Fight** | Ana sayfadaki büyük butonlar. Work, Train ve Eat, savaş gibi kendi tam ekran sahnesini açar (aşağıda “Günlük rutin ekranları”). Her eylem enerji harcar. |
 | Enerji + “potansiyel enerji” (yiyecek sınırı) | **Enerji** yavaş dolar (+1/6 sn). **Yiyecek rezervi** hızlı dolar (+1/sn); yiyecek yiyerek rezervi enerjiye çevirirsin. |
 | Hasar formülü `10 × (1+S/400) × (1+R/5) × (1+FP/100)` | Birebir kullanıldı. Silahsız ×0.5, Q1–Q5 silahlar +%20…+%100 ateş gücü. |
 | Silah/yiyecek kaliteleri (Q1–Q7) | Q1–Q5 (sadeleştirildi). |
@@ -88,6 +88,12 @@ Siyaset: popülerlik → seçim → Başkanlık → savaş hedefini sen seçersi
 
 - Başlangıç: 100 enerji, 200 rezerv, 50 para, 5 altın, 20× Q1 yiyecek, 150× Q1 silah, 1 bazuka.
 - Work: −10 enerji, maaş `10 + 1.5×seviye`. Train: −10 enerji, +5 güç (tesislerle +22.5'e kadar).
+- **Günlük rutin ekranları** (`js/routine.js`, çizimler `js/routine-art.js`): Ana sayfadaki Work / Train / Eat düğmeleri savaş ekranı gibi tam ekran, kodla çizilmiş bir sahne açar; üstteki sekmelerle üçü arasında geçilir, **⟵ HQ** ana sayfaya döner.
+  - 🏭 **Factory (Work):** baretli, yelekli vatandaş tezgâhta çekiçle kızgın metali döver; kıvılcımlar, banttaki sandıklar, uçuşan paralar.
+  - 🎖️ **Training camp (Train):** ülke bayrağı dalgalanan kampta halter kaldırır (dizler bükülür, bar başın üstünde kilitlenir); tesislerin kaliteleri başlıkta görünür, plaka sayısı en iyi tesise göre artar.
+  - 🍽️ **Mess hall (Eat):** yemekhanede masada kaşıkla yer; tabaktaki yemek elindeki en iyi kaliteye göre değişir, enerji topları yükselir. Yemek al (🛒 +20) ve 📺 Supply drop buradan.
+  - **Zamanlama göstergesi (Work ve Train):** işaretçi gidip gelir; altın bölgedeyken dokunursan **PERFECT**: vardiya +%20 maaş, antrenman +%25 güç (enerji aynı). Ardışık perfect'ler “PERFECT ×n” olarak sayılır. Ana düğme, sahneye dokunmak, Boşluk veya Enter aynı eylemi yapar. **⏩ ×n** kalan enerjiyi tek seferde harcar (bonussuz). Enerji bitince 🍞 düğmesi yanıp söner ve yemekhaneye götürür.
+  - Ekranda o ziyaretin özeti (vardiya/antrenman sayısı, toplam kazanç, perfect sayısı) çip olarak görünür.
 - Her atış 1 enerji + 1 silah. Düşman ateşi −4 enerji.
 - Raund zorluğu: ülkelerin güç oranı, savunma avantajı, başkent, raund numarası ve oyuncunun seviyesi ile ölçeklenir. Düşman gücü kısmen oyuncunun kendi gücüne bağlıdır, böylece antrenman ve rütbe hissedilir ama oyun hiç imkânsız olmaz.
 

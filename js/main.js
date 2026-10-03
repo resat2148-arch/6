@@ -9,6 +9,7 @@ import {
   offersModal, listModal, renderMenu, renderGoodbye, settingsHtml,
 } from './ui.js';
 import { initBattle, openBattle, isOpen as battleOpen, setAdPause, debugTargets, debugAllies } from './battle.js';
+import { initRoutine, openRoutine, closeRoutine, isOpen as routineOpen, debugRoutine } from './routine.js';
 import { CONFIG, GAME_TITLE, MEDALS, GOLD_SHOP, RAW_ICON, HOUSES, MARKET, countryById } from './data.js';
 import { fmt, fmtMoney, fmtTime, esc } from './util.js';
 
@@ -175,6 +176,7 @@ async function rewarded(onReward) {
 function startFight(id) {
   if (battleOpen()) return;
   closeModal();
+  closeRoutine();
   const okOpen = openBattle(state, id, {
     onExit: async (nextId) => {
       const next = nextId !== null && nextId !== undefined;
@@ -201,6 +203,16 @@ function energyAd() {
     state.timers.lastEnergyAd = Date.now();
     G.refillEnergy(state);
     toast('⚡ Supply drop! Energy and reserve refilled.', 'good');
+  });
+}
+
+// Work, train and eat each have their own full-screen scene, like the battle.
+function openRoutineScreen(mode) {
+  closeModal();
+  openRoutine(state, mode, {
+    onChange: () => { dirty = true; requestSave(); },
+    onExit: () => { refresh(); save(); },
+    onAdRefill: () => energyAd(),
   });
 }
 
@@ -304,6 +316,7 @@ const actions = {
     save();
   },
   music: () => { setMusic(!musicOn()); showMusic(); },
+  routine: (d) => openRoutineScreen(d.mode),
   help: () => openModal(helpHtml()),
   closeModal: () => {
     closeModal();
@@ -509,10 +522,10 @@ function enterGame() {
     if (Date.now() - state.lastTick > AWAY_GAP_MS) G.resume(state);
     G.tick(state);
     renderTop(state);
-    if (dirty && !battleOpen() && !modalOpen() && !ui.panning && ['home', 'war', 'people'].includes(ui.tab) && document.activeElement?.tagName !== 'INPUT') refresh();
+    if (dirty && !battleOpen() && !routineOpen() && !modalOpen() && !ui.panning && ['home', 'war', 'people'].includes(ui.tab) && document.activeElement?.tagName !== 'INPUT') refresh();
     if (Date.now() - lastSave > 5000) { save(); lastSave = Date.now(); }
   }, 500);
-  setInterval(() => { if (state && started && !battleOpen()) liveUpdate(state); }, 1000);
+  setInterval(() => { if (state && started && !battleOpen() && !routineOpen()) liveUpdate(state); }, 1000);
 }
 
 // ------------------------------------------------------------------ title screen
@@ -522,6 +535,7 @@ const showExit = () => SDK.environment() === 'disabled';
 // Saves the open career, closes it and lists all careers again.
 async function showMenu() {
   if (started) { saveAndFlush(); SDK.gameplayStop(); }
+  closeRoutine();
   started = false;
   state = null;
   closeModal();
@@ -577,6 +591,7 @@ async function boot() {
   await Promise.all([SDK.initSDK(), Store.initCloud()]);
   SDK.loadingStart();
   initBattle();
+  initRoutine();
   await Store.migrateSingleSave(); // a save from before careers becomes career 1
   await refreshSlots();
   setMuted(menuMuted() || SDK.muteRequested());
@@ -589,4 +604,4 @@ async function boot() {
 boot();
 
 // Debug handle for local testing.
-window.__rr = { get state() { return state; }, G, targets: debugTargets, allies: debugAllies, Store, music: debugMusic };
+window.__rr = { get state() { return state; }, G, targets: debugTargets, allies: debugAllies, Store, music: debugMusic, routine: debugRoutine };

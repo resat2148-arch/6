@@ -284,9 +284,9 @@ function home(s) {
     <div class="card actions">
       <h3>Daily routine</h3>
       <div class="act-grid">
-        <button class="act work" data-act="work"><i>🛠️</i><b>Work</b><small>−${CONFIG.workEnergy}⚡ · +💰${fmtMoney(G.salary(s))}</small></button>
-        <button class="act train" data-act="train"><i>🏋️</i><b>Train</b><small>−${CONFIG.trainEnergy}⚡ · +${G.trainGain(s)} 💪</small></button>
-        <button class="act eat" data-act="eat"><i>🍞</i><b>Eat</b><small>${food} food in stock</small></button>
+        <button class="act work" data-act="routine" data-mode="work"><i>🛠️</i><b>Work</b><small>Factory · +💰${fmtMoney(G.salary(s))}/shift</small></button>
+        <button class="act train" data-act="routine" data-mode="train"><i>🏋️</i><b>Train</b><small>Camp · +${G.trainGain(s)} 💪/session</small></button>
+        <button class="act eat" data-act="routine" data-mode="eat"><i>🍞</i><b>Eat</b><small>Mess hall · ${food} food</small></button>
         <button class="act fight" data-act="${urgent ? 'fight' : 'tab'}" ${urgent ? `data-id="${urgent.id}"` : 'data-tab="war"'}><i>⚔️</i><b>Fight</b>
           <small>${urgent ? esc(s.world.regions[urgent.region].name) : 'Choose a battle'}</small></button>
       </div>

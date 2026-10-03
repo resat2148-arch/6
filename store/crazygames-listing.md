@@ -42,7 +42,7 @@ Start as a simple citizen of one of 37 European countries and rise to lead your 
 
 **Fight for your country.** Battles are fast 5-minute clashes: tap the enemies popping out of the trenches, land headshots, chain combos and push the battle wall. Every hit counts for your whole nation — win the battle and your country takes the region. Bigger countries have more citizens and more firepower, so every conquest makes your nation stronger.
 
-**Build your strength.** Work for a salary, train every day to grow stronger, and upgrade your training grounds for bigger gains. Climb through dozens of military ranks — each rank makes every shot hit harder.
+**Build your strength.** Hammer out shifts at the factory for a salary, lift at the training camp to grow stronger and refuel in the mess hall — hit the gold zone for a perfect bonus. Upgrade your training grounds for bigger gains. Climb through dozens of military ranks — each rank makes every shot hit harder.
 
 **Run an economy.** Build farms, mines, bakeries, armories, quarries and construction companies. Produce food, weapons and houses, then sell them on a real player-driven market where AI citizens post offers and buy yours. Move into a better house for more energy.
 
@@ -53,6 +53,7 @@ Start as a simple citizen of one of 37 European countries and rise to lead your 
 ## Controls
 
 - **Mouse / touch:** tap buttons to work, train, build and trade.
+- **Factory / training camp:** tap (or press Space) when the marker is in the gold zone for a perfect bonus.
 - **Battle:** click or tap enemies to shoot them. Headshots deal double damage. Use the Bazooka button to hit every enemy on screen.
 - **Map:** drag to move, scroll or pinch to zoom, tap a region for details.
 

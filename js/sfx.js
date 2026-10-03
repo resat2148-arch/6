@@ -91,5 +91,9 @@ export const sfx = {
   level: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.18, 'square', 0.1, 0, i * 0.09)),
   win: () => [392, 523, 659, 784, 1047].forEach((f, i) => tone(f, 0.22, 'triangle', 0.14, 0, i * 0.1)),
   lose: () => [392, 330, 262].forEach((f, i) => tone(f, 0.25, 'triangle', 0.12, 0, i * 0.15)),
+  clank: () => { tone(1480, 0.09, 'square', 0.06, -300); tone(2210, 0.14, 'triangle', 0.07); noise(0.07, 0.18, 5000); },
+  lift: () => { tone(110, 0.18, 'sawtooth', 0.07, 40); noise(0.12, 0.1, 400); },
+  bite: () => { noise(0.05, 0.12, 1800); noise(0.05, 0.1, 1500, 0.09); },
+  perfect: () => { tone(1047, 0.08, 'triangle', 0.12); tone(1568, 0.16, 'triangle', 0.12, 0, 0.06); tone(2093, 0.2, 'sine', 0.08, 0, 0.12); },
   alarm: () => { tone(700, 0.15, 'square', 0.08); tone(500, 0.15, 'square', 0.08, 0, 0.16); },
 };

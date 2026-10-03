@@ -275,30 +275,30 @@ export function invAdd(s, key, n) {
 }
 
 // ---------------------------------------------------------------- daily actions
-export function work(s) {
+export function work(s, perfect = false) {
   const p = s.player;
   if (p.energy < CONFIG.workEnergy) return fail('Not enough energy. Eat food or wait.');
   p.energy -= CONFIG.workEnergy;
-  const m = salary(s);
+  const m = salary(s) * (perfect ? 1 + CONFIG.perfectWorkBonus : 1);
   p.money += m;
   p.works++;
   addXp(s, 2);
   count(s, 'work');
   if (p.works % 30 === 0) awardMedal(s, 'hardWorker');
-  return ok({ money: m });
+  return ok({ money: m, perfect });
 }
 
-export function train(s) {
+export function train(s, perfect = false) {
   const p = s.player;
   if (p.energy < CONFIG.trainEnergy) return fail('Not enough energy. Eat food or wait.');
   p.energy -= CONFIG.trainEnergy;
-  const g = trainGain(s);
+  const g = perfect ? Math.round(trainGain(s) * (1 + CONFIG.perfectTrainBonus) * 10) / 10 : trainGain(s);
   p.strength += g;
   p.strengthGained += g;
   addXp(s, 2);
   count(s, 'train');
   while (p.strengthGained >= nextSuperSoldier(s)) awardMedal(s, 'superSoldier');
-  return ok({ gain: g });
+  return ok({ gain: g, perfect });
 }
 
 export function eat(s) {

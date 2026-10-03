@@ -53,6 +53,33 @@
     <main id="view"></main>
   </div>
 
+  <div id="routine" class="routine" hidden>
+    <canvas id="rcv"></canvas>
+    <div class="r-top">
+      <div class="r-tabs">
+        <button data-ract="mode" data-mode="work"><i>🛠️</i><span>Work</span></button>
+        <button data-ract="mode" data-mode="train"><i>🏋️</i><span>Train</span></button>
+        <button data-ract="mode" data-mode="eat"><i>🍞</i><span>Eat</span></button>
+      </div>
+      <div class="r-head"><b id="r-title"></b><small id="r-sub"></small></div>
+      <div id="r-chips" class="b-chips"></div>
+    </div>
+    <div id="r-msg" class="b-msg" hidden></div>
+    <div class="b-bottom r-bottom">
+      <div id="r-gauge" class="r-gauge" title="Tap when the marker is in the gold zone for a bonus"><div class="r-zone"></div><div id="r-mk" class="r-mk"></div></div>
+      <div class="b-energy">
+        <div class="bar energy"><div id="r-energy-fill"></div><em id="r-energy-txt"></em></div>
+        <small id="r-reserve"></small>
+      </div>
+      <button id="r-main" class="r-main" data-ract="do"></button>
+      <button id="r-all" class="b-btn" data-ract="all" title="Spend all your energy at once (no gold zone bonus)">⏩<small id="r-all-n"></small></button>
+      <button id="r-eat" class="b-btn" data-ract="eat" title="Go to the mess hall">🍞<small id="r-eat-n">0</small></button>
+      <button id="r-buy" class="b-btn wide" data-ract="buy" title="Buy 20 food on the market">🛒<small>+20🍞 💰<span id="r-foodprice"></span></small></button>
+      <button id="r-ad" class="b-btn ad" data-ract="ad" title="Watch an ad: full energy and reserve">📺<small>Supply</small></button>
+      <button class="b-btn leave" data-ract="leave">⟵ HQ</button>
+    </div>
+  </div>
+
   <div id="battle" class="battle" hidden>
     <canvas id="bcv"></canvas>
     <div class="b-top">

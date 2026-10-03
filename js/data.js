@@ -15,6 +15,8 @@ export const CONFIG = {
   offlineCapMs: 8 * 3600 * 1000,
   workEnergy: 10,
   trainEnergy: 10,
+  perfectWorkBonus: 0.2, // a shift timed in the gauge's gold zone pays +20%…
+  perfectTrainBonus: 0.25, // …and a perfect training session gives +25% strength
   shotEnergy: 1,
   enemyShotEnergy: 4,
   battleMs: 5 * 60 * 1000, // every battle is a single 5-minute round
