@@ -9,7 +9,7 @@ import {
   buildRoutineBg, conveyorY, drawPerson, drawHammer, drawBench, drawCrate, drawBarbell, drawFlag, drawTable, drawTray, drawSpoon,
 } from './routine-art.js';
 import { fmt, fmtMoney, clamp, esc } from './util.js';
-import { ico, iconize } from './icons.js';
+import { ico, iconize, iconizeHtml, fillTextIcons } from './icons.js';
 
 const $ = (id) => document.getElementById(id);
 const MODES = {
@@ -140,9 +140,9 @@ function hud(full) {
     chips.push(`⚡ <b>+${fmt(Math.round(sess.sum))}</b> eaten`);
     main = `<b>Eat</b><small>${p.energy >= mx - 0.5 ? 'Energy full' : `up to +${Math.round(Math.min(mx - p.energy, p.reserve))}⚡`}</small>`;
   }
-  $('r-sub').innerHTML = sub;
-  $('r-chips').innerHTML = chips.map((c) => `<div class="b-chip">${c}</div>`).join('');
-  $('r-main').innerHTML = main;
+  $('r-sub').innerHTML = iconizeHtml(sub);
+  $('r-chips').innerHTML = iconizeHtml(chips.map((c) => `<div class="b-chip">${c}</div>`).join(''));
+  $('r-main').innerHTML = iconizeHtml(main);
   $('r-main').classList.toggle('empty', R.mode !== 'eat' && left < 1);
   $('r-all').hidden = R.mode === 'eat';
   $('r-all-n').textContent = `×${left}`;
@@ -175,7 +175,8 @@ function onClick(e) {
 
 // A new player is shown the gold zone once per visit.
 function coachGauge() {
-  flashMsg(`👆 Tap when the marker is in the gold zone: +${(R.mode === 'work' ? CONFIG.perfectWorkBonus : CONFIG.perfectTrainBonus) * 100}%`, 4500);
+  const touch = matchMedia('(pointer: coarse)').matches;
+  flashMsg(`👆 ${touch ? 'Tap' : 'Click (or press Space)'} when the marker is in the gold zone: +${(R.mode === 'work' ? CONFIG.perfectWorkBonus : CONFIG.perfectTrainBonus) * 100}%`, 4500);
 }
 
 let msgTimer = 0;
@@ -493,10 +494,7 @@ function drawFloats(g) {
     const half = g.measureText(f.text).width / 2 + 8;
     const x = Math.max(half, Math.min(W - half, f.x)); // a long word stays on narrow screens
     g.lineWidth = 4;
-    g.strokeStyle = 'rgba(0,0,0,.65)';
-    g.strokeText(f.text, x, f.y - k * 60 * L.s);
-    g.fillStyle = f.color;
-    g.fillText(f.text, x, f.y - k * 60 * L.s);
+    fillTextIcons(g, f.text, x, f.y - k * 60 * L.s, f.color, 'rgba(0,0,0,.65)');
   }
   g.globalAlpha = 1;
 }

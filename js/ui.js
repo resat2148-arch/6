@@ -8,7 +8,7 @@ import { flagSvg } from './flags.js';
 import { fmt, fmtMoney, fmtTime, esc } from './util.js';
 import { MAP_W, MAP_H, EU_REGIONS, EU_PATHS, EU_NEUTRAL, EU_BORDERS } from './europe.js';
 import { tabBackground } from './backgrounds.js';
-import { ico, iconize } from './icons.js';
+import { ico, iconize, iconizeHtml } from './icons.js';
 import { PERSONAS, botRank, citizensOf, sellerName, activeCitizens, populationTarget } from './citizens.js';
 import { neighborsOf, regionsOf, isAlive, countryPower, distinctResources, resourceBonus } from './world.js';
 
@@ -39,7 +39,7 @@ export function toast(text, kind = 'info') {
 
 export function openModal(html, cls = '') {
   const m = $('modal');
-  m.innerHTML = `<div class="modal-card ${cls}">${html}</div>`;
+  m.innerHTML = iconizeHtml(`<div class="modal-card ${cls}">${html}</div>`);
   m.hidden = false;
 }
 export function closeModal() {
@@ -122,7 +122,7 @@ export function liveUpdate(s) {
     el.querySelector('.pend-n').textContent = fmt(c.pending);
   });
   const e = $('home-energy');
-  if (e) e.textContent = `${Math.floor(s.player.energy)} / ${G.maxEnergy(s)} ⚡ · reserve ${Math.floor(s.player.reserve)}`;
+  if (e) e.innerHTML = iconize(`${Math.floor(s.player.energy)} / ${G.maxEnergy(s)} ⚡ · reserve ${Math.floor(s.player.reserve)}`);
 }
 
 // ------------------------------------------------------------------ start screen
@@ -226,7 +226,7 @@ export function renderStart(defaultName, picked, legacy = false, first = false) 
       ${flagSvg(c.id, 'flag big')}
       <b>${c.name}</b><small>${count(c.id)} region${count(c.id) > 1 ? 's' : ''}</small>
     </button>`).join('');
-  $('start').innerHTML = `
+  $('start').innerHTML = iconizeHtml(`
     <div class="start-card">
       <div class="logo">⭐ ${GAME_TITLE}</div>
       <p class="tag">Work. Train. Fight. Build an empire and rule a nation.</p>
@@ -235,7 +235,7 @@ export function renderStart(defaultName, picked, legacy = false, first = false) 
       <p class="muted small">${first ? 'Pick your name and country — you can change both later.' : 'Choose your citizenship — big nations are safer, small ones are a challenge'}</p>
       <div class="country-grid">${cards}</div>
       <div class="row menu-row">${first ? '' : `<button class="btn big ghost" data-act="menuBack">${ico('back')} Back</button>`}<button class="btn primary big" data-act="startGame">${ico('play')} Become a citizen</button></div>
-    </div>`;
+    </div>`);
   $('start').hidden = false;
   const grid = document.querySelector('.country-grid');
   const sel = grid.querySelector('.sel');
@@ -255,7 +255,7 @@ export function renderTab(s) {
     bg.classList.add('fade');
   }
   const scroll = v.scrollTop;
-  v.innerHTML = fn(s);
+  v.innerHTML = iconizeHtml(fn(s)); // one drawn icon set everywhere (emoji in templates become icons)
   v.scrollTop = scroll;
   if (ui.tab === 'home') bindMap();
   renderTop(s);
@@ -303,7 +303,7 @@ function home(s) {
   <div class="home-top">
     <div class="card map-card home-map">
       <div class="row spread"><h3>${ico('map')} Europe</h3><small class="muted">${flagSvg(c.id)} ${c.name} controls <b>${mine}</b>/${total} regions (${Math.round((mine / total) * 100)}%)</small></div>
-      <div id="map-holder" title="Drag to move, pinch or scroll to zoom, tap a region. ★ capital · coloured dot = occupied (original owner) · ⚔️ battle · icons = resources (+20% production each)">${mapSvg(s, ui.sel)}</div>
+      <div id="map-holder" title="Drag to move, scroll to zoom, click a region. ★ capital · coloured dot = occupied (original owner) · ⚔️ battle · icons = resources (+20% production each)">${mapSvg(s, ui.sel)}</div>
     </div>
     <div class="side">
     ${tutHtml}
@@ -481,7 +481,7 @@ export function mapSvg(s, sel) {
     ${sel !== null && sel !== undefined ? `<path d="${EU_PATHS[sel]}" class="sel-outline"/>` : ''}
     <g class="marks">${marks}</g>
   </svg>
-  <div class="map-ctl"><button class="icon-btn" data-act="mapZoom" data-z="1.6" title="Zoom in">＋</button><button class="icon-btn" data-act="mapZoom" data-z="0.625" title="Zoom out">－</button><button class="icon-btn" data-act="mapZoom" data-z="0" title="Show all">⤢</button></div>`;
+  <div class="map-ctl"><button class="icon-btn" data-act="mapZoom" data-z="1.6" title="Zoom in">${ico('plus')}</button><button class="icon-btn" data-act="mapZoom" data-z="0.625" title="Zoom out">${ico('minus')}</button><button class="icon-btn" data-act="mapZoom" data-z="0" title="Show all">${ico('expand')}</button></div>${mapUsed() ? '' : `<div class="map-hint" id="map-hint">${ico('tap')} ${touchUI() ? 'Drag to move · pinch to zoom · tap a region' : 'Drag to move · scroll to zoom · click a region'}</div>`}`;
 }
 
 // Pan (drag), zoom (wheel / pinch / buttons) by rewriting the SVG viewBox in place.
@@ -507,6 +507,16 @@ export function zoomMap(factor, cx, cy) {
   const w = vb[2] / factor;
   const h = vb[3] / factor;
   setVb(svg, [px - ((px - vb[0]) / vb[2]) * w, py - ((py - vb[1]) / vb[3]) * h, w, h]);
+}
+
+// Phones and tablets get "tap" wording, mice get "click".
+export const touchUI = () => matchMedia('(pointer: coarse)').matches;
+
+// The map's gesture hint shows until the player has moved, zoomed or tapped the map once.
+const mapUsed = () => { try { return localStorage.getItem('rr-map-used') === '1'; } catch { return false; } };
+export function markMapUsed() {
+  try { localStorage.setItem('rr-map-used', '1'); } catch { /* ignore */ }
+  document.getElementById('map-hint')?.remove();
 }
 
 export function bindMap() {
@@ -550,6 +560,7 @@ export function bindMap() {
     const dx = e.clientX - start.x;
     const dy = e.clientY - start.y;
     if (!ui.dragged && Math.hypot(dx, dy) < 6) return;
+    if (!ui.dragged) markMapUsed();
     ui.dragged = true;
     const r = svg.getBoundingClientRect();
     const scale = Math.max(start.vb[2] / r.width, start.vb[3] / r.height);
@@ -566,13 +577,14 @@ export function bindMap() {
   svg.addEventListener('pointercancel', end);
   svg.addEventListener('wheel', (e) => {
     e.preventDefault();
+    markMapUsed();
     const m = toMap(e);
     zoomMap(e.deltaY < 0 ? 1.25 : 0.8, m.x, m.y);
   }, { passive: false });
 }
 
 function regionPanel(s, id) {
-  if (id === null || id === undefined) return '<p class="muted">Tap a region to inspect it.</p>';
+  if (id === null || id === undefined) return `<p class="muted">${touchUI() ? 'Tap' : 'Click'} a region to inspect it.</p>`;
   const r = s.world.regions[id];
   const own = countryById(r.owner);
   const camp = s.world.campaigns.find((c) => c.region === id);
@@ -990,7 +1002,7 @@ export function helpHtml() {
     <li><b>Energy ⚡</b> powers everything: working, training and every shot in battle. It regenerates slowly.</li>
     <li><b>Food reserve 🍞</b> refills quickly. <b>Eat</b> food to turn reserve into usable energy.</li>
     <li><b>Work</b> earns money. <b>Train</b> raises strength, which raises your damage.</li>
-    <li><b>Fight</b>: tap enemies before they shoot you. Headshots deal double damage, fast hits build combos. Each battle is one ${CONFIG.battleMs / 60000}-minute round: push the wall above 50% together with your fellow citizens before time runs out to take (or keep) the region. You can leave and rejoin at any time.</li>
+    <li><b>Fight</b>: click or tap enemies before they shoot you. Headshots deal double damage, fast hits build combos. Each battle is one ${CONFIG.battleMs / 60000}-minute round: push the wall above 50% together with your fellow citizens before time runs out to take (or keep) the region. You can leave and rejoin at any time.</li>
     <li><b>Citizens 👥</b>: over a thousand AI citizens live the same life: they fight in battles, run companies and post offers on the Market. Buy from them, sell to them, and climb the rankings.</li>
     <li><b>Rank</b> grows with damage and multiplies your damage further.</li>
     <li><b>Houses 🏠</b> raise your max energy and energy regeneration for a few hours. Buy them on the Market or build them with a Construction company.</li>

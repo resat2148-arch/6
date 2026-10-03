@@ -5,7 +5,7 @@ import * as Store from './storage.js';
 import { sfx, unlock, setMuted, setHidden } from './sfx.js';
 import { setMusic, setMood, musicOn, debugMusic } from './music.js';
 import {
-  ui, TABS, activeCampaigns, renderTab, renderTop, liveUpdate, renderStart, toast, openModal, closeModal, modalOpen, banner, helpHtml, zoomMap,
+  ui, TABS, activeCampaigns, markMapUsed, renderTab, renderTop, liveUpdate, renderStart, toast, openModal, closeModal, modalOpen, banner, helpHtml, zoomMap,
   offersModal, listModal, renderMenu, renderGoodbye, settingsHtml, citizenshipHtml, moveNameHtml,
 } from './ui.js';
 import { initBattle, openBattle, isOpen as battleOpen, setAdPause, debugTargets, debugAllies, battleCoachTarget } from './battle.js';
@@ -356,7 +356,7 @@ const actions = {
   newspaper: () => result(G.createNewspaper(state, $('news-name')?.value), () => toast('📰 Newspaper founded!', 'good')),
   article: () => result(G.writeArticle(state, $('article-title')?.value), (r) => toast(`📰 Article published: +${r.gain} subscribers`, 'good')),
   voteArticle: (d) => result(G.voteArticle(state, Number(d.id)), () => sfx.click()),
-  region: (d) => { if (ui.dragged) return; ui.sel = Number(d.id); sfx.click(); refresh(); },
+  region: (d) => { if (ui.dragged) return; ui.sel = Number(d.id); markMapUsed(); sfx.click(); refresh(); },
   mapZoom: (d) => zoomMap(Number(d.z)),
   declareWar: (d) => result(G.declareWar(state, Number(d.id)), () => sfx.alarm()),
   resist: (d) => result(G.startResistance(state, Number(d.id))),

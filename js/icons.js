@@ -69,6 +69,27 @@ const S = {
   cross: '<circle class="f" cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="8.5"/><path d="M9 9l6 6M15 9l-6 6"/>',
   trophy: '<path class="f" d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v1.5A3.5 3.5 0 0 0 7.5 11M17 6h3v1.5A3.5 3.5 0 0 1 16.5 11M12 14v3.5M8 20.5h8M9.5 17.5h5v3h-5z"/>',
   muscle: '<path class="f" d="M5 18c-1.5-3-1-8 1.5-11 1-1.2 2.5-1 3 .5L10 10c2.5-1.5 6-1 7.5 1.5 1.8 3-.2 6.5-3.5 6.5z"/><path d="M5 18c-1.5-3-1-8 1.5-11 1-1.2 2.5-1 3 .5L10 10c2.5-1.5 6-1 7.5 1.5 1.8 3-.2 6.5-3.5 6.5zM9.5 4.5 11 6.5"/>',
+  minus: '<path d="M5 12h14"/>',
+  expand: '<path d="M14.5 4H20v5.5M20 4l-6.5 6.5M9.5 20H4v-5.5M4 20l6.5-6.5"/>',
+  globe: '<circle class="f" cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.6 3.6 5.4 3.6 8.5s-1.1 5.9-3.6 8.5c-2.5-2.6-3.6-5.4-3.6-8.5s1.1-5.9 3.6-8.5z"/>',
+  dice: '<rect class="f" x="4" y="4" width="16" height="16" rx="3"/><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="8.5" cy="8.5" r="1"/><circle cx="15.5" cy="15.5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="15.5" cy="8.5" r="1"/><circle cx="8.5" cy="15.5" r="1"/>',
+  helmet: '<path class="f" d="M3.5 15a8.5 8.5 0 0 1 17 0z"/><path d="M3.5 15a8.5 8.5 0 0 1 17 0zM2.5 15h19v2.5h-19zM12 6.5V10M8 8.5l1.5 2.5M16 8.5l-1.5 2.5"/>',
+  pickaxe: '<path d="M4 7.5c4.5-4 11.5-4 16 0M12 4.5V21"/><path class="f" d="M10.5 9h3v12h-3z"/>',
+  thumb: '<path class="f" d="M8 11h-3.5v9H8zM8 11l3.5-7c1.6 0 2.6 1.4 2.2 3L13 10h5.5a2 2 0 0 1 2 2.4l-1.3 6A2 2 0 0 1 17.2 20H8z"/><path d="M8 11h-3.5v9H8zM8 11l3.5-7c1.6 0 2.6 1.4 2.2 3L13 10h5.5a2 2 0 0 1 2 2.4l-1.3 6A2 2 0 0 1 17.2 20H8z"/>',
+  can: '<rect class="f" x="5.5" y="5" width="13" height="15" rx="2"/><rect x="5.5" y="5" width="13" height="15" rx="2"/><path d="M5.5 9h13M5.5 16h13M9 3.5h6"/>',
+  tent: '<path class="f" d="M3 20 12 6l9 14z"/><path d="M3 20 12 6l9 14M10 3.5 12 6l2-2.5M2 20h20M9.5 20 12 15.5l2.5 4.5"/>',
+  warn: '<path class="f" d="M12 3.5 21 19.5H3z"/><path d="M12 3.5 21 19.5H3zM12 9.5v4.5M12 16.8v.2"/>',
+  pen: '<path class="f" d="M15.5 4.5 19.5 8.5 9 19H5v-4z"/><path d="M15.5 4.5 19.5 8.5 9 19H5v-4zM13 7l4 4"/>',
+  fish: '<path class="f" d="M3 12c3-4.5 9.5-6 14-2l4-3v10l-4-3c-4.5 4-11 2.5-14-2z"/><path d="M3 12c3-4.5 9.5-6 14-2l4-3v10l-4-3c-4.5 4-11 2.5-14-2z"/><circle cx="7.5" cy="11" r=".9"/>',
+  apple: '<path class="f" d="M12 7.5c-2-1.5-7-1.5-7 4 0 4.5 3 8.5 5 8.5 1 0 1.3-.5 2-.5s1 .5 2 .5c2 0 5-4 5-8.5 0-5.5-5-5.5-7-4z"/><path d="M12 7.5c-2-1.5-7-1.5-7 4 0 4.5 3 8.5 5 8.5 1 0 1.3-.5 2-.5s1 .5 2 .5c2 0 5-4 5-8.5 0-5.5-5-5.5-7-4zM12 7.5c0-2 1-3.5 3-4"/>',
+  cow: '<path class="f" d="M6 8h12v6.5a6 6 0 0 1-12 0z"/><path d="M6 8h12v6.5a6 6 0 0 1-12 0zM6 9 3 7M18 9l3-2M9.5 17.5h5"/><circle cx="9.5" cy="11.5" r=".9"/><circle cx="14.5" cy="11.5" r=".9"/>',
+  deer: '<path class="f" d="M9 10h6l-1 9h-4z"/><path d="M9 10h6l-1 9h-4zM9 10 6 4M7.3 6.5 4.5 6M15 10l3-6M16.7 6.5l2.8-.5"/><circle cx="11" cy="13" r=".8"/><circle cx="13" cy="13" r=".8"/>',
+  oil: '<path class="f" d="M6 6h12v14H6z"/><path d="M6 6h12v14H6zM6 6c0-1.5 12-1.5 12 0M6 11h12M6 15.5h12"/>',
+  flask: '<path class="f" d="M10 3.5h4v6l5 9a1.5 1.5 0 0 1-1.3 2H6.3A1.5 1.5 0 0 1 5 18.5l5-9z"/><path d="M10 3.5h4v6l5 9a1.5 1.5 0 0 1-1.3 2H6.3A1.5 1.5 0 0 1 5 18.5l5-9zM9 3.5h6M7.5 14.5h9"/>',
+  tree: '<path class="f" d="M12 3 5 12h3.5L5 17h14l-3.5-5H19z"/><path d="M12 3 5 12h3.5L5 17h14l-3.5-5H19zM12 17v4"/>',
+  nut: '<path class="f" d="M12 3.5 19.4 7.8v8.4L12 20.5l-7.4-4.3V7.8z"/><path d="M12 3.5 19.4 7.8v8.4L12 20.5l-7.4-4.3V7.8z"/><circle cx="12" cy="12" r="3"/>',
+  rock: '<path class="f" d="M3.5 18 7 9l5-3.5 5 3 3.5 9.5z"/><path d="M3.5 18 7 9l5-3.5 5 3 3.5 9.5zM12 5.5l-1.5 6 3.5 3"/>',
+  climb: '<circle cx="14" cy="5" r="1.8"/><path d="M13.5 8 11 13l3 2-1 5.5M11 13l-3.5 2M13.5 8l4 2.5M20 3v18M20 7h-2M20 12h-2M20 17h-2"/>',
 };
 
 // Emoji in messages (toasts, news, battle notes) drawn as icons: emoji -> [icon, tint].
@@ -83,12 +104,83 @@ const EMOJI = {
   '💔': ['cross', 'red'], '🏭': ['factory'], '🏠': ['house'], '🏡': ['house'], '🛖': ['house'], '🏘': ['house'], '🏰': ['house'],
   '🌾': ['wheat', 'amber'], '⛓': ['chain'], '🧱': ['brick', 'amber'], '🎒': ['bag'], '📺': ['ad', 'sky'], '🍽': ['hall', 'amber'],
   '✔': ['check', 'money'], '📊': ['board'], '🔥': ['flame', 'amber'], '☠': ['skull'], '💥': ['burst', 'amber'], '⏱': ['clock'],
+  '🌍': ['globe', 'sky'], '🗺': ['map'], '👥': ['people'], '🎲': ['dice'], '🪖': ['helmet', 'money'], '⛏': ['pickaxe'], '👍': ['thumb', 'money'],
+  '🥫': ['can', 'amber'], '⛺': ['tent'], '⚠': ['warn', 'amber'], '✍': ['pen'], '🗞': ['news'], '🏅': ['medals', 'gold'], '⚙': ['gear'],
+  '💾': ['save'], '🐟': ['fish', 'sky'], '🍎': ['apple', 'red'], '🐄': ['cow'], '🦌': ['deer', 'amber'], '🛢': ['oil'], '🧪': ['flask', 'violet'],
+  '🌳': ['tree', 'money'], '🔩': ['nut'], '🪨': ['rock'], '🧗': ['climb', 'sky'],
 };
 const EMOJI_RE = new RegExp(`(${Object.keys(EMOJI).join('|')})\\uFE0F?`, 'gu');
 
 // Replaces the known emoji of an already escaped HTML string with icons.
 export function iconize(html) {
   return String(html).replace(EMOJI_RE, (m, e) => ico(...EMOJI[e]));
+}
+
+// Same, for whole rendered markup: only text between tags is touched, never attributes, and nothing
+// inside an <svg> (the map draws its own markers) or a <textarea>.
+export function iconizeHtml(html) {
+  let skip = 0;
+  return String(html).split(/(<[^>]*>)/).map((part) => {
+    if (part[0] === '<') {
+      const m = /^<(\/?)(svg|textarea)\b/i.exec(part);
+      if (m) skip += m[1] ? -1 : part.endsWith('/>') ? 0 : 1;
+      return part;
+    }
+    return skip > 0 ? part : iconize(part);
+  }).join('');
+}
+
+// ------------------------------------------------------------ icons on canvas
+const TINT = { money: '#4ade80', gold: '#f5b83d', energy: '#facc15', amber: '#fbbf24', red: '#f87171', violet: '#c4b5fd', sky: '#7dd3fc' };
+const imgCache = new Map();
+function iconImage(name, color) {
+  const key = name + color;
+  let img = imgCache.get(key);
+  if (!img) {
+    img = new Image();
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="96" height="96" style="color:${color}" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><style>.f{fill:currentColor;fill-opacity:.3;stroke:none}</style>${S[name]}</svg>`);
+    imgCache.set(key, img);
+  }
+  return img;
+}
+
+// Loads the icons used in canvas texts ahead of time (an image needs a moment the first time).
+export function preloadIcons() {
+  for (const [name, tint] of Object.values(EMOJI)) iconImage(name, TINT[tint] || '#e2e8f0');
+}
+
+// Draws a one-line text with its emoji as icons, centred on x (ctx font and alignment are used as given).
+// stroke: outline colour for readability, or null.
+export function fillTextIcons(g, text, x, y, color, stroke) {
+  const parts = String(text).split(EMOJI_RE);
+  const size = parseFloat(/(\d+(?:\.\d+)?)px/.exec(g.font)?.[1] || 16);
+  const items = [];
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 2) items.push({ ic: EMOJI[parts[i]], w: size * 1.05 });
+    else if (parts[i]) items.push({ t: parts[i], w: g.measureText(parts[i]).width });
+  }
+  const total = items.reduce((a, b) => a + b.w, 0);
+  const align = g.textAlign;
+  let cx = align === 'center' ? x - total / 2 : align === 'right' || align === 'end' ? x - total : x;
+  g.textAlign = 'left';
+  for (const it of items) {
+    if (it.t) {
+      if (stroke) { g.strokeStyle = stroke; g.strokeText(it.t, cx, y); }
+      g.fillStyle = color;
+      g.fillText(it.t, cx, y);
+    } else {
+      const img = iconImage(it.ic[0], TINT[it.ic[1]] || color);
+      if (img.complete && img.naturalWidth) {
+        const sz = size * 0.95;
+        if (stroke) { g.save(); g.shadowColor = 'rgba(0,0,0,.75)'; g.shadowBlur = 4; }
+        g.drawImage(img, cx + (it.w - sz) / 2, y - sz * 0.82, sz, sz);
+        if (stroke) g.restore();
+      }
+    }
+    cx += it.w;
+  }
+  g.textAlign = align;
 }
 
 // An icon as an inline SVG string; tint: an .ic-<tint> colour class (gold, green, energy…).

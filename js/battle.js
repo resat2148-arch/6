@@ -4,7 +4,7 @@ import { countryById, CONFIG, FOOD_ENERGY } from './data.js';
 import * as G from './game.js';
 import { sfx } from './sfx.js';
 import { flagSvg } from './flags.js';
-import { ico, iconize } from './icons.js';
+import { ico, iconize, iconizeHtml, fillTextIcons, preloadIcons } from './icons.js';
 import { fmt, randRange, clamp, esc } from './util.js';
 import {
   buildBackground, buildCover, buildVignette, soldierSprite, clearSprites, setFlagListener, flagImage, sprites, drawWeapon, weaponMuzzle, WEAPONS, SOLDIER_MUZZLE,
@@ -12,6 +12,7 @@ import {
 } from './battle-art.js';
 
 const $ = (id) => document.getElementById(id);
+const TOUCH = () => matchMedia('(pointer: coarse)').matches; // "tap" on touch screens, "click" with a mouse
 
 let S = null;
 let hooks = {};
@@ -28,6 +29,7 @@ let gunAt = { x: 0, y: 0 }; // where the weapon is held (pivot below the screen 
 export const isOpen = () => !!S;
 
 export function initBattle() {
+  preloadIcons(); // floating texts draw their emoji as icons
   canvas = $('bcv');
   ctx = canvas.getContext('2d');
   setFlagListener(() => { clearSprites(); clearAllySprites(); }); // soldiers wear a flag patch once its image has loaded
@@ -158,7 +160,7 @@ function renderBoard() {
   const foe = mine === 'att' ? 'def' : 'att';
   const hitting = { att: new Set(), def: new Set() };
   for (const r of G.liveFighters(c, Date.now())) hitting[r.s ? 'att' : 'def'].add(r.i);
-  el.innerHTML = boardSide(bd[mine], S.setup.me, bd.wall[mine], 'ally', hitting[mine].size) + boardSide(bd[foe], S.setup.foe, bd.wall[foe], 'foe', hitting[foe].size);
+  el.innerHTML = iconizeHtml(boardSide(bd[mine], S.setup.me, bd.wall[mine], 'ally', hitting[mine].size) + boardSide(bd[foe], S.setup.foe, bd.wall[foe], 'foe', hitting[foe].size));
   el.hidden = false;
 }
 
@@ -473,7 +475,7 @@ function update(dt) {
 
 // First battle: a hint until the player gets the idea, then a pointer to the mission reward.
 function coachStep() {
-  if (S.kills < 3 && S.msgT <= 0.2) flashMsg('👆 Tap the enemies to shoot. Headshots hit twice as hard!');
+  if (S.kills < 3 && S.msgT <= 0.2) flashMsg(`👆 ${TOUCH() ? 'Tap' : 'Click'} the enemies to shoot. Headshots hit twice as hard!`);
   if (S.kills >= 10 && !S.coachDone) {
     S.coachDone = true;
     flashMsg('🎯 Mission done!');
@@ -506,9 +508,10 @@ function drawCoach() {
   ctx.textAlign = 'center';
   ctx.lineWidth = 4;
   ctx.strokeStyle = 'rgba(0,0,0,.7)';
-  ctx.strokeText('TAP!', g.hx, g.hy - r - 2);
+  const word = TOUCH() ? 'TAP!' : 'CLICK!';
+  ctx.strokeText(word, g.hx, g.hy - r - 2);
   ctx.fillStyle = '#fde68a';
-  ctx.fillText('TAP!', g.hx, g.hy - r - 2);
+  ctx.fillText(word, g.hx, g.hy - r - 2);
 }
 
 function effects(dt) {
@@ -833,7 +836,7 @@ function showCard({ cls, title, sub, res, extra = '', medals, buttons }) {
   const list = medals || res?.medals || [];
   const medalHtml = list.map((m) => `<span class="pill gold">🎖️ ${MEDAL_NAMES[m] || m}</span>`).join(' ');
   const el = $('b-result');
-  el.innerHTML = `
+  el.innerHTML = iconizeHtml(`
     <div class="b-card ${cls}">
       <h2>${title}</h2>
       <p class="muted">${sub}</p>
@@ -846,7 +849,7 @@ function showCard({ cls, title, sub, res, extra = '', medals, buttons }) {
       ${medalHtml ? `<p>${medalHtml}</p>` : ''}
       ${extra}
       <div class="row">${hq ? buttons.replace('btn primary', 'btn') : buttons}<button class="btn ${hq ? 'primary' : ''}" data-bact="exit">Back to HQ</button></div>
-    </div>`;
+    </div>`);
   el.hidden = false;
   hooks.onCoach?.();
 }
@@ -1151,10 +1154,7 @@ function drawFloats() {
     ctx.font = `italic 900 ${f.size * pop}px system-ui, sans-serif`;
     ctx.lineWidth = 5;
     ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'rgba(0,0,0,.75)';
-    ctx.strokeText(f.text, f.x, f.y);
-    ctx.fillStyle = f.color;
-    ctx.fillText(f.text, f.x, f.y);
+    fillTextIcons(ctx, f.text, f.x, f.y, f.color, 'rgba(0,0,0,.75)');
   }
   ctx.globalAlpha = 1;
 }

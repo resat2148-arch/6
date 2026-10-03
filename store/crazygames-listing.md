@@ -28,9 +28,9 @@ Strategy (ikinci tercih: Idle / Simulation)
 
 ## Tags
 
-strategy, war, europe, map, conquer, politics, economy, idle, clicker, army, soldier, country, empire, simulation, multiplayer-like
+strategy, war, europe, map, conquer, politics, economy, idle, clicker, army, soldier, country, empire, simulation, single-player
 
-> Portal yalnızca kendi etiket listesinden seçtiriyorsa bu listeye en yakın olanları seç. "multiplayer-like" portalda yoksa atla — oyun tek oyunculu, rakipler yapay zekâ.
+> Portal yalnızca kendi etiket listesinden seçtiriyorsa bu listeye en yakın olanları seç. Oyun tek oyunculu (rakipler ve müttefikler yapay zekâ): kalite rehberine göre çok oyunculu izlenimi veren etiket kullanma.
 
 ## Short description (1 sentence)
 
@@ -38,7 +38,7 @@ Work, train and fight for your nation on a real map of Europe — build companie
 
 ## Description
 
-Start as a citizen of one of 37 European countries and rise to lead your nation. Every region on the real map of Europe can be won or lost, and a living world of 1,000+ AI citizens works, trades, votes and fights beside you — and against you.
+Start as a citizen of one of 37 European countries and rise to lead your nation in this single-player strategy game. Every region on the real map of Europe can be won or lost, and a living world of 1,000+ AI citizens works, trades, votes and fights beside you — and against you.
 
 **Fight for your country.** Battles are fast 5-minute clashes: tap the enemies popping out of the trenches, land headshots, chain combos and push the battle wall. Fellow citizens fight right beside you, and every hit counts for your whole nation — win the battle and your country takes the region.
 
