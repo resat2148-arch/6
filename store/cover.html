@@ -1,99 +1,381 @@
 <!doctype html>
-<!-- Cover art for the CrazyGames listing. Rendered by scripts/build-covers.mjs as cover.html?w=1920&h=1080 etc. -->
+<!-- Cover art for the CrazyGames listing. Rendered by scripts/build-covers.mjs as cover.html?w=1920&h=1080 etc.
+     A cinematic shot made with the game's own battle art: a ruined city at dusk, a flag raised over the rubble,
+     soldiers at the front line, Europe glowing in the sky and the title in hammered gold. -->
 <html>
 <head>
 <meta charset="utf-8">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Russo+One&display=block" rel="stylesheet">
 <style>
+  /* bundled (SIL OFL), so the render never depends on the network */
+  @font-face { font-family: 'Russo One'; src: url('fonts/RussoOne-Regular.ttf') format('truetype'); font-display: block; }
+  @font-face { font-family: 'Rajdhani'; font-weight: 700; src: url('fonts/Rajdhani-Bold.ttf') format('truetype'); font-display: block; }
   * { box-sizing: border-box; margin: 0; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0f1a; }
-  #c { position: relative; overflow: hidden; background: radial-gradient(ellipse at 50% 40%, #16335a 0%, #0b1526 60%, #070b14 100%); }
-  svg.map { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .region { stroke: rgba(8, 12, 22, .55); stroke-width: .6; }
-  .shade { position: absolute; inset: 0; background:
-    radial-gradient(ellipse at 50% 50%, rgba(7, 11, 20, .05) 25%, rgba(7, 11, 20, .55) 70%, rgba(7, 11, 20, .9) 100%); }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #05070d; }
+  #c { position: relative; overflow: hidden; }
+  canvas { position: absolute; inset: 0; }
+  svg.europe { position: absolute; pointer-events: none; }
   .logo { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
-  .plate { position: absolute; left: 50%; transform: translate(-50%, -50%); border-radius: 50%;
-    background: radial-gradient(ellipse, rgba(6, 10, 18, .82) 0%, rgba(6, 10, 18, .6) 45%, rgba(6, 10, 18, 0) 72%); }
-  .title { font-family: 'Russo One', sans-serif; line-height: .92; letter-spacing: .02em; text-transform: uppercase;
-    background: linear-gradient(180deg, #fff6d5 0%, #ffd45c 35%, #f5b83d 60%, #c07a0a 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
-    -webkit-text-stroke: .018em #6b4006;
-    filter: drop-shadow(0 .05em 0 #5a3505) drop-shadow(0 .12em .18em rgba(0, 0, 0, .75)); }
-  .star { filter: drop-shadow(0 0 .3em rgba(255, 200, 80, .75)); }
-  .flags { display: flex; gap: .35em; margin-top: .55em; }
-  .flags svg { width: 1.5em; height: 1em; border-radius: .12em; box-shadow: 0 .08em .25em rgba(0, 0, 0, .7); }
-  .glow { position: absolute; transform: translate(-50%, -50%); border-radius: 50%;
-    background: radial-gradient(circle, rgba(255, 244, 200, .95) 0%, rgba(255, 170, 40, .85) 18%, rgba(240, 70, 20, .55) 42%, rgba(200, 30, 10, 0) 70%); }
-  .glow span { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 52%; filter: drop-shadow(0 0 .15em #000); }
+  .title { font-family: 'Russo One', sans-serif; line-height: .9; letter-spacing: .025em; text-transform: uppercase; white-space: nowrap;
+    background: linear-gradient(180deg, #fffbe8 0%, #ffe28a 28%, #f5b83d 52%, #b86a06 53%, #f2b54a 70%, #fff1b8 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    -webkit-text-stroke: .02em #3d2203;
+    filter: drop-shadow(0 .035em 0 #4a2a04) drop-shadow(0 .06em .03em rgba(0, 0, 0, .8)) drop-shadow(0 0 .35em rgba(255, 140, 40, .45)); }
+  .tag { font-family: 'Rajdhani', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: .42em; color: #fdf0d2;
+    text-shadow: 0 .08em .25em rgba(0, 0, 0, .9), 0 0 .6em rgba(255, 150, 60, .5); padding-left: .42em; }
+  .tag b { color: #ffcf5c; }
+  .rule { height: .06em; margin: .35em auto .3em; background: linear-gradient(90deg, transparent, #f5b83d 20%, #fff2c0 50%, #f5b83d 80%, transparent); }
+  .star { filter: drop-shadow(0 0 .25em rgba(255, 190, 80, .85)) drop-shadow(0 .05em .08em rgba(0, 0, 0, .8)); }
 </style>
 </head>
 <body>
-<div id="c"></div>
+<div id="c"><canvas id="bg"></canvas></div>
 <script type="module">
-import { EU_COUNTRIES, EU_REGIONS, EU_PATHS, EU_NEIGHBORS, EU_NEUTRAL } from '../js/europe.js';
-import { flagSvg } from '../js/flags.js';
+import { buildBackground, allySprite, sprites, flagImage, clearAllySprites } from '../js/battle-art.js';
+import { MAP_W, MAP_H, EU_BORDERS, EU_NEUTRAL, EU_PATHS } from '../js/europe.js';
 
 const q = new URLSearchParams(location.search);
 const W = Number(q.get('w')) || 1920;
 const H = Number(q.get('h')) || 1080;
 const logoOnly = q.has('logo'); // transparent logo for the marketing kit
+const wide = W / H > 1.3;
+const portrait = H / W > 1.2;
 const c = document.getElementById('c');
 c.style.width = W + 'px';
 c.style.height = H + 'px';
-if (logoOnly) document.documentElement.style.background = document.body.style.background = c.style.background = 'transparent';
+const cv = document.getElementById('bg');
+cv.width = W;
+cv.height = H;
+const g = cv.getContext('2d');
+const TAU = Math.PI * 2;
+let seed = 7;
+const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647); // same picture every render
+const R = (a, b) => a + rnd() * (b - a);
 
-// Which part of the map to show: central Europe, cropped to the cover's shape.
-const cx = 520, cy = W >= H ? 470 : 430;
-const span = W >= H ? 760 : 520;
-const vw = span;
-const vh = vw * (H / W);
-const vb = [cx - vw / 2, cy - vh / 2, vw, vh];
-const colour = Object.fromEntries(EU_COUNTRIES.map((k) => [k.id, k.color]));
-const paths = EU_PATHS.map((d, i) => `<path class="region" d="${d}" fill="${colour[EU_REGIONS[i].c]}"/>`).join('');
-if (!logoOnly) c.insertAdjacentHTML('beforeend', `<svg class="map" viewBox="${vb.join(' ')}" preserveAspectRatio="xMidYMid slice">
-  <path d="${EU_NEUTRAL}" fill="#2a3448"/>
-  <g opacity=".9">${paths}</g></svg><div class="shade"></div>`);
+// Title block position: upper third on portrait, a little above the middle elsewhere.
+const titleY = portrait ? H * 0.2 : H * (wide ? 0.33 : 0.3);
+const sunX = W * 0.5;
+const sunY = portrait ? H * 0.33 : H * 0.44;
 
-// Logo.
-const wide = W / H > 1.3;
-const size = wide ? W * 0.085 : W * 0.15;
-const top = wide ? H * 0.5 : H * (W === H ? 0.5 : 0.42);
-const star = `<svg class="star" viewBox="-1 -1 2 2" style="width:${size * 0.9}px;height:${size * 0.9}px;margin-bottom:${size * 0.12}px">
-  <defs><linearGradient id="g" x1="0" y1="-1" x2="0" y2="1"><stop offset="0" stop-color="#fff2b8"/><stop offset=".5" stop-color="#f5b83d"/><stop offset="1" stop-color="#b86f06"/></linearGradient></defs>
-  <polygon fill="url(#g)" stroke="#5a3505" stroke-width=".06" points="${Array.from({ length: 10 }, (_, k) => {
-    const r = k % 2 ? 0.42 : 0.98; const t = -Math.PI / 2 + (k * Math.PI) / 5; return `${(r * Math.cos(t)).toFixed(3)},${(r * Math.sin(t)).toFixed(3)}`; }).join(' ')}"/></svg>`;
-const flags = ['FR', 'DE', 'PL', 'IT', 'ES', 'TR', 'GB'].map((id) => flagSvg(id)).join('');
-const plateW = wide ? W * 0.62 : W * 1.1;
-c.insertAdjacentHTML('beforeend', `<div class="plate" style="top:${top}px;width:${plateW}px;height:${plateW * (wide ? 0.62 : 0.9)}px;${logoOnly ? 'display:none' : ''}"></div>
-  <div class="logo" style="top:${top}px;transform:translateY(-50%);font-size:${size}px">
-    ${star}
-    <div class="title">${wide ? 'Republic Rising' : 'Republic<br>Rising'}</div>
-    <div class="flags" style="font-size:${size * 0.42}px">${flags}</div>
-  </div>`);
-// Battles on a few borders.
-function addBattles() {
-  const px = (x, y) => [((x - vb[0]) / vb[2]) * W, ((y - vb[1]) / vb[3]) * H];
-  const fronts = [['FR', 'DE'], ['DE', 'PL'], ['IT', 'AT'], ['HU', 'RO'], ['ES', 'FR'], ['CZ', 'DE'], ['SE', 'NO'], ['GB', 'IE']];
-  const unit = Math.min(W, H);
-  const box = c.querySelector('.logo').getBoundingClientRect();
-  for (const [a, b] of fronts) {
-    const i = EU_REGIONS.findIndex((r, k) => r.c === a && EU_NEIGHBORS[k].some((n) => EU_REGIONS[n].c === b));
-    if (i < 0) continue;
-    const j = EU_NEIGHBORS[i].find((n) => EU_REGIONS[n].c === b);
-    const [x, y] = px((EU_REGIONS[i].x + EU_REGIONS[j].x) / 2, (EU_REGIONS[i].y + EU_REGIONS[j].y) / 2);
-    const s = unit * 0.16;
-    if (x < s / 3 || y < s / 3 || x > W - s / 3 || y > H - s / 3) continue;
-    if (x > box.left - s * 0.4 && x < box.right + s * 0.4 && y > box.top - s * 0.4 && y < box.bottom + s * 0.4) continue; // keep the logo clean
-    c.querySelector('.plate').insertAdjacentHTML('beforebegin', `<div class="glow" style="left:${x}px;top:${y}px;width:${s}px;height:${s}px;font-size:${s}px"><span>⚔️</span></div>`);
-  }
+function waitFlags(ids) {
+  const recs = ids.map((id) => flagImage(id));
+  return new Promise((ok) => {
+    const t0 = performance.now();
+    const check = () => (recs.every((r) => r.ready) || performance.now() - t0 > 3000 ? ok() : setTimeout(check, 50));
+    check();
+  });
 }
 
-// Place the battles once the title font has its final size.
-document.fonts.ready.then(() => {
-  if (!logoOnly) addBattles();
-  document.body.dataset.ready = '1';
-});
+// ------------------------------------------------------------ the scene
+function scene() {
+  const unit = Math.max(0.9, Math.min(H / 520, W / 460, 2.6));
+  g.drawImage(buildBackground(W, H, 1, unit), 0, 0);
+
+  // cinematic grade: deep night above, burning horizon below
+  let gr = g.createLinearGradient(0, 0, 0, H);
+  gr.addColorStop(0, 'rgba(4,8,22,.92)');
+  gr.addColorStop(0.32, 'rgba(10,16,40,.55)');
+  gr.addColorStop(0.55, 'rgba(60,20,10,.05)');
+  gr.addColorStop(1, 'rgba(8,4,2,.75)');
+  g.fillStyle = gr;
+  g.fillRect(0, 0, W, H);
+
+  // the sun breaking through behind the title
+  g.globalCompositeOperation = 'lighter';
+  const sr = Math.max(W, H) * 0.55;
+  gr = g.createRadialGradient(sunX, sunY, 0, sunX, sunY, sr);
+  gr.addColorStop(0, 'rgba(255,236,190,.95)');
+  gr.addColorStop(0.08, 'rgba(255,190,90,.75)');
+  gr.addColorStop(0.3, 'rgba(240,100,30,.32)');
+  gr.addColorStop(1, 'rgba(120,30,10,0)');
+  g.fillStyle = gr;
+  g.fillRect(0, 0, W, H);
+  // god rays
+  for (let i = 0; i < 22; i++) {
+    const a = -Math.PI + (i / 22) * TAU + R(-0.06, 0.06);
+    const w = R(0.015, 0.05);
+    const len = Math.max(W, H) * R(0.7, 1.2);
+    g.fillStyle = `rgba(255,${Math.round(R(170, 220))},120,${R(0.03, 0.08).toFixed(3)})`;
+    g.beginPath();
+    g.moveTo(sunX, sunY);
+    g.lineTo(sunX + Math.cos(a - w) * len, sunY + Math.sin(a - w) * len);
+    g.lineTo(sunX + Math.cos(a + w) * len, sunY + Math.sin(a + w) * len);
+    g.closePath();
+    g.fill();
+  }
+  g.globalCompositeOperation = 'source-over';
+
+  // the front line burning on the horizon, tracers across the sky
+  const hz = H * 0.43;
+  g.globalCompositeOperation = 'lighter';
+  const blasts = portrait ? [[0.82, 0.5, 0.5], [0.3, 0.52, 0.32]] : [[0.84, 0.47, 0.42], [0.62, 0.45, 0.22], [0.27, 0.46, 0.28]];
+  for (const [fx, fy, k] of blasts) {
+    const x = W * fx;
+    const y = H * fy;
+    const r = Math.min(W, H) * k;
+    g.globalAlpha = 0.9;
+    g.drawImage(sprites().fire, x - r / 2, y - r * 0.62, r, r);
+    g.globalAlpha = 0.5;
+    g.drawImage(sprites().glow, x - r, y - r, r * 2, r * 2);
+  }
+  g.globalAlpha = 1;
+  for (let i = 0; i < 9; i++) {
+    const fromLeft = i % 2 === 0;
+    const x1 = fromLeft ? R(-0.05, 0.25) * W : R(0.75, 1.05) * W;
+    const y1 = R(0.5, 0.8) * H;
+    const x2 = W * R(0.35, 0.65);
+    const y2 = hz - R(0.05, 0.3) * H;
+    const tr = g.createLinearGradient(x1, y1, x2, y2);
+    tr.addColorStop(0, 'rgba(255,120,60,0)');
+    tr.addColorStop(0.8, 'rgba(255,190,120,.55)');
+    tr.addColorStop(1, 'rgba(255,240,200,.9)');
+    g.strokeStyle = tr;
+    g.lineWidth = Math.max(1.5, Math.min(W, H) / 500);
+    const t0 = R(0.2, 0.55);
+    g.beginPath(); g.moveTo(x1 + (x2 - x1) * t0, y1 + (y2 - y1) * t0); g.lineTo(x1 + (x2 - x1) * (t0 + 0.25), y1 + (y2 - y1) * (t0 + 0.25)); g.stroke();
+  }
+  g.globalCompositeOperation = 'source-over';
+
+  // smoke drifting across the battlefield
+  const sp = sprites();
+  for (let i = 0; i < 26; i++) {
+    const x = R(-0.1, 1.1) * W;
+    const y = R(0.42, 0.85) * H;
+    const r = R(0.12, 0.32) * Math.max(W, H);
+    g.globalAlpha = R(0.25, 0.55);
+    g.drawImage(sp.smoke, x - r, y - r * 0.6, r * 2, r * 1.2);
+  }
+  g.globalAlpha = 1;
+
+  // the flag raised over the rubble, the soldiers holding the line
+  raisedFlag();
+  soldiers(unit);
+
+  // embers and sparks rising into the night
+  g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 260; i++) {
+    const x = R(0, W);
+    const y = H * Math.pow(rnd(), 0.6);
+    const s = R(0.6, 2.6) * Math.max(1, W / 1400);
+    const a = R(0.25, 0.95);
+    g.drawImage(sp.glow, x - s * 4, y - s * 4, s * 8, s * 8);
+    g.fillStyle = `rgba(255,${Math.round(R(170, 235))},${Math.round(R(80, 160))},${a})`;
+    g.beginPath(); g.arc(x, y, s * 0.6, 0, TAU); g.fill();
+  }
+  for (let i = 0; i < 40; i++) {
+    const x = R(0, W);
+    const y = R(0.35, 1) * H;
+    const l = R(8, 26) * Math.max(1, W / 1400);
+    g.strokeStyle = `rgba(255,200,120,${R(0.3, 0.7)})`;
+    g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + l * 0.35, y - l); g.stroke();
+  }
+  g.globalCompositeOperation = 'source-over';
+
+  // vignette and a light film grain
+  gr = g.createRadialGradient(W / 2, H * 0.48, Math.min(W, H) * 0.25, W / 2, H * 0.5, Math.hypot(W, H) * 0.62);
+  gr.addColorStop(0, 'rgba(0,0,0,0)');
+  gr.addColorStop(1, 'rgba(0,0,0,.78)');
+  g.fillStyle = gr;
+  g.fillRect(0, 0, W, H);
+  const img = g.getImageData(0, 0, W, H);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const n = (rnd() - 0.5) * 10;
+    img.data[i] += n; img.data[i + 1] += n; img.data[i + 2] += n;
+  }
+  g.putImageData(img, 0, 0);
+}
+
+// A tall pole on the rubble with a great banner of the Republic catching the wind.
+function raisedFlag() {
+  const k = Math.min(W, H) / 1080;
+  const px = portrait ? W * 0.14 : W * (wide ? 0.065 : 0.1);
+  const base = H * 0.97;
+  const top = portrait ? H * 0.43 : H * (wide ? 0.6 : 0.6);
+  // rubble mound
+  g.fillStyle = '#120c08';
+  g.beginPath();
+  g.moveTo(px - 260 * k, base + 40 * k);
+  g.quadraticCurveTo(px - 60 * k, base - 120 * k, px + 40 * k, base - 90 * k);
+  g.quadraticCurveTo(px + 180 * k, base - 60 * k, px + 320 * k, base + 40 * k);
+  g.fill();
+  // pole with a rim of firelight
+  g.lineCap = 'round';
+  g.strokeStyle = '#1a120c';
+  g.lineWidth = 14 * k;
+  g.beginPath(); g.moveTo(px, base - 80 * k); g.lineTo(px + 6 * k, top); g.stroke();
+  g.strokeStyle = 'rgba(255,170,90,.55)';
+  g.lineWidth = 3 * k;
+  g.beginPath(); g.moveTo(px + 5 * k, base - 80 * k); g.lineTo(px + 11 * k, top); g.stroke();
+  // the banner, waving towards the light
+  const fw = portrait ? W * 0.32 : W * (wide ? 0.15 : 0.22);
+  const fh = fw * 0.62;
+  const x0 = px + 8 * k;
+  const y0 = top + 6 * k;
+  const N = 40;
+  const wave = (t) => Math.sin(t * 7 - 0.8) * fh * 0.09 * t + Math.sin(t * 3.1) * fh * 0.04 * t;
+  const pt = (t, v) => [x0 + t * fw, y0 + v * fh * (1 - 0.12 * t) + wave(t) + t * fh * 0.06];
+  g.beginPath();
+  for (let i = 0; i <= N; i++) { const [x, y] = pt(i / N, 0); i ? g.lineTo(x, y) : g.moveTo(x, y); }
+  for (let i = N; i >= 0; i--) {
+    const t = i / N;
+    const tear = t > 0.86 ? Math.sin(i * 2.7) * fh * 0.06 : 0; // a frayed, battle-worn edge
+    const [x, y] = pt(t, 1);
+    g.lineTo(x + tear, y);
+  }
+  g.closePath();
+  g.save();
+  g.clip();
+  // the Republic's own standard (fictional): steel-blue cloth, folds lit from the sun side
+  let gr = g.createLinearGradient(x0, 0, x0 + fw, 0);
+  gr.addColorStop(0, '#0e1d3a');
+  gr.addColorStop(1, '#1f3f74');
+  g.fillStyle = gr;
+  g.fillRect(x0 - 10, y0 - fh, fw + 40, fh * 3);
+  // folds: one smooth gradient of light and shadow across the cloth
+  const folds = g.createLinearGradient(x0, 0, x0 + fw, 0);
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    const shade = Math.cos(t * 7 - 0.8);
+    folds.addColorStop(t, shade > 0 ? `rgba(255,150,90,${(shade * 0.2).toFixed(3)})` : `rgba(0,0,0,${(-shade * 0.38).toFixed(3)})`);
+  }
+  g.fillStyle = folds;
+  g.fillRect(x0 - 10, y0 - fh, fw + 40, fh * 3);
+  // gold edge stripes, a gold ring and the star of the Republic
+  for (const v of [0.08, 0.92]) {
+    g.strokeStyle = 'rgba(245,184,61,.85)';
+    g.lineWidth = fh * 0.05;
+    g.beginPath();
+    for (let i = 0; i <= N; i++) { const [x, y] = pt(i / N, v); i ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke();
+  }
+  const [sx, sy] = pt(0.45, 0.5);
+  const r = fh * 0.24;
+  g.strokeStyle = '#f5b83d';
+  g.lineWidth = fh * 0.035;
+  g.beginPath(); g.arc(sx, sy, r * 1.32, 0, TAU); g.stroke();
+  g.fillStyle = '#f5b83d';
+  g.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const rr = i % 2 ? r * 0.42 : r;
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    g.lineTo(sx + Math.cos(a) * rr, sy + Math.sin(a) * rr + wave(0.42) * 0);
+  }
+  g.closePath();
+  g.fill();
+  g.strokeStyle = 'rgba(255,230,160,.6)';
+  g.lineWidth = 2 * k;
+  g.stroke();
+  g.restore();
+  // soft glow where the sun hits the cloth
+  g.globalCompositeOperation = 'lighter';
+  const [gx, gy] = pt(0.8, 0.3);
+  gr = g.createRadialGradient(gx, gy, 0, gx, gy, fw * 0.5);
+  gr.addColorStop(0, 'rgba(255,140,60,.25)');
+  gr.addColorStop(1, 'rgba(255,140,60,0)');
+  g.fillStyle = gr;
+  g.fillRect(gx - fw, gy - fw, fw * 2, fw * 2);
+  g.globalCompositeOperation = 'source-over';
+}
+
+// Soldiers of the front line, big in the foreground, darkened against the fire with a warm rim.
+function soldiers() {
+  const h = portrait ? H * 0.36 : H * 0.4;
+  const s = h / 128;
+  const spots = portrait
+    ? [[0.2, 1.03, false, 'DE', 0.92], [0.55, 1.06, false, 'TR', 1.05], [0.9, 1.03, true, 'FR', 0.92]]
+    : [[0.24, 1.03, false, 'DE', 0.95], [0.4, 1.07, false, 'TR', 1.05], [0.66, 1.07, true, 'FR', 1.05], [0.86, 1.03, true, 'PL', 0.95]];
+  for (const [fx, fy, mirror, id, k] of spots) {
+    const sp = allySprite(id, s * k, 1);
+    const b = sp.box;
+    const x = W * fx;
+    const y = H * fy;
+    // rim light: a warm copy slightly offset towards the sun
+    const tmp = document.createElement('canvas');
+    tmp.width = sp.img.width;
+    tmp.height = sp.img.height;
+    const t = tmp.getContext('2d');
+    t.drawImage(sp.img, 0, 0);
+    t.globalCompositeOperation = 'source-in';
+    t.fillStyle = 'rgba(255,150,70,.95)';
+    t.fillRect(0, 0, tmp.width, tmp.height);
+    // the body: the drawn soldier sunk into shadow, only a hint of colour left
+    const dark = document.createElement('canvas');
+    dark.width = sp.img.width;
+    dark.height = sp.img.height;
+    const d = dark.getContext('2d');
+    d.drawImage(sp.img, 0, 0);
+    d.globalCompositeOperation = 'source-atop';
+    d.fillStyle = 'rgba(10,7,6,.86)';
+    d.fillRect(0, 0, dark.width, dark.height);
+    const dir = x < sunX ? 1 : -1;
+    for (const [img, dx, alpha] of [[tmp, dir * Math.max(3, s * k * 1.4), 1], [dark, 0, 1]]) {
+      g.save();
+      g.globalAlpha = alpha;
+      g.translate(x + dx, y);
+      if (mirror) g.scale(-1, 1);
+      g.drawImage(img, b.x * s * k, b.y * s * k, b.w * s * k, b.h * s * k);
+      g.restore();
+    }
+    // shade the bodies so the title stays the brightest thing
+    g.save();
+    g.globalCompositeOperation = 'source-atop';
+    g.restore();
+  }
+  // ground shadow over their feet
+  const gr = g.createLinearGradient(0, H * 0.82, 0, H);
+  gr.addColorStop(0, 'rgba(5,3,2,0)');
+  gr.addColorStop(1, 'rgba(5,3,2,.85)');
+  g.fillStyle = gr;
+  g.fillRect(0, H * 0.82, W, H * 0.18);
+}
+
+// Europe glowing faintly in the night sky, the stage of the whole war.
+function europeSky() {
+  const mw = portrait ? W * 1.25 : W * (wide ? 0.62 : 0.95);
+  const mh = mw * (MAP_H / MAP_W);
+  const left = (W - mw) / 2;
+  const topY = portrait ? H * 0.02 : -mh * 0.12;
+  c.insertAdjacentHTML('beforeend', `<svg class="europe" viewBox="0 0 ${MAP_W} ${MAP_H}" style="left:${left}px;top:${topY}px;width:${mw}px;height:${mh}px">
+    <defs><linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset=".55" stop-color="#fff" stop-opacity=".45"/><stop offset=".85" stop-color="#fff" stop-opacity="0"/></linearGradient>
+      <mask id="m"><rect width="${MAP_W}" height="${MAP_H}" fill="url(#fade)"/></mask>
+      <filter id="glow"><feGaussianBlur stdDeviation="2.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+    <g mask="url(#m)" opacity=".62">
+      <path d="${EU_NEUTRAL}" fill="rgba(120,160,255,.05)" stroke="rgba(150,190,255,.35)" stroke-width="1"/>
+      <g fill="rgba(255,190,90,.06)">${EU_PATHS.map((d) => `<path d="${d}"/>`).join('')}</g>
+      <path d="${EU_BORDERS}" fill="none" stroke="#ffcf7a" stroke-width="1.1" filter="url(#glow)"/>
+    </g></svg>`);
+}
+
+// ------------------------------------------------------------ the title
+function title() {
+  const size = portrait ? W * 0.155 : wide ? W * 0.09 : W * 0.13;
+  const star = `<svg class="star" viewBox="-1 -1 2 2" style="width:${size * 0.62}px;height:${size * 0.62}px;margin-bottom:${size * 0.08}px">
+    <defs><linearGradient id="g" x1="0" y1="-1" x2="0" y2="1"><stop offset="0" stop-color="#fffbe0"/><stop offset=".5" stop-color="#f5b83d"/><stop offset="1" stop-color="#a65d05"/></linearGradient></defs>
+    <polygon fill="url(#g)" stroke="#3d2203" stroke-width=".06" points="${Array.from({ length: 10 }, (_, k) => {
+      const r = k % 2 ? 0.42 : 0.98; const t = -Math.PI / 2 + (k * Math.PI) / 5; return `${(r * Math.cos(t)).toFixed(3)},${(r * Math.sin(t)).toFixed(3)}`; }).join(' ')}"/></svg>`;
+  const words = portrait || !wide ? 'Republic<br>Rising' : 'Republic Rising';
+  const tagSize = size * (portrait ? 0.2 : wide ? 0.21 : 0.19);
+  c.insertAdjacentHTML('beforeend', `<div class="logo" style="top:${logoOnly ? H / 2 : titleY}px;transform:translateY(-50%);font-size:${size}px">
+    ${star}
+    <div class="title">${logoOnly ? 'Republic Rising' : words}</div>
+    ${logoOnly ? '' : `<div class="rule" style="width:${size * (portrait ? 3.2 : 4.4)}px"></div>
+    <div class="tag" style="font-size:${tagSize}px">Rise <b>·</b> Fight <b>·</b> Rule Europe</div>`}
+  </div>`);
+}
+
+if (logoOnly) {
+  document.documentElement.style.background = document.body.style.background = 'transparent';
+  cv.remove();
+  title();
+  Promise.all([document.fonts.load("64px 'Russo One'"), document.fonts.load("700 32px Rajdhani")]).then(() => document.fonts.ready).then(() => { document.body.dataset.ready = '1'; });
+} else {
+  await waitFlags(['DE', 'TR', 'FR', 'PL']);
+  clearAllySprites();
+  scene();
+  europeSky();
+  title();
+  Promise.all([document.fonts.load("64px 'Russo One'"), document.fonts.load("700 32px Rajdhani")]).then(() => document.fonts.ready).then(() => { document.body.dataset.ready = '1'; });
+}
 </script>
 </body>
 </html>
